@@ -1,1 +1,1 @@
-GET / controllers.Application.index
+GET /:variant/:rating controllers.Application.index(variant, rating)

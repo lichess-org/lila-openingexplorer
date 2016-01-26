@@ -10,7 +10,9 @@ import chess.variant._
 
 class Application extends Controller {
 
-  def index = Action { req =>
+  def index(variant: String, rating: String) = Action { implicit ctx =>
+    val db = new kyotocabinet.DB()
+
     val position = "8/3k4/2q5/8/8/K1B5/8/8 w - -"
 
     val situation = Forsyth << position
@@ -21,7 +23,7 @@ class Application extends Controller {
       }
     }
 
-    Ok(JsArray(moves.toSeq));
+    Ok(variant)
   }
 
 }
