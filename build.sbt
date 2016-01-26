@@ -15,7 +15,7 @@ scalacOptions ++= Seq("-unchecked", "-language:_")
 
 libraryDependencies ++= Seq(
   "com.github.ornicar" %% "scalalib" % "5.3",
-  "com.fallabs" % "kyotocabinet-java" % "1.24",
+  "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
   cache,
   ws
 )
