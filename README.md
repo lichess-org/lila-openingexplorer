@@ -12,9 +12,12 @@ Install libkyotocabinet headers.
 
     sudo apt-get install libkyotocabinet-dev
 
-Download Kyotocabinet Java package from
-http://fallabs.com/kyotocabinet/javapkg/. Unpack, configure, make,
-make install.
+Download and unpack Kyotocabinet Java package from
+http://fallabs.com/kyotocabinet/javapkg/.
+
+    ./configure
+    make
+    sudo make install
 
 Run
 ---
