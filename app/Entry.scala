@@ -15,7 +15,7 @@ case class Entry(
       whiteWins |+| other.whiteWins,
       draws |+| other.draws,
       blackWins |+| other.blackWins,
-      topGames ++ other.topGames
+      (topGames ++ other.topGames).sorted.reverse.take(10)
     )
   }
 
@@ -27,6 +27,46 @@ case class Entry(
   def totalBlackWins: Long = blackWins.values.sum
 
   def totalGames: Long = totalWhiteWins + totalDraws + totalBlackWins
+
+  def totalWins(color: Color) = color.fold(totalWhiteWins, totalBlackWins)
+
+  private def packUnsignedShort(s: Int): Array[Byte] = {
+    // 2 bytes
+    Array(
+      (0xff & (s >> 8)).toByte,
+      (0xff & s).toByte
+    )
+  }
+
+  private def packGameRef(r: String): Array[Byte] = {
+    // 8 bytes
+    (r.toCharArray.map(_.toByte) ++ Array.fill[Byte](8)(0)).take(8)
+  }
+
+  private def packSingle: Array[Byte] = {
+    val gameResult = List(
+      whiteWins.size >= 1,
+      draws.size >= 1,
+      blackWins.size >= 1
+    ).indexOf(true)
+
+    val rating = topGames.head._1
+
+    // 1 + 1 + 2 + 8 = 12 bytes
+    Array(
+      1.toByte,  // packing type
+      gameResult.toByte
+    ) ++ packUnsignedShort(rating) ++ packGameRef(topGames.head._2)
+  }
+
+  def pack: Array[Byte] = {
+    if (totalGames == 0)
+      Array.empty
+    else if (totalGames == 1)
+      packSingle
+    else
+      packSingle // todo
+  }
 }
 
 object Entry {

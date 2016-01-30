@@ -16,5 +16,15 @@ class EntryTest extends Specification {
       e1.combine(e2).combine(e3).totalGames mustEqual 3
       e1.combine(e2).combine(e3).totalBlackWins mustEqual 1
     }
+
+    "correctly pack single games" in {
+      val e = Entry.fromGame(None, 1234, 2345, "g4")
+      e.pack mustEqual Array(
+        1,
+        1,
+        0x0d, 0xfb,
+        0x67, 0x34, 0, 0, 0, 0, 0, 0
+      ).map(_.toByte)
+    }
   }
 }

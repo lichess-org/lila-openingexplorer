@@ -10,7 +10,7 @@ class RatingGroupTest extends Specification {
     }
 
     "find the first group" in {
-      RatingGroup.find(77) must beEqualTo (RatingGroup.Group0)
+      RatingGroup.find(77) mustEqual (RatingGroup.Group0)
     }
 
     "find the last group" in {
