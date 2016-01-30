@@ -10,8 +10,11 @@ trait PackHelper {
   protected def packUint48(v: Long): Array[Byte] =
     packUint32(0xffffffff & (v >> 32)) ++ packUint16((0xffff & v).toInt)
 
+  protected def unpackUint8(b: Array[Byte]): Int =
+    b(0) & 0xff
+
   protected def unpackUint16(b: Array[Byte]): Int =
-    b(0) << 8 | b(1)
+    unpackUint8(b) << 8 | unpackUint8(b.drop(1))
 
   protected def unpackUint32(b: Array[Byte]): Long =
     unpackUint16(b).toLong << 16 | unpackUint16(b.drop(2)).toLong
