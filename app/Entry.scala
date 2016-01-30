@@ -30,15 +30,17 @@ case class Entry(
 
   def totalWins(color: Color) = color.fold(totalWhiteWins, totalBlackWins)
 
-  private def packUnsignedShort(s: Int): Array[Byte] = {
-    // 2 bytes
-    Array(
-      (0xff & (s >> 8)).toByte,
-      (0xff & s).toByte
-    )
-  }
+  private def packUint16(v: Int): Array[Byte] =
+    Array((0xff & (v >> 8)).toByte, (0xff & v).toByte)
+
+  private def packUint32(v: Long): Array[Byte] =
+    packUint16((0xffff & (v >> 16)).toInt) ++ packUint16((0xffff & v).toInt)
+
+  private def packUint48(v: Long): Array[Byte] =
+    packUint32(0xffffffffL & (v >> 32)) ++ packUint16((0xffff & v).toInt)
 
   private def packGameRef(r: String): Array[Byte] = {
+    // Game references consist of 8 alphanumeric characters.
     // 8 bytes
     (r.toCharArray.map(_.toByte) ++ Array.fill[Byte](8)(0)).take(8)
   }
@@ -56,7 +58,7 @@ case class Entry(
     Array(
       1.toByte,  // packing type
       gameResult.toByte
-    ) ++ packUnsignedShort(rating) ++ packGameRef(topGames.head._2)
+    ) ++ packUint16(rating) ++ packGameRef(topGames.head._2)
   }
 
   def pack: Array[Byte] = {
