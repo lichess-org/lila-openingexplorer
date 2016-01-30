@@ -8,9 +8,10 @@ case class GameRef(
     winner: Option[Color]) extends PackHelper {
 
   def pack: Array[Byte] = {
-    val base = ('0' to '9') ++ ('A' to 'Z') ++ ('a' to 'z')
-    val powers = (0 to 7).map(math.pow(base.size, _).toLong)
-    val packedGameId = (gameId, powers).zipped.map(base.indexOf(_) * _).sum
+    val packedGameId = gameId.zip(gameId.indices.reverse).map {
+      case (c, i) =>
+        GameRef.base.indexOf(c) * math.pow(GameRef.base.size, i).toLong
+    }.sum
 
     val packedWinner = winner match {
       case Some(Color.White) => 2 << 14
@@ -25,6 +26,8 @@ case class GameRef(
 
 object GameRef extends PackHelper {
 
+  val base = ('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z')
+
   def unpack(packed: Array[Byte]): GameRef = {
     val winnerXorRating = unpackUint16(packed.drop(6))
 
@@ -36,7 +39,15 @@ object GameRef extends PackHelper {
       case _ => None
     }
 
-    GameRef("00000000", rating, winner)
+    def decodeGameId(v: Long, res: List[Char] = Nil): List[Char] = {
+      val quotient = v / base.size
+      if (quotient > 0)
+        decodeGameId(quotient, base((v % base.size).toInt) :: res)
+      else
+        base(v.toInt) :: res
+    }
+
+    GameRef(decodeGameId(unpackUint48(packed)).mkString, rating, winner)
   }
 
 }

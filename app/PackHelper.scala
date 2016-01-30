@@ -8,7 +8,7 @@ trait PackHelper {
     packUint16((0xffff & (v >> 16)).toInt) ++ packUint16((0xffff & v).toInt)
 
   protected def packUint48(v: Long): Array[Byte] =
-    packUint32(0xffffffff & (v >> 32)) ++ packUint16((0xffff & v).toInt)
+    packUint32(0xffffffffL & (v >> 16)) ++ packUint16((0xffff & v).toInt)
 
   protected def unpackUint8(b: Array[Byte]): Int =
     b(0) & 0xff
@@ -20,5 +20,5 @@ trait PackHelper {
     unpackUint16(b).toLong << 16 | unpackUint16(b.drop(2)).toLong
 
   protected def unpackUint48(b: Array[Byte]): Long =
-    unpackUint32(b).toLong << 32 | unpackUint16(b.drop(4)).toLong
+    unpackUint32(b) << 16 | unpackUint16(b.drop(4)).toLong
 }

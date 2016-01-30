@@ -17,6 +17,9 @@ class GameRefTest extends Specification {
 
       val g3 = GameRef("ZZZZZZZZ", 4321, None)
       g3 mustEqual GameRef.unpack(g3.pack)
+
+      val g4 = GameRef("zzzzzzzz", 29, Some(Color.Black))
+      g4 mustEqual GameRef.unpack(g4.pack)
     }
 
   }
