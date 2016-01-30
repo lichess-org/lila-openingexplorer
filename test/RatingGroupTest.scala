@@ -2,7 +2,7 @@ package lila.openingexplorer
 
 import org.specs2.mutable._
 
-class RatingGroupSpec extends Specification {
+class RatingGroupTest extends Specification {
   "rating groups" should {
     "be found" in {
       RatingGroup.find(1678) mustEqual (RatingGroup.Group1600)
