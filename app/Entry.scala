@@ -41,8 +41,17 @@ case class Entry(
     else if (totalGames <= Entry.maxGames)
       Array(1.toByte) ++
       takeTopGames(Entry.maxGames).map(_.pack).flatten
-    else
+    else if (totalGames <= 65536)
       Array(2.toByte) ++
+      RatingGroup.all.map({
+        case group =>
+          packUint16(whiteWins.getOrElse(group, 0L).toInt) ++
+          packUint16(draws.getOrElse(group, 0L).toInt) ++
+          packUint16(blackWins.getOrElse(group, 0L).toInt)
+      }).flatten ++
+      takeTopGames(Entry.maxGames).map(_.pack).flatten
+    else
+      Array(3.toByte) ++
       RatingGroup.all.map({
         case group =>
           packUint48(whiteWins.getOrElse(group, 0)) ++
