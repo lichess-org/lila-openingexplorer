@@ -26,7 +26,7 @@ case class GameRef(
 
 object GameRef extends PackHelper {
 
-  val pack_size = 8
+  val packSize = 8
 
   private val base = ('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z')
 

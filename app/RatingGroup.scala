@@ -5,6 +5,7 @@ case class RatingGroup private (min: Option[Int], max: Option[Int]) {
 }
 
 object RatingGroup {
+
   val Group2800 = RatingGroup(Some(2800), None)
   val Group2600 = RatingGroup(Some(2600), Some(2799))
   val Group2400 = RatingGroup(Some(2400), Some(2599))
@@ -33,4 +34,5 @@ object RatingGroup {
       case RatingGroup(None, None)           => false
     } get
   }
+
 }
