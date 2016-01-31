@@ -4,11 +4,11 @@ Pack formats
 Game refs
 ---------
 
-2 bit    | 14 bit | 48 bit
----------+--------+-------------------------
-00 draw  | rating | base62 decoded game id
-10 white |        |
-01 black |        |
+2 bit     | 14 bit  | 48 bit
+--------- | ------- | -----------------------
+00 draw   | rating  | base62 decoded game id
+10 white  |         |
+01 black  |         |
 
 Nodes
 -----
