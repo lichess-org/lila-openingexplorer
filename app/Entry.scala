@@ -8,19 +8,22 @@ case class Entry(
     whiteWins: Map[RatingGroup, Long],
     draws: Map[RatingGroup, Long],
     blackWins: Map[RatingGroup, Long],
-    topGames: List[Tuple2[Int, String]]) {
+    topGames: Set[GameRef]) extends PackHelper {
 
   def combine(other: Entry): Entry = {
     new Entry(
       whiteWins |+| other.whiteWins,
       draws |+| other.draws,
       blackWins |+| other.blackWins,
-      (topGames ++ other.topGames).sorted.reverse.take(10)
+      (topGames ++ other.topGames).toList.sortWith(_.rating > _.rating).take(30)
     )
   }
 
   def totalGames(r: RatingGroup): Long =
     whiteWins.getOrElse(r, 0L) + draws.getOrElse(r, 0L) + blackWins.getOrElse(r, 0L)
+
+  def takeTopGames(n: Int) =
+    topGames.toList.sortWith(_.rating > _.rating).take(n)
 
   def totalWhiteWins: Long = whiteWins.values.sum
   def totalDraws: Long = draws.values.sum
@@ -30,59 +33,55 @@ case class Entry(
 
   def totalWins(color: Color) = color.fold(totalWhiteWins, totalBlackWins)
 
-  private def packUint16(v: Int): Array[Byte] =
-    Array((0xff & (v >> 8)).toByte, (0xff & v).toByte)
-
-  private def packUint32(v: Long): Array[Byte] =
-    packUint16((0xffff & (v >> 16)).toInt) ++ packUint16((0xffff & v).toInt)
-
-  private def packUint48(v: Long): Array[Byte] =
-    packUint32(0xffffffffL & (v >> 32)) ++ packUint16((0xffff & v).toInt)
-
-  private def packGameRef(r: String): Array[Byte] = {
-    // Game references consist of 8 alphanumeric characters.
-    // 8 bytes
-    (r.toCharArray.map(_.toByte) ++ Array.fill[Byte](8)(0)).take(8)
-  }
-
-  private def packSingle: Array[Byte] = {
-    val gameResult = List(
-      whiteWins.size >= 1,
-      draws.size >= 1,
-      blackWins.size >= 1
-    ).indexOf(true)
-
-    val rating = topGames.head._1
-
-    // 1 + 1 + 2 + 8 = 12 bytes
-    Array(
-      1.toByte,  // packing type
-      gameResult.toByte
-    ) ++ packUint16(rating) ++ packGameRef(topGames.head._2)
-  }
-
   def pack: Array[Byte] = {
     if (totalGames == 0)
       Array.empty
     else if (totalGames == 1)
-      packSingle
+      topGames.head.pack
+    else if (totalGames < 30)
+      topGames.foldLeft(Array(1.toByte))(_ ++ _.pack)
     else
-      packSingle // todo
+      RatingGroup.all.foldLeft(Array(2.toByte))({
+        case (l, group) =>
+          l ++ packUint48(whiteWins.getOrElse(group, 0))
+            ++ packUint48(draws.getOrElse(group, 0))
+               packUint48(blackWins.getOrElse(group, 0))
+      }) ++ takeTopGames(5).foldLeft(Array.empty)(_ ++ _.pack)
   }
 }
 
 object Entry {
-  def fromGame(winner: Option[Color], whiteRating: Int, blackRating: Int, gameRef: String) = {
-    val ratingGroup = RatingGroup.find(whiteRating, blackRating)
-    val topGame = List((whiteRating + blackRating, gameRef))
+  def empty: Entry =
+    new Entry(Map.empty, Map.empty, Map.empty, List.empty)
 
-    winner match {
+  def fromGameRef(gameRef: GameRef): Entry = {
+    val ratingGroup = RatingGroup.find(gameRef.rating)
+
+    gameRef.winner match {
       case Some(Color.White) =>
-        new Entry(Map(ratingGroup -> 1), Map.empty, Map.empty, topGame)
+        new Entry(Map(ratingGroup -> 1), Map.empty, Map.empty, Set(gameRef))
       case Some(Color.Black) =>
-        new Entry(Map.empty, Map.empty, Map(ratingGroup -> 1), topGame)
+        new Entry(Map.empty, Map.empty, Map(ratingGroup -> 1), Set(gameRef))
       case None =>
-        new Entry(Map.empty, Map(ratingGroup -> 1), Map.empty, topGame)
+        new Entry(Map.empty, Map(ratingGroup -> 1), Map.empty, Set(gameRef))
+    }
+  }
+
+  def unpack(b: Array[Byte]): Entry = {
+    if (b.size == GameRef.pack_size) {
+      fromGameRef(GameRef.unpack(b))
+    } else b(0) match {
+      case 1 =>
+        b.drop(1)
+          .grouped(GameRef.pack_size)
+          .map(GameRef.unpack _)
+          .foldLeft(empty)({
+            case (l, r) => l.combine(fromGameRef(r))
+          })
+      case 2 =>
+        b.drop(1).take(RatingGroup.all.size * (6 + 6 + 6))
+          .grouped(6)
+          .map(
     }
   }
 }

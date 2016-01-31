@@ -26,7 +26,9 @@ case class GameRef(
 
 object GameRef extends PackHelper {
 
-  val base = ('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z')
+  val pack_size = 8
+
+  private val base = ('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z')
 
   def unpack(packed: Array[Byte]): GameRef = {
     val winnerXorRating = unpackUint16(packed.drop(6))

@@ -19,7 +19,7 @@ object RatingGroup {
 
   val all = List(
     Group0, Group1000, Group1200, Group1400, Group1600, Group1800,
-    Group2000, Group2400, Group2600, Group2800
+    Group2000, Group2200, Group2400, Group2600, Group2800
   )
 
   def find(whiteRating: Int, blackRating: Int): RatingGroup =

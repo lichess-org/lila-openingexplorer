@@ -7,9 +7,9 @@ import chess.Color
 class EntryTest extends Specification {
   "entries" should {
     "be combinable" in {
-      val e1 = Entry.fromGame(Some(Color.White), 1350, 1100, "g1")
-      val e2 = Entry.fromGame(Some(Color.White), 1110, 1120, "g2")
-      val e3 = Entry.fromGame(Some(Color.Black), 1800, 2400, "g3")
+      val e1 = Entry.fromGameRef(GameRef("g1", 1350, Some(Color.White)))
+      val e2 = Entry.fromGameRef(GameRef("g2", 1110, Some(Color.White)))
+      val e3 = Entry.fromGameRef(GameRef("g3", 2400, Some(Color.Black)))
 
       e1.totalGames mustEqual 1
       e1.combine(e2).totalGames mustEqual 2
@@ -18,13 +18,15 @@ class EntryTest extends Specification {
     }
 
     "correctly pack single games" in {
-      val e = Entry.fromGame(None, 1234, 2345, "g4")
-      e.pack mustEqual Array(
-        1,
-        1,
-        0x0d, 0xfb,
-        0x67, 0x34, 0, 0, 0, 0, 0, 0
-      ).map(_.toByte)
+      val e = Entry.fromGameRef(GameRef("abcdefgh", 1234, None))
+      Entry.unpack(e.pack) mustEqual e
+    }
+
+    "correctly pack two games" in {
+      val e1 = Entry.fromGameRef(GameRef("abcdefgh", 1234, None))
+      val e2 = Entry.fromGameRef(GameRef("12345678", 2345, Some(Color.White)))
+      val e = e1.combine(e2)
+      Entry.unpack(e.pack) mustEqual e
     }
   }
 }
