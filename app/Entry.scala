@@ -110,6 +110,22 @@ object Entry extends PackHelper {
             .map(GameRef.unpack _)
             .toSet
         )
+      case 3 =>
+        new Entry(
+          RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint48(b.drop(1 + i * 3 * 6))
+          }).toMap,
+          RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint48(b.drop(1 + 6 + i * 3 * 6))
+          }).toMap,
+          RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint48(b.drop(1 + 12 + i * 3 * 6))
+          }).toMap,
+          b.drop(1 + RatingGroup.all.size * 3 * 6)
+            .grouped(GameRef.packSize)
+            .map(GameRef.unpack _)
+            .toSet
+        )
     }
   }
 
