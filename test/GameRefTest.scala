@@ -22,6 +22,11 @@ class GameRefTest extends Specification {
       g4 mustEqual GameRef.unpack(g4.pack)
     }
 
+    "pad to 8 characters" in {
+      val g = GameRef("00abcd00", 1996, Some(Color.White))
+      g mustEqual GameRef.unpack(g.pack)
+    }
+
   }
 
 }

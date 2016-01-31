@@ -49,7 +49,13 @@ object GameRef extends PackHelper {
         base(v.toInt) :: res
     }
 
-    GameRef(decodeGameId(unpackUint48(packed)).mkString, rating, winner)
+    GameRef(
+      decodeGameId(unpackUint48(packed))
+        .mkString
+        .reverse.padTo(8, base(0)).reverse,
+      rating,
+      winner
+    )
   }
 
 }
