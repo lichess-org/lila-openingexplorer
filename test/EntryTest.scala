@@ -28,5 +28,26 @@ class EntryTest extends Specification {
       val e = e1.combine(e2)
       Entry.unpack(e.pack) mustEqual e
     }
+
+    "correctly pack thousands of games" in {
+      val g1 = GameRef("00000000", 3490, None)
+      val g2 = GameRef("22222222", 50, Some(Color.Black))
+
+      val e = new Entry(
+        Map(RatingGroup.Group2800 -> 293),
+        Map(RatingGroup.Group0 -> 2000, RatingGroup.Group2800 -> 23),
+        Map(RatingGroup.Group0 -> 1337),
+        Set(g1, g2)
+      )
+
+      val restored = Entry.unpack(e.pack)
+
+      restored.topGames mustEqual Set(g1, g2)
+
+      restored.whiteWins.getOrElse(RatingGroup.Group2800, 0) mustEqual 293
+      restored.draws.getOrElse(RatingGroup.Group0, 0) mustEqual 2000
+      restored.draws.getOrElse(RatingGroup.Group2800, 0) mustEqual 23
+      restored.blackWins.getOrElse(RatingGroup.Group0, 0) mustEqual 1337
+    }
   }
 }
