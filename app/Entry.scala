@@ -63,7 +63,7 @@ case class Entry(
 
 }
 
-object Entry {
+object Entry extends PackHelper {
 
   val maxGames = 5
 
@@ -94,6 +94,22 @@ object Entry {
           .foldLeft(empty)({
             case (l, r) => l.combine(fromGameRef(r))
           })
+      case 2 =>
+        new Entry(
+          RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint16(b.drop(1 + i * 3 * 2)).toLong
+          }).toMap,
+          RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint16(b.drop(1 + 2 + i * 3 * 2)).toLong
+          }).toMap,
+          RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint16(b.drop(1 + 4 + i * 3 * 2)).toLong
+          }).toMap,
+          b.drop(1 + RatingGroup.all.size * 3 * 2)
+            .grouped(GameRef.packSize)
+            .map(GameRef.unpack _)
+            .toSet
+        )
     }
   }
 
