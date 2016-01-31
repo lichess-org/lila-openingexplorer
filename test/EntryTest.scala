@@ -50,4 +50,17 @@ class EntryTest extends Specification {
       restored.blackWins.getOrElse(RatingGroup.Group0, 0) mustEqual 1337
     }
   }
+
+  "correctly pack millions of games" in {
+    val e = new Entry(
+      Map.empty,
+      Map.empty,
+      Map(RatingGroup.Group1400 -> 400060400L),
+      Set.empty
+    )
+
+    val restored = Entry.unpack(e.pack)
+    restored.blackWins.getOrElse(RatingGroup.Group1400, 0) mustEqual 400060400L
+    restored.blackWins.getOrElse(RatingGroup.Group2800, 0) mustEqual 0
+  }
 }
