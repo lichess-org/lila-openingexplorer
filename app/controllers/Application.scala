@@ -1,10 +1,15 @@
 package controllers
 
+import scala.concurrent.Future
+
 import java.io.File
+
+import javax.inject.{Inject, Singleton}
 
 import play.api.libs.json._
 import play.api._
 import play.api.mvc._
+import play.api.inject.ApplicationLifecycle
 
 import fm.last.commons.kyoto.{KyotoDb}
 import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode}
@@ -12,30 +17,41 @@ import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode}
 import chess._
 import chess.format.Forsyth
 import chess.variant._
+import chess.Hash
 
-class Application extends Controller {
+import lila.openingexplorer.Entry
 
-  def index(variant: String, rating: String) = Action { implicit ctx =>
-    val file = new File("bullet.kct")
-    file.createNewFile()
+@Singleton
+class Application @Inject() (
+    protected val lifecycle: ApplicationLifecycle) extends Controller {
 
-    val db = new KyotoDbBuilder(file)
-                .modes(Mode.CREATE, Mode.READ_WRITE)
-                .buildAndOpen()
+  val db = new KyotoDbBuilder("bullet.kct")
+             .modes(Mode.CREATE, Mode.READ_WRITE)
+             .buildAndOpen()
 
-    db.set("hello", "world")
+  lifecycle.addStopHook { () =>
+    Future.successful(db.close())
+  }
 
-    val position = "8/3k4/2q5/8/8/K1B5/8/8 w - -"
+  val hash = new Hash(32)  // 128 bit Zobrist hasher
 
-    val situation = Forsyth << position
+  private def probe(situation: Situation): Entry = {
+    val query = Option(db.get(hash(situation)))
 
-    val moves = situation match {
-      case Some(s) => s.moves.values.flatten.map {
-        case (move) => Json.toJson(move.toString)
-      }
+    query match {
+      case Some(bytes) => Entry.unpack(bytes)
+      case None        => Entry.empty
     }
+  }
 
-    Ok(db.get("hello"))
+  def index() = Action { implicit req =>
+    val fen = req.queryString get "fen" flatMap (_.headOption)
+    val situation = fen.flatMap(Forsyth << _)
+
+    situation.map(probe(_)) match {
+      case Some(entry) => Ok(entry.totalGames.toString)
+      case None        => BadRequest("valid fen required")
+    }
   }
 
 }
