@@ -1,6 +1,7 @@
 package controllers
 
 import scala.concurrent.Future
+import scala.util.Random
 
 import java.io.File
 
@@ -35,18 +36,28 @@ class Application @Inject() (
 
   val hash = new Hash(32)  // 128 bit Zobrist hasher
 
-  private def probe(situation: Situation): Entry = {
-    val query = Option(db.get(hash(situation)))
-
-    query match {
+  private def probe(h: Array[Byte]): Entry = {
+    Option(db.get(h)) match {
       case Some(bytes) => Entry.unpack(bytes)
       case None        => Entry.empty
     }
   }
 
+  private def probe(situation: Situation): Entry = probe(hash(situation))
+
+  private def probeChildren(situation: Situation): Map[Move, Entry] = {
+    situation.moves.values.flatten.map {
+      case (move) => move -> probe(move.situationAfter)
+    } toMap
+  }
+
   private def merge(situation: Situation, entry: Entry) = {
     val merged = probe(situation).combine(entry)
     db.set(hash(situation), merged.pack)
+  }
+
+  private def merge(h: Array[Byte], entry: Entry) = {
+    db.set(h, probe(h).combine(entry).pack)
   }
 
   def index() = Action { implicit req =>
@@ -77,10 +88,24 @@ class Application @Inject() (
 
     parsed match {
       case scalaz.Success(game) =>
-        val gameRef = new GameRef("zzzzzzzz", 3000, winner(game))
+        val gameRef = new GameRef(Random.alphanumeric.take(8).mkString, 3000, winner(game))
         val entry = Entry.fromGameRef(gameRef)
 
-        Ok("thanks. time taken: " ++ (System.currentTimeMillis - start).toString ++ " ms")
+        chess.format.pgn.Reader.fullWithSans(textBody, identity, game.tags) match {
+          case scalaz.Success(replay) =>
+
+            val hashes = replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(hash(_)).toSet
+            hashes.foreach { h =>
+              merge(h, entry)
+            }
+
+            val end = System.currentTimeMillis
+            Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")
+
+          case scalaz.Failure(e) =>
+            BadRequest(e.toString)
+        }
+
       case scalaz.Failure(e) =>
         BadRequest(e.toString)
     }
