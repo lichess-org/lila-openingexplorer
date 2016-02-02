@@ -65,6 +65,18 @@ class Application @Inject() (
     ))
   }
 
+  private def moveMapToJson(children: Map[Move, Entry]): JsValue = {
+    Json.toJson(children.map {
+      case (move, entry) =>
+        move.toUci.uci -> Json.toJson(Map(
+          "total" -> Json.toJson(entry.totalGames),
+          "white" -> Json.toJson(entry.totalWhiteWins),
+          "draws" -> Json.toJson(entry.totalDraws),
+          "black" -> Json.toJson(entry.totalBlackWins)
+        ))
+    }.toMap)
+  }
+
   def index() = Action { implicit req =>
     val fen = req.queryString get "fen" flatMap (_.headOption)
 
@@ -77,6 +89,7 @@ class Application @Inject() (
           "white" -> Json.toJson(entry.totalWhiteWins),
           "draws" -> Json.toJson(entry.totalDraws),
           "black" -> Json.toJson(entry.totalBlackWins),
+          "moves" -> moveMapToJson(probeChildren(situation)),
           "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
         )))
       case None =>
