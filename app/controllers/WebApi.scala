@@ -126,16 +126,16 @@ class WebApi @Inject() (
 
         chess.format.pgn.Reader.fullWithSans(textBody, identity, game.tags) match {
           case scalaz.Success(replay) if replay.moves.size >= 2 =>
-            // todo: use safe integer parsing
             // todo: use lichess game ids, not fics
             // todo: should we index unrated games?
             val gameRef = new GameRef(
-              game.tag("FICSGamesDBGameNo").map({
-                case gameNo => GameRef.unpackGameId(java.lang.Long.parseLong(gameNo))
-              }).getOrElse(Random.alphanumeric.take(8).mkString),
+              game.tag("FICSGamesDBGameNo")
+                .flatMap(parseLongOption)
+                .map(GameRef.unpackGameId)
+                .getOrElse(Random.alphanumeric.take(8).mkString),
               math.min(
-                game.tag("WhiteElo").map(Integer.parseInt _).getOrElse(0),
-                game.tag("BlackElo").map(Integer.parseInt _).getOrElse(0)
+                game.tag("WhiteElo").flatMap(parseIntOption).getOrElse(0),
+                game.tag("BlackElo").flatMap(parseIntOption).getOrElse(0)
               ),
               winner(game)
             )
