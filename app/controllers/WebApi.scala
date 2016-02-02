@@ -98,7 +98,9 @@ class WebApi @Inject() (
           "black" -> Json.toJson(entry.sumBlackWins(ratingGroups)),
           "moves" -> moveMapToJson(probeChildren(situation), ratingGroups),
           "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
-        )))
+        ))).withHeaders(
+          "Access-Control-Allow-Origin" -> "*"
+        )
       case None =>
         BadRequest("valid fen required")
     }
