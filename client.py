@@ -4,24 +4,19 @@ import chess
 import chess.pgn
 import requests
 import random
+import sys
+import itertools
 
-game = chess.pgn.Game()
-node = game
+f = open(sys.argv[1])
 
-board = game.board()
+c = itertools.count(1)
 
-while not board.is_game_over(claim_draw=True):
-    move = random.choice(list(board.legal_moves))
-    node = node.add_variation(move)
-    board.push(move)
+while True:
+    game = chess.pgn.read_game(f)
+    if game is None:
+        break
 
-game.headers["Result"] = board.result(claim_draw=True)
-
-print(game)
-
-print()
-
-res = requests.put("http://localhost:9000/", data=str(game))
-print(res)
-print(res.text)
-print(res)
+    res = requests.put("http://localhost:9000/", data=str(game))
+    print(next(c), res, res.text)
+    if res.status_code != 200:
+        print(game)

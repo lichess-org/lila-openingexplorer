@@ -28,6 +28,8 @@ class Application @Inject() (
 
   val db = new KyotoDbBuilder("bullet.kct")
              .modes(Mode.CREATE, Mode.READ_WRITE)
+             .buckets(2 * 70 * 400000000L)  // twice the number of expected records
+             .memoryMapSize(2147483648L)  // 2 gb
              .buildAndOpen()
 
   lifecycle.addStopHook { () =>
@@ -82,8 +84,6 @@ class Application @Inject() (
     val start = System.currentTimeMillis
 
     val textBody = new String(req.body.asRaw.flatMap(_.asBytes()).getOrElse(Array.empty), "UTF-8")
-    println(textBody)
-    println("hello")
     val parsed = chess.format.pgn.Parser.full(textBody)
 
     parsed match {
