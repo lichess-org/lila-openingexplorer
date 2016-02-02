@@ -104,15 +104,32 @@ class Application @Inject() (
         val entry = Entry.fromGameRef(gameRef)
 
         chess.format.pgn.Reader.fullWithSans(textBody, identity, game.tags) match {
-          case scalaz.Success(replay) =>
+          case scalaz.Success(replay) if replay.moves.size >= 2 =>
+            val gameRef = new GameRef(
+              game.tag("FICSGamesDBGameNo").map({
+                case gameNo => GameRef.unpackGameId(java.lang.Long.parseLong(gameNo))
+              }).getOrElse(Random.alphanumeric.take(8).mkString),
+              math.min(
+                game.tag("WhiteElo").map(Integer.parseInt _).getOrElse(0),
+                game.tag("BlackElo").map(Integer.parseInt _).getOrElse(0)
+              ),
+              winner(game)
+            )
 
-            val hashes = replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(hash(_)).toSet
-            hashes.foreach { h =>
-              merge(h, entry)
-            }
+            val entry = Entry.fromGameRef(gameRef)
+
+            val hashes = (
+              List(hash(replay.moves.head.fold(_.situationBefore, _.situationBefore))) ++
+              replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(hash(_))
+            ).toSet
+
+            hashes.foreach { h => merge(h, entry) }
 
             val end = System.currentTimeMillis
             Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")
+
+          case scalaz.Success(game) =>
+            Ok("skipped: too few moves")
 
           case scalaz.Failure(e) =>
             BadRequest(e.toString)
