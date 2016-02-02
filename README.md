@@ -6,7 +6,7 @@ Preparations
 
 Install libkyotocabinet headers.
 
-    sudo apt-get install libkyotocabinet-dev
+    sudo apt-get install libkyotocabinet-dev kyotocabinet-utils
 
 Setup `$JAVA_HOME` environment variable.
 
@@ -19,7 +19,17 @@ http://fallabs.com/kyotocabinet/javapkg/.
     make
     sudo make install
 
-Run
----
+Create empty database
+---------------------
+
+    kctreemgr create -bnum 40000000000 bullet.kct
+
+Run server
+----------
 
     sbt -Djava.library.path=/usr/local/lib/ run
+
+Index games
+-----------
+
+    python3 index-pgn.py <pgn-file>

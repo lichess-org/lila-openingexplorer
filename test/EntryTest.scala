@@ -7,6 +7,7 @@ import chess.Color
 class EntryTest extends Specification {
 
   "entries" should {
+
     "be combinable" in {
       val e1 = Entry.fromGameRef(GameRef("g1", 1350, Some(Color.White)))
       val e2 = Entry.fromGameRef(GameRef("g2", 1110, Some(Color.White)))
@@ -63,19 +64,20 @@ class EntryTest extends Specification {
       restored.draws.getOrElse(RatingGroup.Group2800, 0) mustEqual 23
       restored.blackWins.getOrElse(RatingGroup.Group0, 0) mustEqual 1337
     }
-  }
 
-  "correctly pack millions of games" in {
-    val e = new Entry(
-      Map.empty,
-      Map.empty,
-      Map(RatingGroup.Group1400 -> 400060400L),
-      Set.empty
-    )
+    "correctly pack millions of games" in {
+      val e = new Entry(
+        Map.empty,
+        Map.empty,
+        Map(RatingGroup.Group1400 -> 400060400L),
+        Set.empty
+      )
 
-    val restored = Entry.unpack(e.pack)
-    restored.blackWins.getOrElse(RatingGroup.Group1400, 0) mustEqual 400060400L
-    restored.blackWins.getOrElse(RatingGroup.Group2800, 0) mustEqual 0
+      val restored = Entry.unpack(e.pack)
+      restored.blackWins.getOrElse(RatingGroup.Group1400, 0) mustEqual 400060400L
+      restored.blackWins.getOrElse(RatingGroup.Group2800, 0) mustEqual 0
+    }
+
   }
 
 }

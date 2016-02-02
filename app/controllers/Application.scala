@@ -28,7 +28,7 @@ class Application @Inject() (
 
   val db = new KyotoDbBuilder("bullet.kct")
              .modes(Mode.READ_WRITE)
-             .buckets(2 * 70 * 400000000L)  // twice the number of expected records
+             .buckets(2 * 60 * 400000000L)  // twice the number of expected records
              .memoryMapSize(2147483648L)  // 2 gb
              .buildAndOpen()
 
@@ -53,22 +53,22 @@ class Application @Inject() (
     } toMap
   }
 
-  private def merge(situation: Situation, entry: Entry) = {
-    val merged = probe(situation).combine(entry)
-    db.set(hash(situation), merged.pack)
-  }
-
   private def merge(h: Array[Byte], entry: Entry) = {
     db.set(h, probe(h).combine(entry).pack)
   }
 
   def index() = Action { implicit req =>
     val fen = req.queryString get "fen" flatMap (_.headOption)
-    val situation = fen.flatMap(Forsyth << _)
 
-    situation.map(probe(_)) match {
-      case Some(entry) => Ok(entry.totalGames.toString)
-      case None        => BadRequest("valid fen required")
+    fen.flatMap(Forsyth << _) match {
+      case Some(situation) =>
+        val entry = probe(situation)
+
+        Ok(Json.toJson(Map(
+          "total" -> entry.totalGames
+        )))
+      case None =>
+        BadRequest("valid fen required")
     }
   }
 

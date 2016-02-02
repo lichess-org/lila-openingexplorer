@@ -30,6 +30,18 @@ object GameRef extends PackHelper {
 
   private val base = ('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z')
 
+  def unpackGameId(v: Long): String = {
+    def decodeGameId(v: Long, res: List[Char] = Nil): List[Char] = {
+      val quotient = v / base.size
+      if (quotient > 0)
+        decodeGameId(quotient, base((v % base.size).toInt) :: res)
+      else
+        base(v.toInt) :: res
+    }
+
+    decodeGameId(v).mkString.reverse.padTo(8, base(0)).reverse
+  }
+
   def unpack(packed: Array[Byte]): GameRef = {
     val winnerXorRating = unpackUint16(packed.drop(6))
 
@@ -41,18 +53,8 @@ object GameRef extends PackHelper {
       case _ => None
     }
 
-    def decodeGameId(v: Long, res: List[Char] = Nil): List[Char] = {
-      val quotient = v / base.size
-      if (quotient > 0)
-        decodeGameId(quotient, base((v % base.size).toInt) :: res)
-      else
-        base(v.toInt) :: res
-    }
-
     GameRef(
-      decodeGameId(unpackUint48(packed))
-        .mkString
-        .reverse.padTo(8, base(0)).reverse,
+      unpackGameId(unpackUint48(packed)),
       rating,
       winner
     )
