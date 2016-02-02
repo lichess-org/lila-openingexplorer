@@ -119,7 +119,9 @@ class Application @Inject() (
             val entry = Entry.fromGameRef(gameRef)
 
             val hashes = (
-              List(hash(replay.moves.head.fold(_.situationBefore, _.situationBefore))) ++
+              // the starting position
+              List(hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
+              // all others
               replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(hash(_))
             ).toSet
 
