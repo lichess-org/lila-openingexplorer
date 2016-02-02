@@ -95,6 +95,7 @@ class Application @Inject() (
   def put() = Action { implicit req =>
     val start = System.currentTimeMillis
 
+    // todo: ensure this is safe
     val textBody = new String(req.body.asRaw.flatMap(_.asBytes()).getOrElse(Array.empty), "UTF-8")
     val parsed = chess.format.pgn.Parser.full(textBody)
 
@@ -105,6 +106,8 @@ class Application @Inject() (
 
         chess.format.pgn.Reader.fullWithSans(textBody, identity, game.tags) match {
           case scalaz.Success(replay) if replay.moves.size >= 2 =>
+            // todo: use safe integer parsing
+            // todo: use lichess game ids, not fics
             val gameRef = new GameRef(
               game.tag("FICSGamesDBGameNo").map({
                 case gameNo => GameRef.unpackGameId(java.lang.Long.parseLong(gameNo))
