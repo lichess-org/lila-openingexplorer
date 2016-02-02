@@ -57,6 +57,14 @@ class Application @Inject() (
     db.set(h, probe(h).combine(entry).pack)
   }
 
+  private def gameRefToJson(ref: GameRef): JsValue = {
+    Json.toJson(Map(
+      "id"     -> Json.toJson(ref.gameId),
+      "rating" -> Json.toJson(ref.rating),
+      "winner" -> Json.toJson(ref.winner.map(_.fold("white", "black")).getOrElse("draw"))
+    ))
+  }
+
   def index() = Action { implicit req =>
     val fen = req.queryString get "fen" flatMap (_.headOption)
 
@@ -65,7 +73,11 @@ class Application @Inject() (
         val entry = probe(situation)
 
         Ok(Json.toJson(Map(
-          "total" -> entry.totalGames
+          "total" -> Json.toJson(entry.totalGames),
+          "white" -> Json.toJson(entry.totalWhiteWins),
+          "draws" -> Json.toJson(entry.totalDraws),
+          "black" -> Json.toJson(entry.totalBlackWins),
+          "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
         )))
       case None =>
         BadRequest("valid fen required")
