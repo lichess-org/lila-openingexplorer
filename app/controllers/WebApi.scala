@@ -20,7 +20,7 @@ import chess.format.Forsyth
 import chess.variant._
 import chess.Hash
 
-import lila.openingexplorer.{Entry, GameRef, RatingGroup}
+import lila.openingexplorer._
 
 @Singleton
 class WebApi @Inject() (
@@ -81,7 +81,11 @@ class WebApi @Inject() (
 
   def index() = Action { implicit req =>
     val fen = req.queryString get "fen" flatMap (_.headOption)
-    val ratingGroups = List(RatingGroup.Group1200, RatingGroup.Group1400)
+
+    val ratingGroups = RatingGroup.range(
+      req.queryString get "minRating" flatMap (_.headOption) flatMap parseIntOption,
+      req.queryString get "maxRating" flatMap (_.headOption) flatMap parseIntOption
+    )
 
     fen.flatMap(Forsyth << _) match {
       case Some(situation) =>
