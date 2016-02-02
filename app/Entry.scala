@@ -41,8 +41,19 @@ case class Entry(
     else if (totalGames <= Entry.maxGames)
       Array(1.toByte) ++
       takeTopGames(Entry.maxGames).map(_.pack).flatten
-    else if (totalGames <= 65536)
+    else if (totalGames <= 256)
       Array(2.toByte) ++
+      RatingGroup.all.map({
+        case group =>
+          Array(
+            whiteWins.getOrElse(group, 0L).toByte,
+            draws.getOrElse(group, 0L).toByte,
+            blackWins.getOrElse(group, 0L).toByte
+          )
+      }).flatten ++
+      takeTopGames(Entry.maxGames).map(_.pack).flatten
+    else if (totalGames <= 65536)
+      Array(3.toByte) ++
       RatingGroup.all.map({
         case group =>
           packUint16(whiteWins.getOrElse(group, 0L).toInt) ++
@@ -51,7 +62,7 @@ case class Entry(
       }).flatten ++
       takeTopGames(Entry.maxGames).map(_.pack).flatten
     else
-      Array(3.toByte) ++
+      Array(4.toByte) ++
       RatingGroup.all.map({
         case group =>
           packUint48(whiteWins.getOrElse(group, 0)) ++
@@ -97,6 +108,22 @@ object Entry extends PackHelper {
       case 2 =>
         new Entry(
           RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint8(b.drop(1 + i * 3 * 1)).toLong
+          }).toMap,
+          RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint8(b.drop(1 + 1 + i * 3 * 1)).toLong
+          }).toMap,
+          RatingGroup.all.zipWithIndex.map({
+            case (group, i) => group -> unpackUint8(b.drop(1 + 2 + i * 3 * 1)).toLong
+          }).toMap,
+          b.drop(1 + RatingGroup.all.size * 3 * 1)
+            .grouped(GameRef.packSize)
+            .map(GameRef.unpack _)
+            .toSet
+        )
+      case 3 =>
+        new Entry(
+          RatingGroup.all.zipWithIndex.map({
             case (group, i) => group -> unpackUint16(b.drop(1 + i * 3 * 2)).toLong
           }).toMap,
           RatingGroup.all.zipWithIndex.map({
@@ -110,7 +137,7 @@ object Entry extends PackHelper {
             .map(GameRef.unpack _)
             .toSet
         )
-      case 3 =>
+      case 4 =>
         new Entry(
           RatingGroup.all.zipWithIndex.map({
             case (group, i) => group -> unpackUint48(b.drop(1 + i * 3 * 6))

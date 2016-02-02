@@ -1,6 +1,7 @@
 package lila.openingexplorer
 
 trait PackHelper {
+
   protected def packUint16(v: Int): Array[Byte] =
     Array((0xff & (v >> 8)).toByte, (0xff & v).toByte)
 
@@ -21,4 +22,5 @@ trait PackHelper {
 
   protected def unpackUint48(b: Array[Byte]): Long =
     unpackUint32(b) << 16 | unpackUint16(b.drop(4)).toLong
+
 }
