@@ -4,7 +4,14 @@ Opening explorer for lichess.org
 Preparations
 ------------
 
-Install libkyotocabinet headers.
+Assuming `build-essential`, `openjdk-8-jdk`, `scala` and `sbt` are installed.
+You already have this, if you are running a local lila instance.
+
+    git clone https://github.com/ornicar/scalalib
+    cd scalalib
+    sbt publish-local
+
+Install Kyoto cabinet headers and utilities.
 
     sudo apt-get install libkyotocabinet-dev kyotocabinet-utils
 
