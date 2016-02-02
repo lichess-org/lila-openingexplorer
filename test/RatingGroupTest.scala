@@ -19,6 +19,11 @@ class RatingGroupTest extends Specification {
       RatingGroup.find(3002) mustEqual (RatingGroup.Group2800)
     }
 
+    "select range" in {
+      RatingGroup.range(Some(394), Some(1400)) mustEqual
+        List(RatingGroup.Group0, RatingGroup.Group1000, RatingGroup.Group1200)
+    }
+
   }
 
 }

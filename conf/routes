@@ -1,2 +1,2 @@
-GET /bullet controllers.Application.index()
-PUT / controllers.Application.put()
+GET /bullet controllers.WebApi.index()
+PUT / controllers.WebApi.put()

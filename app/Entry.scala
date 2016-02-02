@@ -31,7 +31,17 @@ case class Entry(
 
   def totalGames: Long = totalWhiteWins + totalDraws + totalBlackWins
 
-  def totalWins(color: Color) = color.fold(totalWhiteWins, totalBlackWins)
+  def sumWhiteWins(ratingGroups: List[RatingGroup]): Long =
+    ratingGroups.map(whiteWins.getOrElse(_, 0L)).sum
+
+  def sumDraws(ratingGroups: List[RatingGroup]): Long =
+    ratingGroups.map(draws.getOrElse(_, 0L)).sum
+
+  def sumBlackWins(ratingGroups: List[RatingGroup]): Long =
+    ratingGroups.map(blackWins.getOrElse(_, 0L)).sum
+
+  def sumGames(ratingGroups: List[RatingGroup]): Long =
+    ratingGroups.map(totalGames).sum
 
   def pack: Array[Byte] = {
     if (totalGames == 0)

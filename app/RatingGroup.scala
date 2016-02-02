@@ -35,4 +35,14 @@ object RatingGroup {
     } get
   }
 
+  def range(min: Option[Int], max: Option[Int]): List[RatingGroup] = {
+    all
+      .filter({
+        group => min.map(_ <= group.max.getOrElse(5000)).getOrElse(true)
+      })
+      .filter({
+        group => max.map(group.min.getOrElse(0) < _).getOrElse(true)
+      })
+  }
+
 }

@@ -20,10 +20,10 @@ import chess.format.Forsyth
 import chess.variant._
 import chess.Hash
 
-import lila.openingexplorer.{Entry, GameRef}
+import lila.openingexplorer.{Entry, GameRef, RatingGroup}
 
 @Singleton
-class Application @Inject() (
+class WebApi @Inject() (
     protected val lifecycle: ApplicationLifecycle) extends Controller {
 
   val db = new KyotoDbBuilder("bullet.kct")
@@ -65,31 +65,34 @@ class Application @Inject() (
     ))
   }
 
-  private def moveMapToJson(children: Map[Move, Entry]): JsValue = {
+  private def moveMapToJson(
+      children: Map[Move, Entry],
+      ratingGroups: List[RatingGroup]): JsValue = {
     Json.toJson(children.map {
       case (move, entry) =>
         move.toUci.uci -> Json.toJson(Map(
-          "total" -> Json.toJson(entry.totalGames),
-          "white" -> Json.toJson(entry.totalWhiteWins),
-          "draws" -> Json.toJson(entry.totalDraws),
-          "black" -> Json.toJson(entry.totalBlackWins)
+          "total" -> Json.toJson(entry.sumGames(ratingGroups)),
+          "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
+          "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
+          "black" -> Json.toJson(entry.sumBlackWins(ratingGroups))
         ))
     }.toMap)
   }
 
   def index() = Action { implicit req =>
     val fen = req.queryString get "fen" flatMap (_.headOption)
+    val ratingGroups = List(RatingGroup.Group1200, RatingGroup.Group1400)
 
     fen.flatMap(Forsyth << _) match {
       case Some(situation) =>
         val entry = probe(situation)
 
         Ok(Json.toJson(Map(
-          "total" -> Json.toJson(entry.totalGames),
-          "white" -> Json.toJson(entry.totalWhiteWins),
-          "draws" -> Json.toJson(entry.totalDraws),
-          "black" -> Json.toJson(entry.totalBlackWins),
-          "moves" -> moveMapToJson(probeChildren(situation)),
+          "total" -> Json.toJson(entry.sumGames(ratingGroups)),
+          "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
+          "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
+          "black" -> Json.toJson(entry.sumBlackWins(ratingGroups)),
+          "moves" -> moveMapToJson(probeChildren(situation), ratingGroups),
           "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
         )))
       case None =>
@@ -121,6 +124,7 @@ class Application @Inject() (
           case scalaz.Success(replay) if replay.moves.size >= 2 =>
             // todo: use safe integer parsing
             // todo: use lichess game ids, not fics
+            // todo: should we index unrated games?
             val gameRef = new GameRef(
               game.tag("FICSGamesDBGameNo").map({
                 case gameNo => GameRef.unpackGameId(java.lang.Long.parseLong(gameNo))
