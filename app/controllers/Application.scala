@@ -27,7 +27,7 @@ class Application @Inject() (
     protected val lifecycle: ApplicationLifecycle) extends Controller {
 
   val db = new KyotoDbBuilder("bullet.kct")
-             .modes(Mode.CREATE, Mode.READ_WRITE)
+             .modes(Mode.READ_WRITE)
              .buckets(2 * 70 * 400000000L)  // twice the number of expected records
              .memoryMapSize(2147483648L)  // 2 gb
              .buildAndOpen()

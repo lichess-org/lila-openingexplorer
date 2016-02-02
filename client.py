@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-import chess
-import chess.pgn
 import requests
 import random
 import sys
@@ -11,12 +9,24 @@ f = open(sys.argv[1])
 
 c = itertools.count(1)
 
-while True:
-    game = chess.pgn.read_game(f)
-    if game is None:
-        break
+buf = ""
+got_header = False
 
-    res = requests.put("http://localhost:9000/", data=str(game))
+def send(buf):
+    res = requests.put("http://localhost:9000/", data=buf)
     print(next(c), res, res.text)
     if res.status_code != 200:
-        print(game)
+        print(buf)
+
+for line in f:
+    buf += line
+    if not line.strip() and got_header:
+        got_header = False
+    elif not line.strip() and not got_header:
+        send(buf)
+        buf = ""
+    elif line.startswith("[Event"):
+        got_header = True
+
+if buf.strip():
+    send(buf)
