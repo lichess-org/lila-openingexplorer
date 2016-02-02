@@ -71,6 +71,8 @@ class WebApi @Inject() (
     Json.toJson(children.map {
       case (move, entry) =>
         move.toUci.uci -> Json.toJson(Map(
+          "uci" -> Json.toJson(move.toUci.uci),
+          "san" -> Json.toJson(chess.format.pgn.Dumper(move)),
           "total" -> Json.toJson(entry.sumGames(ratingGroups)),
           "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
           "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
