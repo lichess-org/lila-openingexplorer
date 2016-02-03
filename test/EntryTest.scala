@@ -65,6 +65,20 @@ class EntryTest extends Specification {
       restored.blackWins.getOrElse(RatingGroup.Group0, 0) mustEqual 1337
     }
 
+    "correctly pack houndreds of thousands of games" in {
+      val e = new Entry(
+        Map(RatingGroup.Group1600 -> 80000),
+        Map(RatingGroup.Group2400 -> 100000),
+        Map.empty,
+        Set.empty
+      )
+
+      val restored = Entry.unpack(e.pack)
+      restored.whiteWins.getOrElse(RatingGroup.Group1600, 0) mustEqual 80000
+      restored.whiteWins.getOrElse(RatingGroup.Group1800, 0) mustEqual 0
+      restored.draws.getOrElse(RatingGroup.Group2400, 0) mustEqual 100000
+    }
+
     "correctly pack millions of games" in {
       val e = new Entry(
         Map.empty,
