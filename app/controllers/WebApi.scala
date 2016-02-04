@@ -53,8 +53,8 @@ class WebApi @Inject() (
     } toMap
   }
 
-  private def merge(h: Array[Byte], entry: Entry) = {
-    db.set(h, probe(h).combine(entry).pack)
+  private def merge(h: Array[Byte], gameRef: GameRef) = {
+    db.set(h, probe(h).withGameRef(gameRef).pack)
   }
 
   private def gameRefToJson(ref: GameRef): JsValue = {
@@ -125,9 +125,6 @@ class WebApi @Inject() (
 
     parsed match {
       case scalaz.Success(game) =>
-        val gameRef = new GameRef(Random.alphanumeric.take(8).mkString, 3000, winner(game))
-        val entry = Entry.fromGameRef(gameRef)
-
         chess.format.pgn.Reader.fullWithSans(textBody, identity, game.tags) match {
           case scalaz.Success(replay) if replay.moves.size >= 2 =>
             // todo: use lichess game ids, not fics
@@ -144,8 +141,6 @@ class WebApi @Inject() (
               winner(game)
             )
 
-            val entry = Entry.fromGameRef(gameRef)
-
             val hashes = (
               // the starting position
               List(hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
@@ -153,7 +148,7 @@ class WebApi @Inject() (
               replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(hash(_))
             ).toSet
 
-            hashes.foreach { h => merge(h, entry) }
+            hashes.foreach { h => merge(h, gameRef) }
 
             val end = System.currentTimeMillis
             Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")

@@ -1,7 +1,5 @@
 package lila.openingexplorer
 
-import scalaz.Scalaz._
-
 import chess.Color
 
 case class Entry(
@@ -36,13 +34,38 @@ case class Entry(
   def sumGames(ratingGroups: List[RatingGroup]): Long =
     ratingGroups.map(totalGames).sum
 
-  def combine(other: Entry): Entry = {
-    new Entry(
-      whiteWins |+| other.whiteWins,
-      draws |+| other.draws,
-      blackWins |+| other.blackWins,
-      (topGames ++ other.topGames).toList.sortWith(_.rating > _.rating).take(Entry.maxGames).toSet
-    )
+  def withGameRef(game: GameRef): Entry = {
+    val group = RatingGroup.find(game.rating)
+
+    val newTopGames =
+      (topGames.toList ++ List(game))
+        .sortWith(_.rating > _.rating)
+        .take(Entry.maxGames)
+        .toSet
+
+    game.winner match {
+      case Some(Color.White) =>
+        new Entry(
+          whiteWins + (group -> (whiteWins.getOrElse(group, 0L) + 1L)),
+          draws,
+          blackWins,
+          newTopGames
+        )
+      case Some(Color.Black) =>
+        new Entry(
+          whiteWins,
+          draws,
+          blackWins + (group -> (blackWins.getOrElse(group, 0L) + 1L)),
+          newTopGames
+        )
+      case None =>
+        new Entry(
+          whiteWins,
+          draws + (group -> (draws.getOrElse(group, 0L) + 1L)),
+          blackWins,
+          newTopGames
+        )
+    }
   }
 
   private def maxNumber: Long =
@@ -89,18 +112,8 @@ object Entry extends PackHelper {
   def empty: Entry =
     new Entry(Map.empty, Map.empty, Map.empty, Set.empty)
 
-  def fromGameRef(gameRef: GameRef): Entry = {
-    val ratingGroup = RatingGroup.find(gameRef.rating)
-
-    gameRef.winner match {
-      case Some(Color.White) =>
-        new Entry(Map(ratingGroup -> 1), Map.empty, Map.empty, Set(gameRef))
-      case Some(Color.Black) =>
-        new Entry(Map.empty, Map.empty, Map(ratingGroup -> 1), Set(gameRef))
-      case None =>
-        new Entry(Map.empty, Map(ratingGroup -> 1), Map.empty, Set(gameRef))
-    }
-  }
+  def fromGameRef(gameRef: GameRef): Entry =
+    empty.withGameRef(gameRef)
 
   private def unpackMulti(
       b: Array[Byte],
@@ -128,14 +141,14 @@ object Entry extends PackHelper {
 
   def unpack(b: Array[Byte]): Entry = {
     if (b.size == GameRef.packSize) {
-      fromGameRef(GameRef.unpack(b))
+      empty.withGameRef(GameRef.unpack(b))
     } else b(0) match {
       case 1 =>
         b.drop(1)
           .grouped(GameRef.packSize)
           .map(GameRef.unpack _)
           .foldLeft(empty)({
-            case (l, r) => l.combine(fromGameRef(r))
+            case (l, r) => l.withGameRef(r)
           })
       case 2 =>
         unpackMulti(b, unpackUint8, 1)
