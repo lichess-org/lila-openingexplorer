@@ -43,6 +43,17 @@ case class Entry(
   def sumGames(ratingGroups: List[RatingGroup]): Long =
     ratingGroups.map(totalGames).sum
 
+  private def packMulti(format: Byte, helper: Long => Array[Byte]): Array[Byte] = {
+    Array(format) ++
+      RatingGroup.all.map({
+        case group =>
+          helper(whiteWins.getOrElse(group, 0L)) ++
+            helper(draws.getOrElse(group, 0L)) ++
+            helper(blackWins.getOrElse(group, 0L))
+      }).flatten ++
+      takeTopGames(Entry.maxGames).map(_.pack).flatten
+  }
+
   def pack: Array[Byte] = {
     if (totalGames == 0)
       Array.empty
@@ -50,36 +61,15 @@ case class Entry(
       topGames.head.pack
     else if (totalGames <= Entry.maxGames)
       Array(1.toByte) ++
-      takeTopGames(Entry.maxGames).map(_.pack).flatten
-    else if (totalGames <= 256)
-      Array(2.toByte) ++
-      RatingGroup.all.map({
-        case group =>
-          Array(
-            whiteWins.getOrElse(group, 0L).toByte,
-            draws.getOrElse(group, 0L).toByte,
-            blackWins.getOrElse(group, 0L).toByte
-          )
-      }).flatten ++
-      takeTopGames(Entry.maxGames).map(_.pack).flatten
-    else if (totalGames <= 65536)
-      Array(3.toByte) ++
-      RatingGroup.all.map({
-        case group =>
-          packUint16(whiteWins.getOrElse(group, 0L).toInt) ++
-          packUint16(draws.getOrElse(group, 0L).toInt) ++
-          packUint16(blackWins.getOrElse(group, 0L).toInt)
-      }).flatten ++
-      takeTopGames(Entry.maxGames).map(_.pack).flatten
+        takeTopGames(Entry.maxGames).map(_.pack).flatten
+    else if (totalGames < 256)
+      packMulti(2, packUint8)
+    else if (totalGames < 65536)
+      packMulti(3, packUint16)
+    else if (totalGames < 4294967296L)
+      packMulti(4, packUint32)
     else
-      Array(4.toByte) ++
-      RatingGroup.all.map({
-        case group =>
-          packUint48(whiteWins.getOrElse(group, 0)) ++
-          packUint48(draws.getOrElse(group, 0)) ++
-          packUint48(blackWins.getOrElse(group, 0))
-      }).flatten ++
-      takeTopGames(Entry.maxGames).map(_.pack).flatten
+      packMulti(5, packUint48)
   }
 
 }
@@ -104,6 +94,24 @@ object Entry extends PackHelper {
     }
   }
 
+  private def unpackMulti(b: Array[Byte], helper: Array[Byte] => Long, width: Int): Entry = {
+    new Entry(
+      RatingGroup.all.zipWithIndex.map({
+        case (group, i) => group -> helper(b.drop(1 + i * 3 * width)).toLong
+      }).toMap,
+      RatingGroup.all.zipWithIndex.map({
+        case (group, i) => group -> helper(b.drop(1 + width + i * 3 * width)).toLong
+      }).toMap,
+      RatingGroup.all.zipWithIndex.map({
+        case (group, i) => group -> helper(b.drop(1 + 2 * width + i * 3 * width)).toLong
+      }).toMap,
+      b.drop(1 + RatingGroup.all.size * 3 * width)
+        .grouped(GameRef.packSize)
+        .map(GameRef.unpack _)
+        .toSet
+    )
+  }
+
   def unpack(b: Array[Byte]): Entry = {
     if (b.size == GameRef.packSize) {
       fromGameRef(GameRef.unpack(b))
@@ -116,53 +124,13 @@ object Entry extends PackHelper {
             case (l, r) => l.combine(fromGameRef(r))
           })
       case 2 =>
-        new Entry(
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint8(b.drop(1 + i * 3 * 1)).toLong
-          }).toMap,
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint8(b.drop(1 + 1 + i * 3 * 1)).toLong
-          }).toMap,
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint8(b.drop(1 + 2 + i * 3 * 1)).toLong
-          }).toMap,
-          b.drop(1 + RatingGroup.all.size * 3 * 1)
-            .grouped(GameRef.packSize)
-            .map(GameRef.unpack _)
-            .toSet
-        )
+        unpackMulti(b, unpackUint8, 1)
       case 3 =>
-        new Entry(
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint16(b.drop(1 + i * 3 * 2)).toLong
-          }).toMap,
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint16(b.drop(1 + 2 + i * 3 * 2)).toLong
-          }).toMap,
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint16(b.drop(1 + 4 + i * 3 * 2)).toLong
-          }).toMap,
-          b.drop(1 + RatingGroup.all.size * 3 * 2)
-            .grouped(GameRef.packSize)
-            .map(GameRef.unpack _)
-            .toSet
-        )
+        unpackMulti(b, unpackUint16, 2)
       case 4 =>
-        new Entry(
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint48(b.drop(1 + i * 3 * 6))
-          }).toMap,
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint48(b.drop(1 + 6 + i * 3 * 6))
-          }).toMap,
-          RatingGroup.all.zipWithIndex.map({
-            case (group, i) => group -> unpackUint48(b.drop(1 + 12 + i * 3 * 6))
-          }).toMap,
-          b.drop(1 + RatingGroup.all.size * 3 * 6)
-            .grouped(GameRef.packSize)
-            .map(GameRef.unpack _)
-            .toSet
-        )
+        unpackMulti(b, unpackUint32, 4)
+      case 5 =>
+        unpackMulti(b, unpackUint48, 6)
     }
   }
 
