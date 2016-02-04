@@ -10,20 +10,13 @@ case class Entry(
     blackWins: Map[RatingGroup, Long],
     topGames: Set[GameRef]) extends PackHelper {
 
-  def combine(other: Entry): Entry = {
-    new Entry(
-      whiteWins |+| other.whiteWins,
-      draws |+| other.draws,
-      blackWins |+| other.blackWins,
-      (topGames ++ other.topGames).toList.sortWith(_.rating > _.rating).take(Entry.maxGames).toSet
-    )
-  }
-
-  def totalGames(r: RatingGroup): Long =
-    whiteWins.getOrElse(r, 0L) + draws.getOrElse(r, 0L) + blackWins.getOrElse(r, 0L)
-
   def takeTopGames(n: Int) =
     topGames.toList.sortWith(_.rating > _.rating).take(n)
+
+  def totalGames(r: RatingGroup): Long =
+    whiteWins.getOrElse(r, 0L) +
+      draws.getOrElse(r, 0L) +
+      blackWins.getOrElse(r, 0L)
 
   def totalWhiteWins: Long = whiteWins.values.sum
   def totalDraws: Long = draws.values.sum
@@ -43,7 +36,22 @@ case class Entry(
   def sumGames(ratingGroups: List[RatingGroup]): Long =
     ratingGroups.map(totalGames).sum
 
-  private def packMulti(format: Byte, helper: Long => Array[Byte]): Array[Byte] = {
+  def combine(other: Entry): Entry = {
+    new Entry(
+      whiteWins |+| other.whiteWins,
+      draws |+| other.draws,
+      blackWins |+| other.blackWins,
+      (topGames ++ other.topGames).toList.sortWith(_.rating > _.rating).take(Entry.maxGames).toSet
+    )
+  }
+
+  private def maxNumber: Long =
+    // the maximum integer in the entry, used to decide required bit-length
+    (whiteWins.values ++ blackWins.values ++ draws.values).max
+
+  private def packMulti(
+      format: Byte,
+      helper: Long => Array[Byte]): Array[Byte] = {
     Array(format) ++
       RatingGroup.all.map({
         case group =>
@@ -62,11 +70,11 @@ case class Entry(
     else if (totalGames <= Entry.maxGames)
       Array(1.toByte) ++
         takeTopGames(Entry.maxGames).map(_.pack).flatten
-    else if (totalGames < 256)
+    else if (maxNumber < 256)
       packMulti(2, packUint8)
-    else if (totalGames < 65536)
+    else if (maxNumber < 65536)
       packMulti(3, packUint16)
-    else if (totalGames < 4294967296L)
+    else if (maxNumber < 4294967296L)
       packMulti(4, packUint32)
     else
       packMulti(5, packUint48)
@@ -94,16 +102,22 @@ object Entry extends PackHelper {
     }
   }
 
-  private def unpackMulti(b: Array[Byte], helper: Array[Byte] => Long, width: Int): Entry = {
+  private def unpackMulti(
+      b: Array[Byte],
+      helper: Array[Byte] => Long,
+      width: Int): Entry = {
     new Entry(
       RatingGroup.all.zipWithIndex.map({
-        case (group, i) => group -> helper(b.drop(1 + i * 3 * width)).toLong
+        case (group, i) =>
+          group -> helper(b.drop(1 + i * 3 * width)).toLong
       }).toMap,
       RatingGroup.all.zipWithIndex.map({
-        case (group, i) => group -> helper(b.drop(1 + width + i * 3 * width)).toLong
+        case (group, i) =>
+          group -> helper(b.drop(1 + width + i * 3 * width)).toLong
       }).toMap,
       RatingGroup.all.zipWithIndex.map({
-        case (group, i) => group -> helper(b.drop(1 + 2 * width + i * 3 * width)).toLong
+        case (group, i) =>
+          group -> helper(b.drop(1 + 2 * width + i * 3 * width)).toLong
       }).toMap,
       b.drop(1 + RatingGroup.all.size * 3 * width)
         .grouped(GameRef.packSize)
