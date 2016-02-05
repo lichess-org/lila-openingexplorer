@@ -44,20 +44,30 @@ int main(int argc, char **argv) {
     std::string key, value;
 
     long pack[] = {0, 0, 0, 0, 0, 0};
+    long total = 0;
+
+    std::cout << "Scanning ..." << std::endl;
 
     while (cur->get(&key, &value, true)) {
+        total++;
         if (value.size() == 8) {
             pack[0]++;
         } else {
             pack[value.at(0)]++;
         }
+
+        if (total % 50000 == 0) {
+            std::cerr << ".";
+        }
     }
+
+    std::cerr << std::endl;
 
     for (int i = 0; i < 5; i++) {
         std::cout << "Pack format " << i << ": " << pack[i] << " nodes " << std::endl;
     }
 
-    std::cout << "Unique positions: " << (pack[0] + pack[1] + pack[2] + pack[3] + pack[4] + pack[5]) << std::endl;
+    std::cout << "Unique positions: " << total << std::endl;
 
     std::cout << std::endl;
 
