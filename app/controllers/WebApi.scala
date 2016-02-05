@@ -3,8 +3,6 @@ package controllers
 import scala.concurrent.Future
 import scala.util.Random
 
-import java.io.File
-
 import javax.inject.{Inject, Singleton}
 
 import play.api.libs.json._
@@ -12,13 +10,9 @@ import play.api._
 import play.api.mvc._
 import play.api.inject.ApplicationLifecycle
 
-import fm.last.commons.kyoto.{KyotoDb}
-import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode}
-
 import chess._
 import chess.format.Forsyth
 import chess.variant._
-import chess.Hash
 
 import lila.openingexplorer._
 
@@ -26,37 +20,10 @@ import lila.openingexplorer._
 class WebApi @Inject() (
     protected val lifecycle: ApplicationLifecycle) extends Controller {
 
-  val bulletFile = new File("bullet.kct")
-  bulletFile.createNewFile
-
-  val db = new KyotoDbBuilder(bulletFile)
-             .modes(Mode.READ_WRITE, Mode.CREATE)
-             .buckets(60 * 400000000L / 2)  // at least 10% of expected records
-             .buildAndOpen()
+  val db = new Database()
 
   lifecycle.addStopHook { () =>
-    Future.successful(db.close())
-  }
-
-  val hash = new Hash(32)  // 128 bit Zobrist hasher
-
-  private def probe(h: Array[Byte]): Entry = {
-    Option(db.get(h)) match {
-      case Some(bytes) => Entry.unpack(bytes)
-      case None        => Entry.empty
-    }
-  }
-
-  private def probe(situation: Situation): Entry = probe(hash(situation))
-
-  private def probeChildren(situation: Situation): Map[Move, Entry] = {
-    situation.moves.values.flatten.map {
-      case (move) => move -> probe(move.situationAfter)
-    } toMap
-  }
-
-  private def merge(h: Array[Byte], gameRef: GameRef) = {
-    db.set(h, probe(h).withGameRef(gameRef).pack)
+    Future.successful(db.closeAll)
   }
 
   private def gameRefToJson(ref: GameRef): JsValue = {
@@ -93,14 +60,14 @@ class WebApi @Inject() (
 
     fen.flatMap(Forsyth << _) match {
       case Some(situation) =>
-        val entry = probe(situation)
+        val entry = db.probe(Category.Bullet, situation)
 
         Ok(Json.toJson(Map(
           "total" -> Json.toJson(entry.sumGames(ratingGroups)),
           "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
           "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
           "black" -> Json.toJson(entry.sumBlackWins(ratingGroups)),
-          "moves" -> moveMapToJson(probeChildren(situation), ratingGroups),
+          "moves" -> moveMapToJson(db.probeChildren(Category.Bullet, situation), ratingGroups),
           "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
         ))).withHeaders(
           "Access-Control-Allow-Origin" -> "*"
@@ -145,12 +112,12 @@ class WebApi @Inject() (
 
             val hashes = (
               // the starting position
-              List(hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
+              List(db.hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
               // all others
-              replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(hash(_))
+              replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(db.hash(_))
             ).toSet
 
-            hashes.foreach { h => merge(h, gameRef) }
+            hashes.foreach { h => db.merge(Category.Bullet, h, gameRef) }
 
             val end = System.currentTimeMillis
             Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")
