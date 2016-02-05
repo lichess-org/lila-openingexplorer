@@ -53,18 +53,16 @@ int main(int argc, char **argv) {
         }
     }
 
-    std::cout << "Pack:" << std::endl;
-
     for (int i = 0; i < 5; i++) {
-        std::cout << i << "|" << pack[i] << std::endl;
+        std::cout << "Pack format " << i << ": " << pack[i] << " nodes " << std::endl;
     }
 
-    std::cout << std::endl;
-    std::cout << "Estimates (in bytes):" << std::endl;
+    std::cout << "Unique positions: " << (pack[0] + pack[1] + pack[2] + pack[3] + pack[4] + pack[5]) << std::endl;
 
-    std::cout << "A: " << estimate_a(pack) << std::endl;
-    std::cout << "B: " << estimate_b(pack) << std::endl;
-    std::cout << "---" << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "Scheme A: " << estimate_a(pack) << " bytes" << std::endl;
+    std::cout << "Scheme B: " << estimate_b(pack) << " bytes" << std::endl;
     std::cout << "B/A: " << ((double)estimate_b(pack)/estimate_a(pack)) << std::endl;
 
     return 0;
