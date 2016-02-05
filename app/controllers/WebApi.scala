@@ -26,10 +26,12 @@ import lila.openingexplorer._
 class WebApi @Inject() (
     protected val lifecycle: ApplicationLifecycle) extends Controller {
 
-  val db = new KyotoDbBuilder("bullet.kct")
-             .modes(Mode.READ_WRITE)
-             .buckets(2 * 60 * 400000000L)  // twice the number of expected records
-             .memoryMapSize(2147483648L)  // 2 gb
+  val bulletFile = new File("bullet.kct")
+  bulletFile.createNewFile
+
+  val db = new KyotoDbBuilder(bulletFile)
+             .modes(Mode.READ_WRITE, Mode.CREATE)
+             .buckets(60 * 400000000L / 2)  // at least 10% of expected records
              .buildAndOpen()
 
   lifecycle.addStopHook { () =>
