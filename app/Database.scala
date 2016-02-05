@@ -19,7 +19,7 @@ class Database {
       val db =
         new KyotoDbBuilder(file)
           .modes(Mode.CREATE, Mode.READ_WRITE)
-          .buckets(60 * 140000000 / 2)  // at least 10% of expected records
+          .buckets(140000000L * 60 / 2)  // at least 10% of expected records
           .buildAndOpen
 
      category -> db
