@@ -13,7 +13,7 @@ class Database {
 
   private val dbs = Category.all.map({
     case category =>
-      val file = new File(category.name ++ ".kct")
+      val file = new File("data/${category.name}.kct")
       file.createNewFile
 
       val db =
