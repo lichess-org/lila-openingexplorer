@@ -65,7 +65,7 @@ class WebApi @Inject() (
       req.queryString get "maxRating" flatMap (_.headOption) flatMap parseIntOption
     )
 
-    fen.flatMap(Forsyth << _) match {
+    fen.flatMap(Forsyth << _).map(_.withVariant(category.variant)) match {
       case Some(situation) =>
         val entry = db.probe(category, situation)
 
