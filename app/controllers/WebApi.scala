@@ -50,7 +50,14 @@ class WebApi @Inject() (
     }.toMap)
   }
 
-  def index() = Action { implicit req =>
+  def get(name: String) = Action { implicit req =>
+    Category.find(name) match {
+      case Some(category) => getCategory(category)
+      case None           => NotFound("category not found")
+    }
+  }
+
+  def getCategory(category: Category)(implicit req: RequestHeader) = {
     val fen = req.queryString get "fen" flatMap (_.headOption)
 
     val ratingGroups = RatingGroup.range(
@@ -60,14 +67,14 @@ class WebApi @Inject() (
 
     fen.flatMap(Forsyth << _) match {
       case Some(situation) =>
-        val entry = db.probe(Category.Bullet, situation)
+        val entry = db.probe(category, situation)
 
         Ok(Json.toJson(Map(
           "total" -> Json.toJson(entry.sumGames(ratingGroups)),
           "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
           "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
           "black" -> Json.toJson(entry.sumBlackWins(ratingGroups)),
-          "moves" -> moveMapToJson(db.probeChildren(Category.Bullet, situation), ratingGroups),
+          "moves" -> moveMapToJson(db.probeChildren(category, situation), ratingGroups),
           "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
         ))).withHeaders(
           "Access-Control-Allow-Origin" -> "*"
@@ -77,7 +84,7 @@ class WebApi @Inject() (
     }
   }
 
-  def winner(game: chess.format.pgn.ParsedPgn) = {
+  private def winner(game: chess.format.pgn.ParsedPgn) = {
     game.tag("Result") match {
       case Some("1-0") => Some(Color.White)
       case Some("0-1") => Some(Color.Black)
