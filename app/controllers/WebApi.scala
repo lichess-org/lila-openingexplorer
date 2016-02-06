@@ -9,7 +9,7 @@ import play.api._
 import play.api.mvc._
 import play.api.inject.ApplicationLifecycle
 
-import chess._
+import chess.Move
 import chess.format.Forsyth
 import chess.format.pgn.San
 import chess.variant._

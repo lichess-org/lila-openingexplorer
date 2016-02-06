@@ -3,7 +3,7 @@ package lila.openingexplorer
 import scala.util.Random
 import scala.util.matching.Regex
 
-import chess._
+import chess.Color
 
 case class GameRef(
     gameId: String,
