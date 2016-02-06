@@ -30,11 +30,6 @@ Download and unpack [Kyotocabinet Java package](http://fallabs.com/kyotocabinet/
     make
     sudo make install
 
-Create empty database
----------------------
-
-    kctreemgr create -bnum 40000000000 bullet.kct
-
 Run server
 ----------
 
