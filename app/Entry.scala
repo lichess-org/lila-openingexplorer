@@ -6,10 +6,10 @@ case class Entry(
     whiteWins: Map[RatingGroup, Long],
     draws: Map[RatingGroup, Long],
     blackWins: Map[RatingGroup, Long],
-    topGames: Set[GameRef]) extends PackHelper {
+    topGames: List[GameRef]) extends PackHelper {
 
   def takeTopGames(n: Int) =
-    topGames.toList.sortWith(_.rating > _.rating).take(n)
+    topGames.take(n)
 
   def totalGames(r: RatingGroup): Long =
     whiteWins.getOrElse(r, 0L) +
@@ -38,10 +38,9 @@ case class Entry(
     val group = RatingGroup.find(game.rating)
 
     val newTopGames =
-      (topGames.toList ++ List(game))
+      (game :: topGames)
         .sortWith(_.rating > _.rating)
         .take(Entry.maxGames)
-        .toSet
 
     game.winner match {
       case Some(Color.White) =>
@@ -110,7 +109,7 @@ object Entry extends PackHelper {
   val maxGames = 5
 
   def empty: Entry =
-    new Entry(Map.empty, Map.empty, Map.empty, Set.empty)
+    new Entry(Map.empty, Map.empty, Map.empty, List.empty)
 
   def fromGameRef(gameRef: GameRef): Entry =
     empty.withGameRef(gameRef)
@@ -135,7 +134,7 @@ object Entry extends PackHelper {
       b.drop(1 + RatingGroup.all.size * 3 * width)
         .grouped(GameRef.packSize)
         .map(GameRef.unpack _)
-        .toSet
+        .toList
     )
   }
 
