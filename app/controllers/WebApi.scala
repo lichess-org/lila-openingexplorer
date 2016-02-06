@@ -37,7 +37,7 @@ class WebApi @Inject() (
   private def moveEntriesToJson(
     children: List[(Move, Entry)],
     ratingGroups: List[RatingGroup]): JsArray = JsArray {
-    children.sortBy(-_._2.sumGames(ratingGroups)).take(12).map {
+    children.filter(_._2.nonEmpty(ratingGroups)).sortBy(-_._2.sumGames(ratingGroups)).take(12).map {
       case (move, entry) => Json.toJson(Map(
         "uci" -> Json.toJson(move.toUci.uci),
         "san" -> Json.toJson(chess.format.pgn.Dumper(move)),

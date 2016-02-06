@@ -34,6 +34,9 @@ case class Entry(
   def sumGames(ratingGroups: List[RatingGroup]): Long =
     ratingGroups.map(totalGames).sum
 
+  def nonEmpty(ratingGroups: List[RatingGroup]) =
+    sumGames(ratingGroups) > 0
+
   def withGameRef(game: GameRef): Entry = {
     val group = RatingGroup.find(game.rating)
 
