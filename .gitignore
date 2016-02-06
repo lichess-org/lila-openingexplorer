@@ -1,3 +1,6 @@
 logs
 target
 *.swp
+
+util/gen
+util/stat
