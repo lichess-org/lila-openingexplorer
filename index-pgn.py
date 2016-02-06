@@ -6,7 +6,7 @@ import sys
 import itertools
 import time
 
-f = open(sys.argv[1])
+f = open(sys.argv[1], encoding="utf-8", errors="ignore")
 
 c = itertools.count(1)
 
@@ -15,7 +15,7 @@ got_header = False
 
 def send(buf):
     t = time.time()
-    res = requests.put("http://localhost:9000/", data=buf)
+    res = requests.put("http://localhost:9000/master", data=buf.encode("utf-8"))
     print("[%d, %.01fms] HTTP %d: %s" % (next(c), (time.time() - t) * 1000, res.status_code, res.text))
     if res.status_code != 200:
         print(buf)

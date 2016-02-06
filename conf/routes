@@ -1,2 +1,5 @@
 # GET /:category controllers.WebApi.get(category)
 # PUT / controllers.WebApi.put()
+
+GET /master controllers.WebApi.getMaster
+PUT /master controllers.WebApi.putMaster

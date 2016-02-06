@@ -12,7 +12,10 @@ case class SubEntry(
 
   def totalGames = whiteWins + draws + blackWins
 
-  def averageRating: Int = (averageRatingSum / totalGames).toInt
+  def averageRating: Int =
+    if (totalGames == 0) 0 else (averageRatingSum / totalGames).toInt
+
+  def maxPerWinner = math.max(math.max(whiteWins, blackWins), draws)
 
   def withGameRef(game: GameRef): SubEntry = {
     val intermediate = copy(
@@ -20,7 +23,6 @@ case class SubEntry(
       topGames =
         (game :: topGames)
           .sortWith(_.averageRating > _.averageRating)
-          .take(SubEntry.maxGames)
     )
 
     game.winner match {
@@ -30,17 +32,12 @@ case class SubEntry(
     }
   }
 
-  def withRecentGameRef(game: GameRef): SubEntry = {
-    withGameRef(game).copy(
-     recentGames = (game :: recentGames).take(SubEntry.maxGames)
-    )
-  }
+  def withRecentGameRef(game: GameRef): SubEntry =
+    withGameRef(game).copy(recentGames = game :: recentGames)
 
 }
 
 object SubEntry {
-
-  val maxGames = 5
 
   def empty = new SubEntry(0, 0, 0, 0, List.empty, List.empty)
 
