@@ -98,10 +98,13 @@ class WebApi @Inject() (
     val textBody = new String(req.body.asRaw.flatMap(_.asBytes()).getOrElse(Array.empty), "UTF-8")
     val parsed = chess.format.pgn.Parser.full(textBody)
 
+    import chess.format.pgn.San
+    def truncateMoves(moves: List[San]) = moves take 40
+
     parsed match {
       case scalaz.Success(game) =>
-        chess.format.pgn.Reader.fullWithSans(textBody, identity, game.tags) match {
-          case scalaz.Success(replay) if replay.moves.size >= 2 =>
+        chess.format.pgn.Reader.fullWithSans(textBody, truncateMoves, game.tags) match {
+          case scalaz.Success(replay) if replay.moves.size >= 10 =>
             // todo: use lichess game ids, not fics
             val gameRef = new GameRef(
               game.tag("FICSGamesDBGameNo")
