@@ -34,20 +34,19 @@ class WebApi @Inject() (
     ))
   }
 
-  private def moveMapToJson(
-      children: Map[Move, Entry],
-      ratingGroups: List[RatingGroup]): JsValue = {
-    Json.toJson(children.map {
-      case (move, entry) =>
-        move.toUci.uci -> Json.toJson(Map(
-          "uci" -> Json.toJson(move.toUci.uci),
-          "san" -> Json.toJson(chess.format.pgn.Dumper(move)),
-          "total" -> Json.toJson(entry.sumGames(ratingGroups)),
-          "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
-          "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
-          "black" -> Json.toJson(entry.sumBlackWins(ratingGroups))
-        ))
-    }.toMap)
+  private def moveEntriesToJson(
+    children: List[(Move, Entry)],
+    ratingGroups: List[RatingGroup]): JsArray = JsArray {
+    children.filter(_._2.nonEmpty(ratingGroups)).sortBy(-_._2.sumGames(ratingGroups)).take(12).map {
+      case (move, entry) => Json.toJson(Map(
+        "uci" -> Json.toJson(move.toUci.uci),
+        "san" -> Json.toJson(chess.format.pgn.Dumper(move)),
+        "total" -> Json.toJson(entry.sumGames(ratingGroups)),
+        "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
+        "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
+        "black" -> Json.toJson(entry.sumBlackWins(ratingGroups))
+      ))
+    }
   }
 
   def get(name: String) = Action { implicit req =>
@@ -74,7 +73,7 @@ class WebApi @Inject() (
           "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
           "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
           "black" -> Json.toJson(entry.sumBlackWins(ratingGroups)),
-          "moves" -> moveMapToJson(db.probeChildren(category, situation), ratingGroups),
+          "moves" -> moveEntriesToJson(db.probeChildren(category, situation), ratingGroups),
           "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
         ))).withHeaders(
           "Access-Control-Allow-Origin" -> "*"
