@@ -4,22 +4,28 @@ import chess.Color
 
 case class GameRef(
     gameId: String,
-    rating: Int,
-    winner: Option[Color]) extends PackHelper {
+    winner: Option[Color],
+    speed: SpeedGroup,
+    averageRating: Int) extends PackHelper {
 
   def pack: Array[Byte] = {
     val packedGameId = gameId.zip(gameId.indices.reverse).map {
       case (c, i) =>
         GameRef.base.indexOf(c) * math.pow(GameRef.base.size, i).toLong
-    }.sum
+    } sum
+
+    val packedSpeed = speed.id << 14
 
     val packedWinner = winner match {
-      case Some(Color.White) => 2 << 14
-      case Some(Color.Black) => 1 << 14
+      case Some(Color.White) => 2 << 12
+      case Some(Color.Black) => 1 << 12
       case None              => 0
     }
 
-    packUint48(packedGameId) ++ packUint16(packedWinner | rating)
+    // must be between 0 and 4095
+    val packedRating = math.min((1 << 12) - 1, math.max(0, averageRating))
+
+    packUint16(packedWinner | packedSpeed | packedRating) ++ packUint48(packedGameId)
   }
 
 }
@@ -43,20 +49,23 @@ object GameRef extends PackHelper {
   }
 
   def unpack(packed: Array[Byte]): GameRef = {
-    val winnerXorRating = unpackUint16(packed.drop(6))
+    val metaXorRating = unpackUint16(packed)
 
-    val rating = winnerXorRating & 0x3fff
-
-    val winner = winnerXorRating >> 14 match {
+    val winner = (metaXorRating >> 12) & 0x3 match {
       case 2 => Some(Color.White)
       case 1 => Some(Color.Black)
       case _ => None
     }
 
+    val speed = SpeedGroup.byId.getOrElse((metaXorRating >> 14) & 0x3, SpeedGroup.Classical)
+
+    val averageRating = metaXorRating & 0xfff
+
     GameRef(
-      unpackGameId(unpackUint48(packed)),
-      rating,
-      winner
+      unpackGameId(unpackUint48(packed.drop(2))),
+      winner,
+      speed,
+      averageRating
     )
   }
 

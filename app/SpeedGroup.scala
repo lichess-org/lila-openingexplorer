@@ -8,9 +8,9 @@ sealed abstract class SpeedGroup(
 
 object SpeedGroup {
 
-  case object Bullet extends Speed(1, "bullet", 0 to 179)
-  case object Blitz extends Speed(2, "blitz", 180 to 479)
-  case object Classical extends Speed(3, "classical", 480 to Int.MaxValue)
+  case object Bullet extends SpeedGroup(1, "bullet", 0 to 179)
+  case object Blitz extends SpeedGroup(2, "blitz", 180 to 479)
+  case object Classical extends SpeedGroup(3, "classical", 480 to Int.MaxValue)
 
   val all = List(Bullet, Blitz, Classical)
 
