@@ -1,7 +1,6 @@
 package controllers
 
 import scala.concurrent.Future
-import scala.util.Random
 
 import javax.inject.{Inject, Singleton}
 
@@ -107,11 +106,20 @@ class WebApi @Inject() (
     }
   } */
 
-  private def winner(game: chess.format.pgn.ParsedPgn) = {
-    game.tag("Result") match {
-      case Some("1-0") => Some(Color.White)
-      case Some("0-1") => Some(Color.Black)
-      case _           => None
+  def collectHashes(pgn: String, tags: List[chess.format.pgn.Tag]): Set[Array[Byte]] = {
+    import chess.format.pgn.San
+    def truncateMoves(moves: List[San]) = moves take 40
+
+    chess.format.pgn.Reader.fullWithSans(pgn, truncateMoves, tags) match {
+      case scalaz.Success(replay) =>
+        (
+          // the starting position
+          List(masterDb.hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
+          // all others
+          replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(masterDb.hash(_))
+        ).toSet
+      case scalaz.Failure(e) =>
+        Set.empty
     }
   }
 
@@ -122,45 +130,18 @@ class WebApi @Inject() (
     val textBody = new String(req.body.asRaw.flatMap(_.asBytes()).getOrElse(Array.empty), "utf-8")
     val parsed = chess.format.pgn.Parser.full(textBody)
 
-    import chess.format.pgn.San
-    def truncateMoves(moves: List[San]) = moves take 40
-
     parsed match {
       case scalaz.Success(game) =>
-        chess.format.pgn.Reader.fullWithSans(textBody, truncateMoves, game.tags) match {
-          case scalaz.Success(replay) if replay.moves.size >= 10 =>
-            // todo: use lichess game ids, not fics
-            val gameRef = new GameRef(
-              game.tag("FICSGamesDBGameNo")
-                .flatMap(parseLongOption)
-                .map(GameRef.unpackGameId)
-                .getOrElse(Random.alphanumeric.take(8).mkString),
-              winner(game),
-              SpeedGroup.Classical,
-              List(
-                game.tag("WhiteElo").flatMap(parseIntOption).getOrElse(0),
-                game.tag("BlackElo").flatMap(parseIntOption).getOrElse(0)
-              ).sum / 2
-            )
+        val gameRef = GameRef.fromPgn(game)
+        val hashes = collectHashes(textBody, game.tags)
 
-            val hashes = (
-              // the starting position
-              List(masterDb.hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
-              // all others
-              replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(masterDb.hash(_))
-            ).toSet
+        if (hashes.size >= 10) {
+          hashes.foreach { h => masterDb.merge(h, gameRef) }
 
-            hashes.foreach { h => masterDb.merge(h, gameRef) }
-
-            val end = System.currentTimeMillis
-            Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")
-
-          case scalaz.Success(game) =>
-            Ok("skipped: too few moves")
-
-          case scalaz.Failure(e) =>
-            BadRequest(e.toString)
-        }
+          val end = System.currentTimeMillis
+          Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")
+        } else
+          Ok("skipped: too few moves")
 
       case scalaz.Failure(e) =>
         BadRequest(e.toString)

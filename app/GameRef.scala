@@ -1,6 +1,8 @@
 package lila.openingexplorer
 
-import chess.Color
+import scala.util.Random
+
+import chess._
 
 case class GameRef(
     gameId: String,
@@ -36,7 +38,7 @@ object GameRef extends PackHelper {
 
   private val base = ('0' to '9') ++ ('a' to 'z') ++ ('A' to 'Z')
 
-  def unpackGameId(v: Long): String = {
+  private def unpackGameId(v: Long): String = {
     def decodeGameId(v: Long, res: List[Char] = Nil): List[Char] = {
       val quotient = v / base.size
       if (quotient > 0)
@@ -67,6 +69,29 @@ object GameRef extends PackHelper {
       speed,
       averageRating
     )
+  }
+
+  def fromPgn(game: chess.format.pgn.ParsedPgn): GameRef = {
+    // todo
+    val gameId = game.tag("FICSGamesDBGameNo")
+      .flatMap(parseLongOption)
+      .map(unpackGameId)
+      .getOrElse(Random.alphanumeric.take(8).mkString)
+
+    val winner = game.tag("Result") match {
+      case Some("1-0") => Some(Color.White)
+      case Some("0-1") => Some(Color.Black)
+      case _           => None
+    }
+
+    // todo
+    val speed = SpeedGroup.Classical
+
+    val averageRating =
+      (game.tag("WhiteElo").flatMap(parseIntOption).getOrElse(0) +
+       game.tag("BlackElo").flatMap(parseIntOption).getOrElse(0)) / 2
+
+    new GameRef(gameId, winner, speed, averageRating)
   }
 
 }
