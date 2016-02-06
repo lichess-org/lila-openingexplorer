@@ -1,5 +1,7 @@
 package lila.openingexplorer
 
+import chess.parseIntOption
+
 sealed abstract class SpeedGroup(
     val id: Int,
     val name: String,
@@ -20,6 +22,23 @@ object SpeedGroup {
     case chess.Speed.Bullet                                 => Bullet
     case chess.Speed.Blitz                                  => Blitz
     case chess.Speed.Classical | chess.Speed.Correspondence => Classical
+  }
+
+  def apply(limit: Int, increment: Int): SpeedGroup =
+    all.find(_.range contains (limit + 40 * increment)).getOrElse(Classical)
+
+  private val timeControlRegex = """(\d+)\+(\d+)""".r
+
+  def fromTimeControl(timeControl: String): SpeedGroup = timeControl match {
+    case timeControlRegex(l, i) =>
+      val speed = for {
+        limit <- parseIntOption(l)
+        increment <- parseIntOption(i)
+      } yield SpeedGroup(limit, increment)
+
+      speed.headOption.getOrElse(Classical)
+
+    case _ => Classical
   }
 
 }

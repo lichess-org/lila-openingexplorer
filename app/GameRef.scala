@@ -1,6 +1,7 @@
 package lila.openingexplorer
 
 import scala.util.Random
+import scala.util.matching.Regex
 
 import chess._
 
@@ -71,8 +72,10 @@ object GameRef extends PackHelper {
     )
   }
 
+  private val timeControl = """^(\d+)\+(\d)$""".r
+
   def fromPgn(game: chess.format.pgn.ParsedPgn): GameRef = {
-    // todo
+    // todo: use lichess game ids instead of fics
     val gameId = game.tag("FICSGamesDBGameNo")
       .flatMap(parseLongOption)
       .map(unpackGameId)
@@ -84,8 +87,7 @@ object GameRef extends PackHelper {
       case _           => None
     }
 
-    // todo
-    val speed = SpeedGroup.Classical
+    val speed = SpeedGroup.fromTimeControl(game.tag("TimeControl").getOrElse("-"))
 
     val averageRating =
       (game.tag("WhiteElo").flatMap(parseIntOption).getOrElse(0) +
