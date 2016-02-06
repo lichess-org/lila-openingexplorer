@@ -36,12 +36,11 @@ class Database {
     probe(category, hash(situation))
 
   def probeChildren(
-      category: Category,
-      situation: Situation): Map[Move, Entry] = {
-    situation.moves.values.flatten.map {
-      case (move) => move -> probe(category, move.situationAfter)
-    }.toMap
-  }
+    category: Category,
+    situation: Situation): List[(Move, Entry)] =
+    situation.moves.values.flatten.map { move =>
+      move -> probe(category, move.situationAfter)
+    }.toList
 
   def merge(category: Category, h: Array[Byte], gameRef: GameRef) = {
     dbs(category).set(h, probe(category, h).withGameRef(gameRef).pack)
