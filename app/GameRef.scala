@@ -72,8 +72,6 @@ object GameRef extends PackHelper {
     )
   }
 
-  private val timeControl = """^(\d+)\+(\d)$""".r
-
   def fromPgn(game: chess.format.pgn.ParsedPgn): GameRef = {
     // todo: use lichess game ids instead of fics
     val gameId = game.tag("FICSGamesDBGameNo")
