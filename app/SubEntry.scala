@@ -12,6 +12,8 @@ case class SubEntry(
 
   def totalGames = whiteWins + draws + blackWins
 
+  def averageRating: Int = (averageRatingSum / totalGames).toInt
+
   def withGameRef(game: GameRef): SubEntry = {
     val intermediate = copy(
       averageRatingSum = averageRatingSum + game.averageRating,
