@@ -3,8 +3,6 @@ package controllers
 import scala.concurrent.Future
 import scala.util.Random
 
-import java.io.File
-
 import javax.inject.{Inject, Singleton}
 
 import play.api.libs.json._
@@ -12,13 +10,9 @@ import play.api._
 import play.api.mvc._
 import play.api.inject.ApplicationLifecycle
 
-import fm.last.commons.kyoto.{KyotoDb}
-import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode}
-
 import chess._
 import chess.format.Forsyth
 import chess.variant._
-import chess.Hash
 
 import lila.openingexplorer._
 
@@ -26,35 +20,10 @@ import lila.openingexplorer._
 class WebApi @Inject() (
     protected val lifecycle: ApplicationLifecycle) extends Controller {
 
-  val db = new KyotoDbBuilder("bullet.kct")
-             .modes(Mode.READ_WRITE)
-             .buckets(2 * 60 * 400000000L)  // twice the number of expected records
-             .memoryMapSize(2147483648L)  // 2 gb
-             .buildAndOpen()
+  val db = new Database()
 
   lifecycle.addStopHook { () =>
-    Future.successful(db.close())
-  }
-
-  val hash = new Hash(32)  // 128 bit Zobrist hasher
-
-  private def probe(h: Array[Byte]): Entry = {
-    Option(db.get(h)) match {
-      case Some(bytes) => Entry.unpack(bytes)
-      case None        => Entry.empty
-    }
-  }
-
-  private def probe(situation: Situation): Entry = probe(hash(situation))
-
-  private def probeChildren(situation: Situation): Map[Move, Entry] = {
-    situation.moves.values.flatten.map {
-      case (move) => move -> probe(move.situationAfter)
-    } toMap
-  }
-
-  private def merge(h: Array[Byte], entry: Entry) = {
-    db.set(h, probe(h).combine(entry).pack)
+    Future.successful(db.closeAll)
   }
 
   private def gameRefToJson(ref: GameRef): JsValue = {
@@ -65,23 +34,29 @@ class WebApi @Inject() (
     ))
   }
 
-  private def moveMapToJson(
-      children: Map[Move, Entry],
-      ratingGroups: List[RatingGroup]): JsValue = {
-    Json.toJson(children.map {
-      case (move, entry) =>
-        move.toUci.uci -> Json.toJson(Map(
-          "uci" -> Json.toJson(move.toUci.uci),
-          "san" -> Json.toJson(chess.format.pgn.Dumper(move)),
-          "total" -> Json.toJson(entry.sumGames(ratingGroups)),
-          "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
-          "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
-          "black" -> Json.toJson(entry.sumBlackWins(ratingGroups))
-        ))
-    }.toMap)
+  private def moveEntriesToJson(
+    children: List[(Move, Entry)],
+    ratingGroups: List[RatingGroup]): JsArray = JsArray {
+    children.filter(_._2.nonEmpty(ratingGroups)).sortBy(-_._2.sumGames(ratingGroups)).take(12).map {
+      case (move, entry) => Json.toJson(Map(
+        "uci" -> Json.toJson(move.toUci.uci),
+        "san" -> Json.toJson(chess.format.pgn.Dumper(move)),
+        "total" -> Json.toJson(entry.sumGames(ratingGroups)),
+        "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
+        "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
+        "black" -> Json.toJson(entry.sumBlackWins(ratingGroups))
+      ))
+    }
   }
 
-  def index() = Action { implicit req =>
+  def get(name: String) = Action { implicit req =>
+    Category.find(name) match {
+      case Some(category) => getCategory(category)
+      case None           => NotFound("category not found")
+    }
+  }
+
+  def getCategory(category: Category)(implicit req: RequestHeader) = {
     val fen = req.queryString get "fen" flatMap (_.headOption)
 
     val ratingGroups = RatingGroup.range(
@@ -89,16 +64,16 @@ class WebApi @Inject() (
       req.queryString get "maxRating" flatMap (_.headOption) flatMap parseIntOption
     )
 
-    fen.flatMap(Forsyth << _) match {
+    fen.flatMap(Forsyth << _).map(_.withVariant(category.variant)) match {
       case Some(situation) =>
-        val entry = probe(situation)
+        val entry = db.probe(category, situation)
 
         Ok(Json.toJson(Map(
           "total" -> Json.toJson(entry.sumGames(ratingGroups)),
           "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
           "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
           "black" -> Json.toJson(entry.sumBlackWins(ratingGroups)),
-          "moves" -> moveMapToJson(probeChildren(situation), ratingGroups),
+          "moves" -> moveEntriesToJson(db.probeChildren(category, situation), ratingGroups),
           "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
         ))).withHeaders(
           "Access-Control-Allow-Origin" -> "*"
@@ -108,7 +83,7 @@ class WebApi @Inject() (
     }
   }
 
-  def winner(game: chess.format.pgn.ParsedPgn) = {
+  private def winner(game: chess.format.pgn.ParsedPgn) = {
     game.tag("Result") match {
       case Some("1-0") => Some(Color.White)
       case Some("0-1") => Some(Color.Black)
@@ -123,15 +98,14 @@ class WebApi @Inject() (
     val textBody = new String(req.body.asRaw.flatMap(_.asBytes()).getOrElse(Array.empty), "UTF-8")
     val parsed = chess.format.pgn.Parser.full(textBody)
 
+    import chess.format.pgn.San
+    def truncateMoves(moves: List[San]) = moves take 40
+
     parsed match {
       case scalaz.Success(game) =>
-        val gameRef = new GameRef(Random.alphanumeric.take(8).mkString, 3000, winner(game))
-        val entry = Entry.fromGameRef(gameRef)
-
-        chess.format.pgn.Reader.fullWithSans(textBody, identity, game.tags) match {
-          case scalaz.Success(replay) if replay.moves.size >= 2 =>
+        chess.format.pgn.Reader.fullWithSans(textBody, truncateMoves, game.tags) match {
+          case scalaz.Success(replay) if replay.moves.size >= 10 =>
             // todo: use lichess game ids, not fics
-            // todo: should we index unrated games?
             val gameRef = new GameRef(
               game.tag("FICSGamesDBGameNo")
                 .flatMap(parseLongOption)
@@ -144,16 +118,14 @@ class WebApi @Inject() (
               winner(game)
             )
 
-            val entry = Entry.fromGameRef(gameRef)
-
             val hashes = (
               // the starting position
-              List(hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
+              List(db.hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
               // all others
-              replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(hash(_))
+              replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(db.hash(_))
             ).toSet
 
-            hashes.foreach { h => merge(h, entry) }
+            hashes.foreach { h => db.merge(Category.Bullet, h, gameRef) }
 
             val end = System.currentTimeMillis
             Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")

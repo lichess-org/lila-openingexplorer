@@ -21,7 +21,7 @@ A single game ref, detected by size 64 bit.
 
 Byte value 1, followed by up to 5 game refs.
 
-### Pack format 2 (for up to 256 games)
+### Pack format 2 (for up to 255 games per rating group)
 
 Byte value 2.
 
@@ -30,7 +30,7 @@ and black wins.
 
 Followed by some top game refs.
 
-### Pack format 3 (for up to 65536 games)
+### Pack format 3 (for up to 65535 games per rating group)
 
 Byte value 3.
 
@@ -39,9 +39,18 @@ and black wins.
 
 Followed by some top game refs.
 
-### Pack format 4
+### Pack format 4 (for up to 4294967295 games per rating group)
 
 Byte value 4.
+
+For each of the 11 rating groups: 32-bit integers with white wins, draws
+and black wins.
+
+Followed by some top game refs.
+
+### Pack format 5
+
+Byte value 5.
 
 For each of the 11 rating groups: 48-bit integers with white wins, draws
 and black wins.
