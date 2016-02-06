@@ -104,7 +104,6 @@ class WebApi @Inject() (
         chess.format.pgn.Reader.fullWithSans(textBody, identity, game.tags) match {
           case scalaz.Success(replay) if replay.moves.size >= 2 =>
             // todo: use lichess game ids, not fics
-            // todo: should we index unrated games?
             val gameRef = new GameRef(
               game.tag("FICSGamesDBGameNo")
                 .flatMap(parseLongOption)
