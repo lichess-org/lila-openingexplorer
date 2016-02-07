@@ -1,7 +1,7 @@
 package lila.openingexplorer
 
-import scala.util.Random
 import scala.util.matching.Regex
+import scala.util.Random
 
 import chess.Color
 
@@ -72,7 +72,7 @@ object GameRef extends PackHelper {
     )
   }
 
-  def fromPgn(game: chess.format.pgn.ParsedPgn): GameRef = {
+  def fromPgn(game: chess.format.pgn.ParsedPgn): Option[GameRef] = {
     // todo: use lichess game ids instead of fics
     val gameId = game.tag("FICSGamesDBGameNo")
       .flatMap(parseLongOption)
@@ -87,11 +87,16 @@ object GameRef extends PackHelper {
 
     val speed = SpeedGroup.fromTimeControl(game.tag("TimeControl").getOrElse("-"))
 
-    val averageRating =
-      (game.tag("WhiteElo").flatMap(parseIntOption).getOrElse(0) +
-       game.tag("BlackElo").flatMap(parseIntOption).getOrElse(0)) / 2
+    val averageRating: Option[Int] = {
+      val ratings = chess.Color.all.flatMap { c =>
+        game.tag(s"${c}Elo").flatMap(parseIntOption)
+      }
+      if (ratings.nonEmpty) Some(ratings.sum / ratings.size) else None
+    }
 
-    new GameRef(gameId, winner, speed, averageRating)
+    averageRating.map { rating =>
+      new GameRef(gameId, winner, speed, rating)
+    }
   }
 
 }

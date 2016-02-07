@@ -132,13 +132,14 @@ class WebApi @Inject() (
 
     parsed match {
       case scalaz.Success(game) if game.sans.size >= 10 =>
-        val gameRef = GameRef.fromPgn(game)
-        val hashes = collectHashes(textBody, game.tags)
+        GameRef.fromPgn(game).fold(Ok("skipped")) { gameRef =>
+          val hashes = collectHashes(textBody, game.tags)
 
-        hashes.foreach { h => masterDb.merge(h, gameRef) }
+          hashes.foreach { h => masterDb.merge(h, gameRef) }
 
-        val end = System.currentTimeMillis
-        Ok(s"thanks. time taken: ${end - start} ms")
+          val end = System.currentTimeMillis
+          Ok(s"thanks. time taken: ${end - start} ms")
+        }
 
       case scalaz.Success(game) =>
           Ok("skipped: too few moves")
