@@ -50,7 +50,7 @@ class WebApi @Inject() (
 
   def getMaster = Action { implicit req =>
     val fen = req.queryString get "fen" flatMap (_.headOption)
-    val moves = req.queryString get "moves" flatMap (_.headOption) flatMap parseIntOption getOrElse 12
+    val nbMoves = req.queryString get "moves" flatMap (_.headOption) flatMap parseIntOption getOrElse 12
 
     fen.flatMap(Forsyth << _) match {
       case Some(situation) =>
@@ -61,7 +61,7 @@ class WebApi @Inject() (
           "white" -> Json.toJson(entry.whiteWins),
           "draws" -> Json.toJson(entry.draws),
           "black" -> Json.toJson(entry.blackWins),
-          "moves" -> moveEntriesToJson(masterDb.probeChildren(situation), moves),
+          "moves" -> moveEntriesToJson(masterDb.probeChildren(situation), nbMoves),
           "averageRating" -> Json.toJson(entry.averageRating),
           "topGames" -> Json.toJson(entry.topGames.map(gameRefToJson))
         ))).withHeaders(
