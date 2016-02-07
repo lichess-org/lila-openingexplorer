@@ -123,18 +123,17 @@ class WebApi @Inject() (
     }
   }
 
-  def putMaster = Action { implicit req =>
+  def putMaster = Action(parse.tolerantText) { implicit req =>
     val start = System.currentTimeMillis
 
-    // todo: ensure this is safe
-    val textBody = new String(req.body.asRaw.flatMap(_.asBytes()).getOrElse(Array.empty), "utf-8")
-    val parsed = chess.format.pgn.Parser.full(textBody)
+    val text = req.body
+    val parsed = chess.format.pgn.Parser.full(text)
 
     parsed match {
       case scalaz.Success(game) => GameRef.fromPgn(game) match {
         case Left(error) => Ok(s"skipped: $error")
         case Right(gameRef) =>
-          val hashes = collectHashes(textBody, game.tags)
+          val hashes = collectHashes(text, game.tags)
 
           hashes.foreach { h => masterDb.merge(h, gameRef) }
 
