@@ -38,7 +38,7 @@ class Database {
   def probeChildren(
     category: Category,
     situation: Situation): List[(Move, Entry)] =
-    situation.moves.values.flatten.map { move =>
+    Util.situationMoves(situation).map { move =>
       move -> probe(category, move.situationAfter)
     }.toList
 

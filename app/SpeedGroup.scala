@@ -23,7 +23,7 @@ object SpeedGroup {
   }
 
   def apply(limit: Int, increment: Int): SpeedGroup =
-    all.find(_.range contains (limit + 40 * increment)).getOrElse(Classical)
+    SpeedGroup(chess.Speed(chess.Clock(limit, increment)))
 
   private val timeControlRegex = """(\d+)\+(\d+)""".r
 
@@ -34,7 +34,7 @@ object SpeedGroup {
         increment <- parseIntOption(i)
       } yield SpeedGroup(limit, increment)
 
-      speed.headOption.getOrElse(Classical)
+      speed.getOrElse(Classical)
 
     case _ => Classical
   }

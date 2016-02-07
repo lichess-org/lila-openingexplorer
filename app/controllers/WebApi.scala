@@ -50,7 +50,7 @@ class WebApi @Inject() (
 
   def getMaster = Action { implicit req =>
     val fen = req.queryString get "fen" flatMap (_.headOption)
-    val moves = req.queryString get "moves" flatMap (_.headOption) flatMap parseIntOption getOrElse 12
+    val nbMoves = req.queryString get "moves" flatMap (_.headOption) flatMap parseIntOption getOrElse 12
 
     fen.flatMap(Forsyth << _) match {
       case Some(situation) =>
@@ -61,7 +61,7 @@ class WebApi @Inject() (
           "white" -> Json.toJson(entry.whiteWins),
           "draws" -> Json.toJson(entry.draws),
           "black" -> Json.toJson(entry.blackWins),
-          "moves" -> moveEntriesToJson(masterDb.probeChildren(situation), moves),
+          "moves" -> moveEntriesToJson(masterDb.probeChildren(situation), nbMoves),
           "averageRating" -> Json.toJson(entry.averageRating),
           "topGames" -> Json.toJson(entry.topGames.map(gameRefToJson))
         ))).withHeaders(
@@ -106,11 +106,11 @@ class WebApi @Inject() (
     }
   } */
 
-  def collectHashes(pgn: String, tags: List[chess.format.pgn.Tag]): Set[Array[Byte]] = {
+  private def collectHashes(parsed: chess.format.pgn.ParsedPgn): Set[Array[Byte]] = {
     import chess.format.pgn.San
     def truncateMoves(moves: List[San]) = moves take 40
 
-    chess.format.pgn.Reader.fullWithSans(pgn, truncateMoves, tags) match {
+    chess.format.pgn.Reader.fullWithSans(parsed, truncateMoves _) match {
       case scalaz.Success(replay) =>
         (
           // the starting position
@@ -123,25 +123,20 @@ class WebApi @Inject() (
     }
   }
 
-  def putMaster = Action { implicit req =>
+  def putMaster = Action(parse.tolerantText) { implicit req =>
     val start = System.currentTimeMillis
 
-    // todo: ensure this is safe
-    val textBody = new String(req.body.asRaw.flatMap(_.asBytes()).getOrElse(Array.empty), "utf-8")
-    val parsed = chess.format.pgn.Parser.full(textBody)
+    chess.format.pgn.Parser.full(req.body) match {
+      case scalaz.Success(parsed) => GameRef.fromPgn(parsed) match {
+        case Left(error) => Ok(s"skipped: $error")
+        case Right(gameRef) =>
+          val hashes = collectHashes(parsed)
 
-    parsed match {
-      case scalaz.Success(game) =>
-        val gameRef = GameRef.fromPgn(game)
-        val hashes = collectHashes(textBody, game.tags)
-
-        if (hashes.size >= 10) {
           hashes.foreach { h => masterDb.merge(h, gameRef) }
 
           val end = System.currentTimeMillis
-          Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")
-        } else
-          Ok("skipped: too few moves")
+          Ok(s"thanks. time taken: ${end - start} ms")
+        }
 
       case scalaz.Failure(e) =>
         BadRequest(e.toString)

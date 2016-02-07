@@ -1,7 +1,7 @@
 package lila.openingexplorer
 
-import scala.util.Random
 import scala.util.matching.Regex
+import scala.util.Random
 
 import chess.Color
 
@@ -72,26 +72,32 @@ object GameRef extends PackHelper {
     )
   }
 
-  def fromPgn(game: chess.format.pgn.ParsedPgn): GameRef = {
-    // todo: use lichess game ids instead of fics
-    val gameId = game.tag("FICSGamesDBGameNo")
-      .flatMap(parseLongOption)
-      .map(unpackGameId)
-      .getOrElse(Random.alphanumeric.take(8).mkString)
+  def fromPgn(game: chess.format.pgn.ParsedPgn): Either[String, GameRef] =
+    if (game.sans.size < 10) Left("Too few moves")
+    else {
+      // todo: use lichess game ids instead of fics
+      val gameId = game.tag("FICSGamesDBGameNo")
+        .flatMap(parseLongOption)
+        .map(unpackGameId)
+        .getOrElse(Random.alphanumeric.take(8).mkString)
 
-    val winner = game.tag("Result") match {
-      case Some("1-0") => Some(Color.White)
-      case Some("0-1") => Some(Color.Black)
-      case _           => None
+      val winner = game.tag("Result") match {
+        case Some("1-0") => Some(Color.White)
+        case Some("0-1") => Some(Color.Black)
+        case _           => None
+      }
+
+      val speed = SpeedGroup.fromTimeControl(game.tag("TimeControl").getOrElse("-"))
+
+      val averageRating: Option[Int] = {
+        val ratings = chess.Color.all.flatMap { c =>
+          game.tag(s"${c}Elo").flatMap(parseIntOption)
+        }
+        if (ratings.nonEmpty) Some(ratings.sum / ratings.size) else None
+      }
+
+      averageRating.fold[Either[String, GameRef]](Left("No rating")) { rating =>
+        Right(new GameRef(gameId, winner, speed, rating))
+      }
     }
-
-    val speed = SpeedGroup.fromTimeControl(game.tag("TimeControl").getOrElse("-"))
-
-    val averageRating =
-      (game.tag("WhiteElo").flatMap(parseIntOption).getOrElse(0) +
-       game.tag("BlackElo").flatMap(parseIntOption).getOrElse(0)) / 2
-
-    new GameRef(gameId, winner, speed, averageRating)
-  }
-
 }
