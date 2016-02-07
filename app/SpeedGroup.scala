@@ -1,7 +1,5 @@
 package lila.openingexplorer
 
-import chess.parseIntOption
-
 sealed abstract class SpeedGroup(
     val id: Int,
     val name: String,
