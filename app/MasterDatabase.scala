@@ -2,10 +2,10 @@ package lila.openingexplorer
 
 import java.io.File
 
-import fm.last.commons.kyoto.KyotoDb
+import fm.last.commons.kyoto.{KyotoDb, WritableVisitor}
 import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode}
 
-import chess.{Hash, Situation, Move}
+import chess.{Hash, Situation, Move, PositionHash}
 
 class MasterDatabase extends MasterDatabasePacker {
 
@@ -23,7 +23,7 @@ class MasterDatabase extends MasterDatabasePacker {
 
   def probe(situation: Situation): SubEntry = probe(hash(situation))
 
-  private def probe(h: Array[Byte]): SubEntry = {
+  private def probe(h: PositionHash): SubEntry = {
     Option(db.get(h)) match {
       case Some(bytes) => unpack(bytes)
       case None        => SubEntry.empty
@@ -35,8 +35,17 @@ class MasterDatabase extends MasterDatabasePacker {
       move -> probe(move.situationAfter)
     }.toList
 
-  def merge(h: Array[Byte], gameRef: GameRef) =
-    db.set(h, pack(probe(h).withGameRef(gameRef)))
+  def mergeAll(hashes: Set[PositionHash], gameRef: GameRef) = {
+    db.accept(hashes.toArray, new WritableVisitor {
+      def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
+        pack(unpack(value).withGameRef(gameRef))
+      }
+
+      def emptyRecord(key: PositionHash): Array[Byte] = {
+        pack(SubEntry.fromGameRef(gameRef))
+      }
+    })
+  }
 
   def close = db.close()
 

@@ -10,6 +10,7 @@ import play.api.mvc._
 import play.api.inject.ApplicationLifecycle
 
 import chess.Move
+import chess.PositionHash
 import chess.format.Forsyth
 import chess.format.pgn.San
 import chess.variant._
@@ -104,7 +105,7 @@ class WebApi @Inject() (
     }
   } */
 
-  private def collectHashes(parsed: chess.format.pgn.ParsedPgn): Set[Array[Byte]] = {
+  private def collectHashes(parsed: chess.format.pgn.ParsedPgn): Set[PositionHash] = {
     import chess.format.pgn.San
     def truncateMoves(moves: List[San]) = moves take 40
 
@@ -128,9 +129,7 @@ class WebApi @Inject() (
       case scalaz.Success(parsed) => GameRef.fromPgn(parsed) match {
         case Left(error) => Ok(s"skipped: $error")
         case Right(gameRef) =>
-          val hashes = collectHashes(parsed)
-
-          hashes.foreach { h => masterDb.merge(h, gameRef) }
+          masterDb.mergeAll(collectHashes(parsed), gameRef)
 
           val end = System.currentTimeMillis
           Ok(s"thanks. time taken: ${end - start} ms")
