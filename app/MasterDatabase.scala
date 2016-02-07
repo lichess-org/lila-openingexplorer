@@ -31,7 +31,7 @@ class MasterDatabase extends MasterDatabasePacker {
   }
 
   def probeChildren(situation: Situation): List[(Move, SubEntry)] =
-    situation.moves.values.flatten.map { move =>
+    Util.situationMoves(situation).map { move =>
       move -> probe(move.situationAfter)
     }.toList
 
