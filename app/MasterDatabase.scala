@@ -36,14 +36,14 @@ class MasterDatabase extends MasterDatabasePacker {
     }.toList
 
   def mergeAll(hashes: Set[PositionHash], gameRef: GameRef) = {
+    val freshRecord = pack(SubEntry.fromGameRef(gameRef))
+
     db.accept(hashes.toArray, new WritableVisitor {
       def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
         pack(unpack(value).withGameRef(gameRef))
       }
 
-      def emptyRecord(key: PositionHash): Array[Byte] = {
-        pack(SubEntry.fromGameRef(gameRef))
-      }
+      def emptyRecord(key: PositionHash): Array[Byte] = freshRecord
     })
   }
 
