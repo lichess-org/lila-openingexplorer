@@ -106,7 +106,7 @@ class WebApi @Inject() (
     }
   } */
 
-  def collectHashes(pgn: String, tags: List[chess.format.pgn.Tag]): Set[Array[Byte]] = {
+  private def collectHashes(pgn: String, tags: List[chess.format.pgn.Tag]): Set[Array[Byte]] = {
     import chess.format.pgn.San
     def truncateMoves(moves: List[San]) = moves take 40
 
@@ -131,16 +131,16 @@ class WebApi @Inject() (
     val parsed = chess.format.pgn.Parser.full(textBody)
 
     parsed match {
-      case scalaz.Success(game) =>
+      case scalaz.Success(game) if game.sans.size >= 10 =>
         val gameRef = GameRef.fromPgn(game)
         val hashes = collectHashes(textBody, game.tags)
 
-        if (hashes.size >= 10) {
-          hashes.foreach { h => masterDb.merge(h, gameRef) }
+        hashes.foreach { h => masterDb.merge(h, gameRef) }
 
-          val end = System.currentTimeMillis
-          Ok("thanks. time taken: " ++ (end - start).toString ++ " ms")
-        } else
+        val end = System.currentTimeMillis
+        Ok(s"thanks. time taken: ${end - start} ms")
+
+      case scalaz.Success(game) =>
           Ok("skipped: too few moves")
 
       case scalaz.Failure(e) =>
