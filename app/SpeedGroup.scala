@@ -34,7 +34,7 @@ object SpeedGroup {
         increment <- parseIntOption(i)
       } yield SpeedGroup(limit, increment)
 
-      speed.headOption.getOrElse(Classical)
+      speed.getOrElse(Classical)
 
     case _ => Classical
   }
