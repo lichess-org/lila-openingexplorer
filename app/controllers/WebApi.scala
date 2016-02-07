@@ -106,11 +106,11 @@ class WebApi @Inject() (
     }
   } */
 
-  private def collectHashes(pgn: String, tags: List[chess.format.pgn.Tag]): Set[Array[Byte]] = {
+  private def collectHashes(parsed: chess.format.pgn.ParsedPgn): Set[Array[Byte]] = {
     import chess.format.pgn.San
     def truncateMoves(moves: List[San]) = moves take 40
 
-    chess.format.pgn.Reader.fullWithSans(pgn, truncateMoves, tags) match {
+    chess.format.pgn.Reader.fullWithSans(parsed, truncateMoves _) match {
       case scalaz.Success(replay) =>
         (
           // the starting position
@@ -126,14 +126,11 @@ class WebApi @Inject() (
   def putMaster = Action(parse.tolerantText) { implicit req =>
     val start = System.currentTimeMillis
 
-    val text = req.body
-    val parsed = chess.format.pgn.Parser.full(text)
-
-    parsed match {
-      case scalaz.Success(game) => GameRef.fromPgn(game) match {
+    chess.format.pgn.Parser.full(req.body) match {
+      case scalaz.Success(parsed) => GameRef.fromPgn(parsed) match {
         case Left(error) => Ok(s"skipped: $error")
         case Right(gameRef) =>
-          val hashes = collectHashes(text, game.tags)
+          val hashes = collectHashes(parsed)
 
           hashes.foreach { h => masterDb.merge(h, gameRef) }
 
