@@ -35,7 +35,7 @@ Run server
 
     sbt -Djava.library.path=/usr/local/lib/ run
 
-Index games
------------
+Index master games
+------------------
 
     python3 index-pgn.py <pgn-file>
