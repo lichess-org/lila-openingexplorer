@@ -22,7 +22,8 @@ case class SubEntry(
       averageRatingSum = averageRatingSum + game.averageRating,
       topGames =
         (game :: topGames)
-          .sortWith(_.averageRating > _.averageRating)
+          .sortWith(_.averageRating > _.averageRating),
+      recentGames = game :: recentGames
     )
 
     game.winner match {
@@ -32,9 +33,6 @@ case class SubEntry(
     }
   }
 
-  def withRecentGameRef(game: GameRef): SubEntry =
-    withGameRef(game).copy(recentGames = game :: recentGames)
-
 }
 
 object SubEntry {
@@ -42,7 +40,5 @@ object SubEntry {
   def empty = new SubEntry(0, 0, 0, 0, List.empty, List.empty)
 
   def fromGameRef(game: GameRef) = empty.withGameRef(game)
-
-  def fromRecentGameRef(game: GameRef) = empty.withRecentGameRef(game)
 
 }
