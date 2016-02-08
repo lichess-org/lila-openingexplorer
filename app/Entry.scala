@@ -16,6 +16,14 @@ case class Entry(sub: Map[Tuple2[RatingGroup, SpeedGroup], SubEntry]) {
     }
   }
 
+  def select(ratingGroups: List[RatingGroup], speedGroups: List[SpeedGroup]): SubEntry =
+    // cross product
+    (for {
+      ratingGroup <- ratingGroups
+      speedGroup <- speedGroups
+    } yield subEntry(ratingGroup, speedGroup))
+      .foldLeft(SubEntry.empty)((l, r) => l.combine(r))
+
 }
 
 object Entry {

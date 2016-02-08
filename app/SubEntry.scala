@@ -33,6 +33,17 @@ case class SubEntry(
     }
   }
 
+  def combine(other: SubEntry): SubEntry = {
+    new SubEntry(
+      whiteWins + other.whiteWins,
+      draws + other.draws,
+      blackWins + other.blackWins,
+      averageRatingSum + other.averageRatingSum,
+      (topGames ++ other.topGames).sortWith(_.averageRating > _.averageRating),
+      recentGames ++ other.recentGames
+    )
+  }
+
 }
 
 object SubEntry {
