@@ -32,7 +32,7 @@ final class Importer(
     process(pgn) map {
       case Processed(parsed, replay, gameRef) =>
         masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
-        pgnDb.store(parsed, replay)
+        pgnDb.store(gameRef.gameId, parsed, replay)
     }
   }
 

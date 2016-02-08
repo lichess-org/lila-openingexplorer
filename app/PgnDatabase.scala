@@ -26,7 +26,7 @@ final class PgnDatabase extends MasterDatabasePacker {
 
   def get(gameId: String): Option[String] = Option(db.get(gameId))
 
-  def store(parsed: ParsedPgn, replay: Replay) = {
+  def store(gameId: String, parsed: ParsedPgn, replay: Replay) = {
 
     val tags = parsed.tags.filter { tag =>
       relevantTags contains tag.name
@@ -40,9 +40,8 @@ final class PgnDatabase extends MasterDatabasePacker {
     val moves = if (fenSituation.exists(_.situation.color.black)) ".." :: pgnMoves else pgnMoves
     val initialTurn = fenSituation.map(_.fullMoveNumber) getOrElse 1
     val pgn = Pgn(tags, turns(moves, initialTurn))
-    val id = scala.util.Random.alphanumeric take 8 mkString
 
-    db.set(id, pgn.toString)
+    db.set(gameId, pgn.toString)
   }
 
   private def turns(moves: List[String], from: Int): List[Turn] =
