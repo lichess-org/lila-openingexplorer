@@ -15,11 +15,12 @@ object Util {
       }
     }._1
 
-  def situationDrops(situation: chess.Situation): List[chess.Drop] =
+  def situationDrops(situation: chess.Situation): List[chess.Drop] = {
     (for {
       role <- situation.board.crazyData.map(_.pockets(situation.color).roles.distinct).getOrElse(List.empty)
-      pos <- situation.drops.getOrElse(List.empty)
-    } yield situation.drop(role, pos).toList).flatten
+      pos <- situation.drops.getOrElse(chess.Pos.all)
+    } yield situation.drop(role, pos).toOption).flatten
+  }
 
   def situationMovesOrDrops(situation: chess.Situation): List[chess.MoveOrDrop] =
     situationMoves(situation).map(Left(_)) ::: situationDrops(situation).map(Right(_))
