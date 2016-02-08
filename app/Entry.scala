@@ -18,6 +18,15 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
     }
   }
 
+  def withExistingGameRef(game: GameRef): Entry = {
+    RatingGroup.find(game.averageRating) match {
+      case Some(ratingGroup) =>
+        new Entry(sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withExistingGameRef(game)))
+      case None =>
+        this  // rating too low
+    }
+  }
+
   def select(ratings: List[RatingGroup], speeds: List[SpeedGroup]): SubEntry =
     selectGroups(Entry.groups(ratings, speeds))
 

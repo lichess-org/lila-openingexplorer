@@ -24,7 +24,8 @@ class LichessDatabasePackerTest extends Specification with LichessDatabasePacker
     }
 
     "pack thousands of games" in {
-      val subEntry = new SubEntry(98765, 54321, 12345, 123456789L, List.empty, List.empty)
+      val g1 = GameRef("g0000001", Some(Color.White), SpeedGroup.Blitz, 2033)
+      val subEntry = new SubEntry(98765, 54321, 12345, 123456789L, List(g1), List(g1))
       val entry = new Entry(Map((RatingGroup.Group2000, SpeedGroup.Blitz) -> subEntry))
       val restored = unpack(pack(entry))
 
@@ -32,6 +33,9 @@ class LichessDatabasePackerTest extends Specification with LichessDatabasePacker
       restored.selectAll.draws mustEqual 54321
       restored.selectAll.blackWins mustEqual 12345
       restored.selectAll.averageRatingSum mustEqual 123456789L
+
+      restored.selectAll.recentGames mustEqual List(g1)
+      restored.selectAll.topGames mustEqual List(g1)
     }
 
     "preserve chronological order" in {

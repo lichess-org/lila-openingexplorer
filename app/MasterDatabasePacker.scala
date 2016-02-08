@@ -7,7 +7,7 @@ trait MasterDatabasePacker extends PackHelper {
       Array.empty
     else if (entry.totalGames == 1)
       entry.recentGames.head.pack
-    else if (entry.totalGames <= MasterDatabasePacker.maxGames)
+    else if (entry.totalGames <= MasterDatabasePacker.maxTopGames)  // todo: calculate optimum
       Array(1.toByte) ++ entry.recentGames.map(_.pack).flatten
     else if (entry.maxPerWinner < 256)
       packMulti(entry, 2, packUint8)
@@ -28,7 +28,7 @@ trait MasterDatabasePacker extends PackHelper {
       helper(entry.draws) ++
       helper(entry.blackWins) ++
       packUint48(entry.averageRatingSum) ++
-      entry.topGames.take(MasterDatabasePacker.maxGames).map(_.pack).flatten
+      entry.topGames.take(MasterDatabasePacker.maxTopGames).map(_.pack).flatten
   }
 
   protected def unpack(b: Array[Byte]): SubEntry = {
@@ -76,6 +76,6 @@ trait MasterDatabasePacker extends PackHelper {
 
 object MasterDatabasePacker {
 
-  val maxGames = 5
+  val maxTopGames = 5
 
 }
