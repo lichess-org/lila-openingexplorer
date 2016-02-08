@@ -20,12 +20,14 @@ class WebApi @Inject() (
 
   val masterDb = new MasterDatabase()
   val lichessDb = new LichessDatabase()
+  val pgnDb = new PgnDatabase()
   val importer = new Importer(masterDb, lichessDb)
 
   lifecycle.addStopHook { () =>
     Future.successful {
       masterDb.close
       lichessDb.closeAll
+      pgnDb.close
     }
   }
 
@@ -50,7 +52,7 @@ class WebApi @Inject() (
   }
 
   def getMasterPgn(gameId: String) = Action { implicit req =>
-    masterDb.getPgn(gameId) match {
+    pgnDb.get(gameId) match {
       case Some(pgn) => Ok(pgn)
       case None      => NotFound("game not found")
     }
