@@ -5,3 +5,4 @@ GET /master controllers.WebApi.getMaster
 PUT /master controllers.WebApi.putMaster
 
 GET /lichess controllers.WebApi.getLichess
+PUT /lichess/:variant controllers.WebApi.putLichess(variant: String)
