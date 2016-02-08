@@ -7,7 +7,7 @@ trait MasterDatabasePacker extends PackHelper {
       Array.empty
     else if (entry.totalGames == 1)
       entry.recentGames.head.pack
-    else if (entry.totalGames <= MasterDatabasePacker.maxTopGames)  // todo: calculate optimum
+    else if (entry.totalGames <= 6)  // carefully calculated boundary
       Array(1.toByte) ++ entry.recentGames.map(_.pack).flatten
     else if (entry.maxPerWinner < 256)
       packMulti(entry, 2, packUint8)

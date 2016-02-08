@@ -7,7 +7,7 @@ trait LichessDatabasePacker extends PackHelper {
       Array.empty
     else if (entry.totalGames == 1)
       entry.selectAll.recentGames.head.pack
-    else if (entry.totalGames < 5)  // todo: calculate optimum
+    else if (entry.totalGames <= 50)  // carefully calculated boundary
       Array(1.toByte) ++ entry.selectAll.recentGames.map(_.pack).flatten
     else if (entry.maxPerWinnerAndGroup < 256)
       packMulti(entry, 2, packUint8)
