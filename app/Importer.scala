@@ -23,14 +23,14 @@ final class Importer(
       }
     } foreach {
       case (parsed, gameRef) =>
-        lichessDb.mergeAll(variant, collectHashes(parsed, LichessDatabase.hash), gameRef)
+        lichessDb.merge(variant, gameRef, collectHashes(parsed, LichessDatabase.hash))
     }
   }
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
     process(pgn) map {
       case (parsed, gameRef) =>
-        masterDb.mergeAll(collectHashes(parsed, MasterDatabase.hash), gameRef)
+        masterDb.merge(gameRef, collectHashes(parsed, MasterDatabase.hash))
     }
   }
 

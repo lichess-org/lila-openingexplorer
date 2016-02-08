@@ -3,20 +3,31 @@ package lila.openingexplorer
 import java.io.File
 
 import fm.last.commons.kyoto.{KyotoDb, WritableVisitor}
-import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode}
+import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode, Compressor, PageComparator}
 
 import chess.{Hash, Situation, Move, PositionHash}
 
 final class MasterDatabase extends MasterDatabasePacker {
 
-  private val file = new File("data/master.kct")
-
-  file.createNewFile
+  private val dbFile = new File("data/master.kct")
+  dbFile.createNewFile
 
   private val db =
-    new KyotoDbBuilder(file)
+    new KyotoDbBuilder(dbFile)
       .modes(Mode.CREATE, Mode.READ_WRITE)
+      .pageComparator(PageComparator.LEXICAL)
       .buckets(2000000L * 40)
+      .buildAndOpen
+
+  private val pgnFile = new File("data/master-pgn.kct")
+  pgnFile.createNewFile
+
+  private val pgnDb =
+    new KyotoDbBuilder(pgnFile)
+      .modes(Mode.CREATE, Mode.READ_WRITE)
+      .buckets(2000000L)
+      .compressor(Compressor.LZMA)
+      .pageComparator(PageComparator.LEXICAL)
       .buildAndOpen
 
   def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))
@@ -33,7 +44,7 @@ final class MasterDatabase extends MasterDatabasePacker {
       move -> probe(move.situationAfter)
     }.toList
 
-  def mergeAll(hashes: Set[PositionHash], gameRef: GameRef) = {
+  def merge(gameRef: GameRef, hashes: Set[PositionHash]) = {
     val freshRecord = pack(SubEntry.fromGameRef(gameRef))
 
     db.accept(hashes.toArray, new WritableVisitor {
@@ -45,7 +56,14 @@ final class MasterDatabase extends MasterDatabasePacker {
     })
   }
 
-  def close = db.close()
+  def getPgn(gameId: String): Option[String] = Option(pgnDb.get(gameId))
+
+  def storePgn(gameId: String, pgn: String) = pgnDb.set(gameId, pgn)
+
+  def close = {
+    db.close()
+    pgnDb.close()
+  }
 
 }
 

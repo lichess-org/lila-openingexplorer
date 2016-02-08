@@ -28,7 +28,7 @@ final class LichessDatabase {
 
   def probeChildren(situation: Situation): List[(Move, SubEntry)] = ???
 
-  def mergeAll(variant: Variant, hashes: Set[PositionHash], gameRef: GameRef) = ???
+  def merge(variant: Variant, gameRef: GameRef, hashes: Set[PositionHash]) = ???
 
   def closeAll = {
     dbs.values.foreach { db =>

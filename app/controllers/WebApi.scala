@@ -46,6 +46,13 @@ class WebApi @Inject() (
       })
   }
 
+  def getMasterPgn(gameId: String) = Action { implicit req =>
+    masterDb.getPgn(gameId) match {
+      case Some(pgn) => Ok(pgn)
+      case None      => NotFound("game not found")
+    }
+  }
+
   def getLichess = Action { implicit req =>
     Forms.lichess.form.bindFromRequest.fold(
       err => BadRequest(err.toString),
