@@ -7,6 +7,8 @@ case class Entry(sub: Map[Tuple2[RatingGroup, SpeedGroup], SubEntry]) {
 
   def totalGames = sub.values.map(_.totalGames).sum
 
+  def maxPerWinnerAndGroup = sub.values.map(_.maxPerWinner).max
+
   def withGameRef(game: GameRef): Entry = {
     RatingGroup.find(game.averageRating) match {
       case Some(ratingGroup) =>
@@ -16,15 +18,13 @@ case class Entry(sub: Map[Tuple2[RatingGroup, SpeedGroup], SubEntry]) {
     }
   }
 
-  def select(ratingGroups: List[RatingGroup], speedGroups: List[SpeedGroup]): SubEntry =
-    // cross product
-    (for {
-      ratingGroup <- ratingGroups
-      speedGroup <- speedGroups
-    } yield subEntry(ratingGroup, speedGroup))
-      .foldLeft(SubEntry.empty)((l, r) => l.combine(r))
+  def select(ratings: List[RatingGroup], speeds: List[SpeedGroup]): SubEntry =
+    selectGroups(Entry.groups(ratings, speeds))
 
-  def selectAll = select(RatingGroup.all, SpeedGroup.all)
+  def selectAll: SubEntry = selectGroups(Entry.allGroups)
+
+  def selectGroups(groups: List[Tuple2[RatingGroup, SpeedGroup]]): SubEntry =
+    groups.map((g) => subEntry(g._1, g._2)).foldLeft(SubEntry.empty)((l, r) => l.combine(r))
 
 }
 
@@ -33,5 +33,17 @@ object Entry {
   def empty = Entry(Map.empty)
 
   def fromGameRef(game: GameRef) = Entry.empty.withGameRef(game)
+
+  def groups(
+      ratings: List[RatingGroup],
+      speeds: List[SpeedGroup]): List[Tuple2[RatingGroup, SpeedGroup]] = {
+    // cross product
+    for {
+      ratingGroup <- ratings
+      speedGroup <- speeds
+    } yield (ratingGroup, speedGroup)
+  }
+
+  val allGroups = groups(RatingGroup.all, SpeedGroup.all)
 
 }
