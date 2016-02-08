@@ -17,7 +17,7 @@ final class LichessDatabase {
       val db =
         new KyotoDbBuilder(file)
           .modes(Mode.CREATE, Mode.READ_WRITE)
-          .buckets(140000000L * 60 / 2) // at least 10% of expected records
+          .buckets(140000000L * 40 / 2) // at least 10% of expected records
           .buildAndOpen
 
       variant -> db
