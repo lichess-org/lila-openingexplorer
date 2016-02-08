@@ -1,6 +1,8 @@
 package controllers
 
+import ornicar.scalalib.Validation
 import scala.concurrent.Future
+import scalaz.{ Success, Failure }
 
 import javax.inject.{ Inject, Singleton }
 
@@ -9,17 +11,15 @@ import play.api.inject.ApplicationLifecycle
 import play.api.mvc._
 
 import chess.format.Forsyth
-import chess.format.pgn.San
-import chess.PositionHash
-import chess.variant._
 
 import lila.openingexplorer._
 
 @Singleton
 class WebApi @Inject() (
-    protected val lifecycle: ApplicationLifecycle) extends Controller {
+    protected val lifecycle: ApplicationLifecycle) extends Controller with Validation {
 
   val masterDb = new MasterDatabase()
+  val importer = new Importer(masterDb)
 
   lifecycle.addStopHook { () =>
     Future.successful(masterDb.close)
@@ -88,39 +88,18 @@ class WebApi @Inject() (
     }
   } */
 
-  private def collectHashes(parsed: chess.format.pgn.ParsedPgn): Set[PositionHash] = {
-    import chess.format.pgn.San
-    def truncateMoves(moves: List[San]) = moves take 40
-
-    chess.format.pgn.Reader.fullWithSans(parsed, truncateMoves _) match {
-      case scalaz.Success(replay) =>
-        (
-          // the starting position
-          List(masterDb.hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
-          // all others
-          replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(masterDb.hash(_))
-        ).toSet
-      case scalaz.Failure(e) =>
-        Set.empty
-    }
-  }
-
   def putMaster = Action(parse.tolerantText) { implicit req =>
-    val start = System.currentTimeMillis
-
-    chess.format.pgn.Parser.full(req.body) match {
-      case scalaz.Success(parsed) => GameRef.fromPgn(parsed) match {
-        case Left(error) => Ok(s"skipped: $error")
-        case Right(gameRef) =>
-          masterDb.mergeAll(collectHashes(parsed), gameRef)
-
-          val end = System.currentTimeMillis
-          Ok(s"thanks. time taken: ${end - start} ms")
-      }
-
-      case scalaz.Failure(e) =>
-        BadRequest(e.toString)
+    importer.master(req.body) match {
+      case (Success(_), ms)      => Ok(s"$ms ms")
+      case (Failure(errors), ms) => BadRequest(errors.list.mkString)
     }
   }
 
+  def putLichess(variantKey: String) = Action(parse.tolerantText) { implicit req =>
+    chess.variant.Variant.byKey.get(variantKey).fold(BadRequest(s"Unknown variant $variantKey")) { variant =>
+      importer.lichess(variant, req.body) match {
+        case (_, ms) => Ok(s"$ms ms")
+      }
+    }
+  }
 }
