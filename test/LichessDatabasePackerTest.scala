@@ -23,6 +23,17 @@ class LichessDatabasePackerTest extends Specification with LichessDatabasePacker
       unpack(pack(entry)).selectAll.topGames.toSet mustEqual Set(g1, g2)
     }
 
+    "preserve chronological order" in {
+      val g1 = new GameRef("g0000001", None, SpeedGroup.Classical, 2620)
+      val g2 = new GameRef("g0000002", None, SpeedGroup.Classical, 2610)
+      val g3 = new GameRef("g0000003", None, SpeedGroup.Classical, 2650)
+
+      val entry = Entry.fromGameRef(g1).withGameRef(g2).withGameRef(g3)
+      entry.selectAll.recentGames mustEqual List(g3, g2, g1)
+
+      unpack(pack(entry)).selectAll.recentGames mustEqual List(g3, g2, g1)
+    }
+
   }
 
 }
