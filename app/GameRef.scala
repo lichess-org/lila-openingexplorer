@@ -76,7 +76,6 @@ object GameRef extends PackHelper with Validation {
   def fromPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] =
     if (game.sans.size < 10) Left("Too few moves")
     else {
-      // todo: use lichess game ids instead of fics
       val gameId = game.tag("LichessID") orElse {
         game.tag("FICSGamesDBGameNo") flatMap parseLongOption map unpackGameId
       } getOrElse Random.alphanumeric.take(8).mkString
