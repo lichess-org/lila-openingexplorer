@@ -7,9 +7,7 @@ import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode}
 
 import chess.{Hash, Situation, Move, PositionHash}
 
-class MasterDatabase extends MasterDatabasePacker {
-
-  val hash = new Hash(32)  // 128 bit Zobrist hasher
+final class MasterDatabase extends MasterDatabasePacker {
 
   private val file = new File("data/master.kct")
 
@@ -21,7 +19,7 @@ class MasterDatabase extends MasterDatabasePacker {
       .buckets(2000000L * 40)
       .buildAndOpen
 
-  def probe(situation: Situation): SubEntry = probe(hash(situation))
+  def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))
 
   private def probe(h: PositionHash): SubEntry = {
     Option(db.get(h)) match {
@@ -53,6 +51,7 @@ class MasterDatabase extends MasterDatabasePacker {
 
 object MasterDatabase {
 
-  val maxGames = 5
+  val hash = new Hash(32)  // 128 bit Zobrist hasher
 
+  val maxGames = 5
 }

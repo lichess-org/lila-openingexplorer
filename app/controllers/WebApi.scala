@@ -19,7 +19,8 @@ class WebApi @Inject() (
     protected val lifecycle: ApplicationLifecycle) extends Controller with Validation {
 
   val masterDb = new MasterDatabase()
-  val importer = new Importer(masterDb)
+  val lichessDb = new LichessDatabase()
+  val importer = new Importer(masterDb, lichessDb)
 
   lifecycle.addStopHook { () =>
     Future.successful(masterDb.close)
