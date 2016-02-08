@@ -10,7 +10,9 @@ import chess.{ Hash, PositionHash, Situation, Move }
 
 final class LichessDatabase {
 
-  private val dbs = Variant.all.map({
+  private val variants = Variant.all.filter(chess.variant.FromPosition!=)
+
+  private val dbs = variants.map({
     case variant =>
       val file = new File(s"data/${variant.key}.kct")
       file.createNewFile
