@@ -8,8 +8,8 @@ object Forms {
   private val moves = (1 to 20)
   private val movesDefault = 12
 
-  private val variants = List("standard", "crazyhouse")
-  private val speeds = List("bullet", "blitz", "classical")
+  private val variants = chess.variant.Variant.all.map(_.key)
+  private val speeds = SpeedGroup.all.map(_.name)
   private val ratings = RatingGroup.all.map(_.range.min)
 
   object master {
