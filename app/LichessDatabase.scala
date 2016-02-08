@@ -6,7 +6,7 @@ import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, Mode, PageComparator }
 import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 
 import chess.variant.Variant
-import chess.{ Hash, PositionHash, Situation, Move }
+import chess.{ Hash, PositionHash, Situation, MoveOrDrop }
 
 final class LichessDatabase extends LichessDatabasePacker {
 
@@ -38,9 +38,9 @@ final class LichessDatabase extends LichessDatabasePacker {
     }
   }
 
-  def probeChildren(situation: Situation, request: Request): List[(Move, SubEntry)] =
-    Util.situationMoves(situation).map { move =>
-      move -> probe(move.situationAfter, request)
+  def probeChildren(situation: Situation, request: Request): List[(MoveOrDrop, SubEntry)] =
+    Util.situationMovesOrDrops(situation).map { move =>
+      move -> probe(move.fold(_.situationAfter, _.situationAfter), request)
     }.toList
 
   def merge(variant: Variant, gameRef: GameRef, hashes: Set[PositionHash]) = {

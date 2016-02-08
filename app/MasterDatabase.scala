@@ -5,7 +5,7 @@ import java.io.File
 import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, Mode, PageComparator }
 
-import chess.{Hash, Situation, Move, PositionHash}
+import chess.{Hash, Situation, MoveOrDrop, PositionHash}
 
 final class MasterDatabase extends MasterDatabasePacker {
 
@@ -28,9 +28,9 @@ final class MasterDatabase extends MasterDatabasePacker {
     }
   }
 
-  def probeChildren(situation: Situation): List[(Move, SubEntry)] =
-    Util.situationMoves(situation).map { move =>
-      move -> probe(move.situationAfter)
+  def probeChildren(situation: Situation): List[(MoveOrDrop, SubEntry)] =
+    Util.situationMovesOrDrops(situation).map { move =>
+      move -> probe(move.fold(_.situationAfter, _.situationAfter))
     }.toList
 
   def merge(gameRef: GameRef, hashes: Set[PositionHash]) = {
