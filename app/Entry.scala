@@ -23,8 +23,19 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
 
   def selectAll: SubEntry = selectGroups(Entry.allGroups)
 
-  def selectGroups(groups: List[(RatingGroup, SpeedGroup)]): SubEntry =
-    groups.map((g) => subEntry(g._1, g._2)).foldLeft(SubEntry.empty)((l, r) => l.combine(r))
+  def selectGroups(groups: List[(RatingGroup, SpeedGroup)]): SubEntry = {
+    val subEntries = groups.map((g) => subEntry(g._1, g._2))
+
+    new SubEntry(
+      subEntries.map(_.whiteWins).sum,
+      subEntries.map(_.draws).sum,
+      subEntries.map(_.blackWins).sum,
+      subEntries.map(_.averageRatingSum).sum,
+      subEntries.map(_.topGames).flatten.sortWith(_.averageRating > _.averageRating),
+      // interleave recent games
+      subEntries.map(_.recentGames).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)
+    )
+  }
 
 }
 

@@ -17,13 +17,16 @@ case class SubEntry(
 
   def maxPerWinner = math.max(math.max(whiteWins, blackWins), draws)
 
-  def withGameRef(game: GameRef): SubEntry = {
-    val intermediate = copy(
-      averageRatingSum = averageRatingSum + game.averageRating,
-      topGames =
-        (game :: topGames)
-          .sortWith(_.averageRating > _.averageRating),
+  def withExistingGameRef(game: GameRef): SubEntry = {
+    copy(
+      topGames = (game :: topGames).sortWith(_.averageRating > _.averageRating),
       recentGames = game :: recentGames
+    )
+  }
+
+  def withGameRef(game: GameRef): SubEntry = {
+    val intermediate = withExistingGameRef(game).copy(
+      averageRatingSum = averageRatingSum + game.averageRating
     )
 
     game.winner match {
