@@ -90,7 +90,7 @@ class WebApi @Inject() (
 
   private def collectHashes(parsed: chess.format.pgn.ParsedPgn): Set[PositionHash] = {
     import chess.format.pgn.San
-    def truncateMoves(moves: List[San]) = moves take 40
+    def truncateMoves(moves: List[San]) = moves take 50
 
     chess.format.pgn.Reader.fullWithSans(parsed, truncateMoves _) match {
       case scalaz.Success(replay) =>
