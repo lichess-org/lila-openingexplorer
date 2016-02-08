@@ -7,8 +7,34 @@ trait LichessDatabasePacker extends PackHelper {
       Array.empty
     else if (entry.totalGames == 1)
       entry.selectAll.recentGames.head.pack
-    else
+    else if (entry.totalGames < 5)  // todo: calculate optimum
       Array(1.toByte) ++ entry.selectAll.recentGames.map(_.pack).flatten
+    else if (entry.maxPerWinnerAndGroup < 256)
+      packMulti(entry, 2, packUint8)
+    else if (entry.maxPerWinnerAndGroup < 65536)
+      packMulti(entry, 3, packUint16)
+    else if (entry.maxPerWinnerAndGroup < 4294967296L)
+      packMulti(entry, 4, packUint32)
+    else
+      packMulti(entry, 5, packUint48)
+  }
+
+  private def packMulti(
+      entry: Entry,
+      meta: Int,
+      helper: Long => Array[Byte]): Array[Byte] = {
+    packUint8(meta) ++
+      Entry.allGroups.map((g) => packSubEntry(entry.subEntry(g._1, g._2), helper)).flatten
+      // todo: append some top/recent games
+  }
+
+  private def packSubEntry(
+      subEntry: SubEntry,
+      helper: Long => Array[Byte]): Array[Byte] = {
+    helper(subEntry.whiteWins) ++
+      helper(subEntry.draws) ++
+      helper(subEntry.blackWins) ++
+      packUint48(subEntry.averageRatingSum)
   }
 
   protected def unpack(b: Array[Byte]): Entry = {
@@ -24,7 +50,40 @@ trait LichessDatabasePacker extends PackHelper {
           .foldRight(Entry.empty)({
             case (l, r) => r.withGameRef(l)
           })
+      case 2 =>
+        unpackMulti(b, unpackUint8, 1)
+      case 3 =>
+        unpackMulti(b, unpackUint16, 2)
+      case 4 =>
+        unpackMulti(b, unpackUint32, 4)
+      case 8 =>
+        unpackMulti(b, unpackUint48, 6)
     }
+  }
+
+  private def unpackMulti(
+      b: Array[Byte],
+      helper: Array[Byte] => Long,
+      width: Int): Entry = {
+    val entry = new Entry(Entry.allGroups.zipWithIndex.map({ case (g, i) =>
+      g -> unpackSubEntry(b.drop(1 + i * (width + width + width + 6)), helper, width)
+    }).toMap)
+
+    // todo: add in recent games
+    entry
+  }
+
+  private def unpackSubEntry(
+      b: Array[Byte],
+      helper: Array[Byte] => Long,
+      width: Int): SubEntry = {
+    new SubEntry(
+      helper(b),
+      helper(b.drop(width)),
+      helper(b.drop(width + width)),
+      unpackUint48(b.drop(width + width + width)),
+      List.empty, List.empty
+    )
   }
 
 }

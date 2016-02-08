@@ -1,6 +1,6 @@
 package lila.openingexplorer
 
-case class Entry(sub: Map[Tuple2[RatingGroup, SpeedGroup], SubEntry]) {
+case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
 
   def subEntry(ratingGroup: RatingGroup, speedGroup: SpeedGroup): SubEntry =
     sub.getOrElse((ratingGroup, speedGroup), SubEntry.empty)
@@ -23,7 +23,7 @@ case class Entry(sub: Map[Tuple2[RatingGroup, SpeedGroup], SubEntry]) {
 
   def selectAll: SubEntry = selectGroups(Entry.allGroups)
 
-  def selectGroups(groups: List[Tuple2[RatingGroup, SpeedGroup]]): SubEntry =
+  def selectGroups(groups: List[(RatingGroup, SpeedGroup)]): SubEntry =
     groups.map((g) => subEntry(g._1, g._2)).foldLeft(SubEntry.empty)((l, r) => l.combine(r))
 
 }
@@ -36,7 +36,7 @@ object Entry {
 
   def groups(
       ratings: List[RatingGroup],
-      speeds: List[SpeedGroup]): List[Tuple2[RatingGroup, SpeedGroup]] = {
+      speeds: List[SpeedGroup]): List[(RatingGroup, SpeedGroup)] = {
     // cross product
     for {
       ratingGroup <- ratings
