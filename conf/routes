@@ -2,6 +2,7 @@
 # PUT / controllers.WebApi.put()
 
 GET /master controllers.WebApi.getMaster
+GET /master/pgn/:gameId controllers.WebApi.getMasterPgn(gameId: String)
 PUT /master controllers.WebApi.putMaster
 
 GET /lichess controllers.WebApi.getLichess
