@@ -1,8 +1,8 @@
 package lila.openingexplorer
 
+import ornicar.scalalib.Validation
 import scala.util.matching.Regex
 import scala.util.Random
-import ornicar.scalalib.Validation
 
 import chess.Color
 
@@ -77,10 +77,9 @@ object GameRef extends PackHelper with Validation {
     if (game.sans.size < 10) Left("Too few moves")
     else {
       // todo: use lichess game ids instead of fics
-      val gameId = game.tag("FICSGamesDBGameNo")
-        .flatMap(parseLongOption)
-        .map(unpackGameId)
-        .getOrElse(Random.alphanumeric.take(8).mkString)
+      val gameId = game.tag("LichessID") orElse {
+        game.tag("FICSGamesDBGameNo") flatMap parseLongOption map unpackGameId
+      } getOrElse Random.alphanumeric.take(8).mkString
 
       val winner = game.tag("Result") match {
         case Some("1-0") => Some(Color.White)

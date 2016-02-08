@@ -12,10 +12,12 @@ final class Importer(
     lichessDb: LichessDatabase,
     pgnDb: PgnDatabase) extends Validation {
 
-  private val lichessSeparator = "\n\n"
+  private val lichessSeparator = "\n\n\n"
 
   def lichess(variant: Variant, text: String): (Unit, Int) = Time {
-    text.split(lichessSeparator).toList flatMap { pgn =>
+    val pgns = text.split(lichessSeparator)
+    pgns flatMap { origPgn =>
+      val pgn = if (variant.exotic) s"[Variant ${variant.name}]\n$origPgn" else origPgn
       process(pgn) match {
         case scalaz.Success(processed) => Some(processed)
         case scalaz.Failure(errors) =>
@@ -26,6 +28,7 @@ final class Importer(
       case Processed(_, replay, gameRef) =>
         lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
     }
+    play.api.Logger("importer").info(pgns.size.toString)
   }
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
