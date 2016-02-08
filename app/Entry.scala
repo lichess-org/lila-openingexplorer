@@ -24,6 +24,8 @@ case class Entry(sub: Map[Tuple2[RatingGroup, SpeedGroup], SubEntry]) {
     } yield subEntry(ratingGroup, speedGroup))
       .foldLeft(SubEntry.empty)((l, r) => l.combine(r))
 
+  def selectAll = select(RatingGroup.all, SpeedGroup.all)
+
 }
 
 object Entry {

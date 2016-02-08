@@ -12,7 +12,7 @@ class LichessDatabasePackerTest extends Specification with LichessDatabasePacker
       val ref = GameRef("ref00000", Some(Color.White), SpeedGroup.Bullet, 1999)
       val entry = Entry.fromGameRef(ref)
 
-      unpack(pack(entry)).select(RatingGroup.all, SpeedGroup.all).topGames mustEqual List(ref)
+      unpack(pack(entry)).selectAll.topGames mustEqual List(ref)
     }
 
     "pack two games" in {
@@ -20,7 +20,7 @@ class LichessDatabasePackerTest extends Specification with LichessDatabasePacker
       val g2 = GameRef("g0000002", None, SpeedGroup.Classical, 2455)
       val entry = Entry.fromGameRef(g1).withGameRef(g2)
 
-      unpack(pack(entry)).select(RatingGroup.all, SpeedGroup.all).topGames.toSet mustEqual Set(g1, g2)
+      unpack(pack(entry)).selectAll.topGames.toSet mustEqual Set(g1, g2)
     }
 
   }

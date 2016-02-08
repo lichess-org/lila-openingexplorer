@@ -6,9 +6,9 @@ trait MasterDatabasePacker extends PackHelper {
     if (entry.totalGames == 0)
       Array.empty
     else if (entry.totalGames == 1)
-      entry.topGames.head.pack
+      entry.recentGames.head.pack
     else if (entry.totalGames <= MasterDatabasePacker.maxGames)
-      Array(1.toByte) ++ entry.topGames.map(_.pack).flatten
+      Array(1.toByte) ++ entry.recentGames.map(_.pack).flatten
     else if (entry.maxPerWinner < 256)
       packMulti(entry, 2, packUint8)
     else if (entry.maxPerWinner < 65536)
@@ -41,8 +41,8 @@ trait MasterDatabasePacker extends PackHelper {
         b.drop(1)
           .grouped(GameRef.packSize)
           .map(GameRef.unpack _)
-          .foldLeft(SubEntry.empty)({
-            case (l, r) => l.withGameRef(r)
+          .foldRight(SubEntry.empty)({
+            case (l, r) => r.withGameRef(l)
           })
       case 2 =>
         unpackMulti(b, unpackUint8, 1)
