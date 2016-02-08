@@ -20,13 +20,13 @@ final class Importer(db: MasterDatabase) extends Validation {
           None
       }
     } foreach {
-      case (parsed, gameRef) => db.mergeAll(collectHashes(parsed), gameRef)
+      case (parsed, gameRef) => db.merge(gameRef, collectHashes(parsed))
     }
   }
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
     process(pgn) map {
-      case (parsed, gameRef) => db.mergeAll(collectHashes(parsed), gameRef)
+      case (parsed, gameRef) => db.merge(gameRef, collectHashes(parsed))
     }
   }
 
