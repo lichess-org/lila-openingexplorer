@@ -2,8 +2,8 @@ package lila.openingexplorer
 
 import java.io.File
 
-import fm.last.commons.kyoto.{KyotoDb, WritableVisitor}
-import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode, Compressor, PageComparator}
+import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
+import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, Mode, PageComparator }
 
 import chess.{Hash, Situation, Move, PositionHash}
 
