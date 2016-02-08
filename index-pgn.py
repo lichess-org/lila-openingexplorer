@@ -22,7 +22,7 @@ def send(buf):
         res = requests.put("http://localhost:9000/master", data=buf.encode("utf-8"))
         print("[%d, %.01fms] HTTP %d: %s" % (next(c), (time.time() - t) * 1000, res.status_code, res.text))
         if res.status_code != 200:
-            print(pgn)
+            print(buf)
     else:
         next(c)
 

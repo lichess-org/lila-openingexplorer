@@ -2,6 +2,7 @@ package lila.openingexplorer
 
 import scala.util.matching.Regex
 import scala.util.Random
+import ornicar.scalalib.Validation
 
 import chess.Color
 
@@ -33,7 +34,7 @@ case class GameRef(
 
 }
 
-object GameRef extends PackHelper {
+object GameRef extends PackHelper with Validation {
 
   val packSize = 8
 
@@ -72,7 +73,7 @@ object GameRef extends PackHelper {
     )
   }
 
-  def fromPgn(game: chess.format.pgn.ParsedPgn): Either[String, GameRef] =
+  def fromPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] =
     if (game.sans.size < 10) Left("Too few moves")
     else {
       // todo: use lichess game ids instead of fics
