@@ -13,6 +13,7 @@ object JsonView {
     "black" -> entry.blackWins,
     "moves" -> moveEntries(children),
     "averageRating" -> entry.averageRating,
+    "recentGames" -> entry.recentGames.map(gameRef),
     "topGames" -> entry.topGames.map(gameRef))
 
   def moveEntries(elems: List[(Move, SubEntry)]) = JsArray {
