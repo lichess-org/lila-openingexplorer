@@ -34,21 +34,19 @@ class WebApi @Inject() (
   def getMaster = Action { implicit req =>
     Forms.master.form.bindFromRequest.fold(
       err => BadRequest(err.toString),
-      data => {
-        (Forsyth << data.fen) match {
-          case Some(situation) =>
-            val entry = masterDb.probe(situation)
-            val children = masterDb.probeChildren(situation)
-              .filter(_._2.totalGames > 0)
-              .sortBy(-_._2.totalGames)
-              .take(data.movesOrDefault)
-            Ok(JsonView.entry(entry, children)).withHeaders(
-              "Access-Control-Allow-Origin" -> "*"
-            )
-          case None =>
-            BadRequest("valid fen required")
-        }
-      })
+      data => (Forsyth << data.fen) match {
+        case Some(situation) =>
+          val entry = masterDb.probe(situation)
+          val children = masterDb.probeChildren(situation)
+            .filter(_._2.totalGames > 0)
+            .sortBy(-_._2.totalGames)
+            .take(data.movesOrDefault)
+          Ok(JsonView.entry(entry, children)).withHeaders(
+            "Access-Control-Allow-Origin" -> "*"
+          )
+        case None => BadRequest("valid fen required")
+      }
+    )
   }
 
   def getMasterPgn(gameId: String) = Action { implicit req =>
@@ -61,10 +59,23 @@ class WebApi @Inject() (
   def getLichess = Action { implicit req =>
     Forms.lichess.form.bindFromRequest.fold(
       err => BadRequest(err.toString),
-      data => {
-        println(data)
-        Ok
-      })
+      data => (Forsyth << data.fen) match {
+        case Some(situation) =>
+          val request = LichessDatabase.Request(
+            variant = data.actualVariant,
+            speeds = data.speedGroups,
+            ratings = data.ratingGroups)
+          val entry = lichessDb.probe(situation, request)
+          val children = lichessDb.probeChildren(situation, request)
+            .filter(_._2.totalGames > 0)
+            .sortBy(-_._2.totalGames)
+            .take(data.movesOrDefault)
+          Ok(JsonView.entry(entry, children)).withHeaders(
+            "Access-Control-Allow-Origin" -> "*"
+          )
+        case None => BadRequest("valid fen required")
+      }
+    )
   }
 
   def putMaster = Action(parse.tolerantText) { implicit req =>

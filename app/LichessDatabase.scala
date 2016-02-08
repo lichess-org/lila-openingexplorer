@@ -25,10 +25,11 @@ final class LichessDatabase {
       variant -> db
   }).toMap
 
-  // implementation note: situation.board.variant
-  def probe(situation: Situation): SubEntry = ???
+  import LichessDatabase.Request
 
-  def probeChildren(situation: Situation): List[(Move, SubEntry)] = ???
+  def probe(situation: Situation, request: Request): SubEntry = ???
+
+  def probeChildren(situation: Situation, request: Request): List[(Move, SubEntry)] = ???
 
   def merge(variant: Variant, gameRef: GameRef, hashes: Set[PositionHash]) = ???
 
@@ -41,7 +42,12 @@ final class LichessDatabase {
 
 object LichessDatabase {
 
-  val hash = new Hash(32)  // 128 bit Zobrist hasher
+  case class Request(
+    variant: Variant,
+    speeds: List[SpeedGroup],
+    ratings: List[RatingGroup])
+
+  val hash = new Hash(32) // 128 bit Zobrist hasher
 
   val maxGames = 5
 }
