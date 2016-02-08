@@ -23,24 +23,26 @@ final class Importer(
           None
       }
     } foreach {
-      case (replay, gameRef) =>
+      case Processed(_, replay, gameRef) =>
         lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
     }
   }
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
     process(pgn) map {
-      case (replay, gameRef) =>
+      case Processed(parsed, replay, gameRef) =>
         masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
-        pgnDb.store(replay)
+        pgnDb.store(parsed, replay)
     }
   }
 
-  private def process(pgn: String) = for {
+  private case class Processed(parsed: ParsedPgn, replay: Replay, gameRef: GameRef)
+
+  private def process(pgn: String): Valid[Processed] = for {
     parsed <- Parser.full(pgn)
     replay <- makeReplay(parsed)
     gameRef <- GameRef.fromPgn(parsed)
-  } yield replay -> gameRef
+  } yield Processed(parsed, replay, gameRef)
 
   private def Time[A](f: => A): (A, Int) = {
     val start = System.currentTimeMillis
