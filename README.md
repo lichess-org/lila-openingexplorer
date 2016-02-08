@@ -38,4 +38,4 @@ Run server
 Index master games
 ------------------
 
-    python3 index-pgn.py <pgn-file>
+    python3 index-pgn.py master <pgn-file>

@@ -7,7 +7,12 @@ import itertools
 import time
 import re
 
-f = open(sys.argv[1], encoding="utf-8", errors="ignore")
+if len(sys.argv) != 3:
+    sys.exit("Usage: python3 index-pgn.py <master|lichess/standard|...> <pgn-file>")
+
+endpoint = sys.argv[1]
+
+f = open(sys.argv[2], encoding="utf-8", errors="ignore")
 
 c = itertools.count(1)
 
@@ -19,7 +24,7 @@ rating_regex = re.compile("\[(White|Black)Elo ", re.MULTILINE)
 def send(buf):
     if rating_regex.search(buf):
         t = time.time()
-        res = requests.put("http://localhost:9000/master", data=buf.encode("utf-8"))
+        res = requests.put("http://localhost:9000/" + endpoint, data=buf.encode("utf-8"))
         print("[%d, %.01fms] HTTP %d: %s" % (next(c), (time.time() - t) * 1000, res.status_code, res.text))
         if res.status_code != 200:
             print(buf)
