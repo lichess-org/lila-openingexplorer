@@ -21,7 +21,7 @@ class WebApi @Inject() (
   val masterDb = new MasterDatabase()
   val lichessDb = new LichessDatabase()
   val pgnDb = new PgnDatabase()
-  val importer = new Importer(masterDb, lichessDb)
+  val importer = new Importer(masterDb, lichessDb, pgnDb)
 
   lifecycle.addStopHook { () =>
     Future.successful {

@@ -5,7 +5,7 @@ import java.io.File
 import fm.last.commons.kyoto.{KyotoDb, WritableVisitor}
 import fm.last.commons.kyoto.factory.{KyotoDbBuilder, Mode, Compressor, PageComparator}
 
-import chess.{Hash, Situation, Move, PositionHash}
+import chess.Replay
 
 final class PgnDatabase extends MasterDatabasePacker {
 
@@ -22,7 +22,7 @@ final class PgnDatabase extends MasterDatabasePacker {
 
   def get(gameId: String): Option[String] = Option(db.get(gameId))
 
-  def store(gameId: String, pgn: String) = db.set(gameId, pgn)
+  def store(replay: Replay) = db.set("id", replay.toString)
 
   def close = {
     db.close()
