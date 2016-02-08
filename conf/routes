@@ -3,3 +3,5 @@
 
 GET /master controllers.WebApi.getMaster
 PUT /master controllers.WebApi.putMaster
+
+GET /lichess controllers.WebApi.getLichess

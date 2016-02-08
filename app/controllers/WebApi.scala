@@ -2,17 +2,17 @@ package controllers
 
 import scala.concurrent.Future
 
-import javax.inject.{Inject, Singleton}
+import javax.inject.{ Inject, Singleton }
 
-import play.api.libs.json._
 import play.api._
-import play.api.mvc._
 import play.api.inject.ApplicationLifecycle
+import play.api.libs.json._
+import play.api.mvc._
 
-import chess.Move
-import chess.PositionHash
 import chess.format.Forsyth
 import chess.format.pgn.San
+import chess.Move
+import chess.PositionHash
 import chess.variant._
 
 import lila.openingexplorer._
@@ -29,7 +29,7 @@ class WebApi @Inject() (
 
   private def gameRefToJson(ref: GameRef): JsValue = {
     Json.toJson(Map(
-      "id"     -> Json.toJson(ref.gameId),
+      "id" -> Json.toJson(ref.gameId),
       "rating" -> Json.toJson(ref.averageRating),
       "winner" -> Json.toJson(ref.winner.map(_.fold("white", "black")).getOrElse("draw"))
     ))
@@ -50,25 +50,37 @@ class WebApi @Inject() (
   }
 
   def getMaster = Action { implicit req =>
-    val fen = req.queryString get "fen" flatMap (_.headOption)
-    val nbMoves = req.queryString get "moves" flatMap (_.headOption) flatMap parseIntOption getOrElse 12
+    Forms.master.form.bindFromRequest.fold(
+      err => BadRequest(err.toString),
+      data => {
+        (Forsyth << data.fen) match {
+          case Some(situation) =>
+            val entry = masterDb.probe(situation)
 
-    fen.flatMap(Forsyth << _) match {
-      case Some(situation) =>
-        val entry = masterDb.probe(situation)
+            Ok(Json.toJson(Map(
+              "total" -> Json.toJson(entry.totalGames),
+              "white" -> Json.toJson(entry.whiteWins),
+              "draws" -> Json.toJson(entry.draws),
+              "black" -> Json.toJson(entry.blackWins),
+              "moves" -> moveEntriesToJson(masterDb.probeChildren(situation), data.movesOrDefault),
+              "averageRating" -> Json.toJson(entry.averageRating),
+              "topGames" -> Json.toJson(entry.topGames.map(gameRefToJson))
+            ))).withHeaders(
+              "Access-Control-Allow-Origin" -> "*"
+            )
+          case None =>
+            BadRequest("valid fen required")
+        }
+      })
+  }
 
-        Ok(Json.toJson(Map(
-          "total" -> Json.toJson(entry.totalGames),
-          "white" -> Json.toJson(entry.whiteWins),
-          "draws" -> Json.toJson(entry.draws),
-          "black" -> Json.toJson(entry.blackWins),
-          "moves" -> moveEntriesToJson(masterDb.probeChildren(situation), nbMoves),
-          "averageRating" -> Json.toJson(entry.averageRating),
-          "topGames" -> Json.toJson(entry.topGames.map(gameRefToJson))
-        )))
-      case None =>
-        BadRequest("valid fen required")
-    }
+  def getLichess = Action { implicit req =>
+    Forms.lichess.form.bindFromRequest.fold(
+      err => BadRequest(err.toString),
+      data => {
+        println(data)
+        Ok
+      })
   }
 
   /* def get(name: String) = Action { implicit req =>
@@ -133,7 +145,7 @@ class WebApi @Inject() (
 
           val end = System.currentTimeMillis
           Ok(s"thanks. time taken: ${end - start} ms")
-        }
+      }
 
       case scalaz.Failure(e) =>
         BadRequest(e.toString)
