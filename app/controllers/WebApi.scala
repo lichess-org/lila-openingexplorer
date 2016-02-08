@@ -65,8 +65,8 @@ class WebApi @Inject() (
             variant = data.actualVariant,
             speeds = data.speedGroups,
             ratings = data.ratingGroups)
-          val entry = lichessDb.probe(situation, request)
-          val children = lichessDb.probeChildren(situation, request)
+          val entry = lichessDb.probe(situation withVariant data.actualVariant, request)
+          val children = lichessDb.probeChildren(situation withVariant data.actualVariant, request)
             .filter(_._2.totalGames > 0)
             .sortBy(-_._2.totalGames)
             .take(data.movesOrDefault)
