@@ -71,5 +71,4 @@ object LichessDatabase {
 
   val hash = new Hash(32) // 128 bit Zobrist hasher
 
-  val maxGames = 5
 }
