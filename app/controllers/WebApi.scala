@@ -65,40 +65,6 @@ class WebApi @Inject() (
       })
   }
 
-  /* def get(name: String) = Action { implicit req =>
-    Category.find(name) match {
-      case Some(category) => getCategory(category)
-      case None           => NotFound("category not found")
-    }
-  }
-
-  def getCategory(category: Category)(implicit req: RequestHeader) = {
-    val fen = req.queryString get "fen" flatMap (_.headOption)
-
-    val ratingGroups = RatingGroup.range(
-      req.queryString get "minRating" flatMap (_.headOption) flatMap parseIntOption,
-      req.queryString get "maxRating" flatMap (_.headOption) flatMap parseIntOption
-    )
-
-    fen.flatMap(Forsyth << _).map(_.withVariant(category.variant)) match {
-      case Some(situation) =>
-        val entry = db.probe(category, situation)
-
-        Ok(Json.toJson(Map(
-          "total" -> Json.toJson(entry.sumGames(ratingGroups)),
-          "white" -> Json.toJson(entry.sumWhiteWins(ratingGroups)),
-          "draws" -> Json.toJson(entry.sumDraws(ratingGroups)),
-          "black" -> Json.toJson(entry.sumBlackWins(ratingGroups)),
-          "moves" -> moveEntriesToJson(db.probeChildren(category, situation), ratingGroups),
-          "games" -> Json.toJson(entry.takeTopGames(Entry.maxGames).map(gameRefToJson))
-        ))).withHeaders(
-          "Access-Control-Allow-Origin" -> "*"
-        )
-      case None =>
-        BadRequest("valid fen required")
-    }
-  } */
-
   def putMaster = Action(parse.tolerantText) { implicit req =>
     importer.master(req.body) match {
       case (Success(_), ms)      => Ok(s"$ms ms")
