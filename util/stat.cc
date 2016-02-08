@@ -3,7 +3,7 @@
 
 #include <kcpolydb.h>
 
-long estimate_a(long *pack) {
+/* long estimate_a(long *pack) {
   return (
     4 + pack[0] * 8 +
     4 + 1 + pack[1] * 8 * 5 +
@@ -23,7 +23,7 @@ long estimate_b(long *pack) {
     4 + 1 + pack[4] * 9 * 5 + 4 * 2 * 3 * 8 * 4 +
     4 + 1 + pack[5] * 9 * 5 + 4 * 2 * 3 * 8 * 6
   );
-}
+} */
 
 int main(int argc, char **argv) {
     if (argc <= 1) {
@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 
     std::string key, value;
 
-    long pack[] = {0, 0, 0, 0, 0, 0};
+    long pack[] = {0, 0, 0, 0, 0, 0, 0};
     long total = 0;
 
     std::cout << "Scanning ..." << std::endl;
@@ -63,17 +63,17 @@ int main(int argc, char **argv) {
 
     std::cerr << std::endl;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
         std::cout << "Pack format " << i << ": " << pack[i] << " nodes " << std::endl;
     }
 
     std::cout << "Unique positions: " << total << std::endl;
 
-    std::cout << std::endl;
+    /* std::cout << std::endl;
 
     std::cout << "Scheme A: " << estimate_a(pack) << " bytes" << std::endl;
     std::cout << "Scheme B: " << estimate_b(pack) << " bytes" << std::endl;
-    std::cout << "B/A: " << ((double)estimate_b(pack)/estimate_a(pack)) << std::endl;
+    std::cout << "B/A: " << ((double)estimate_b(pack)/estimate_a(pack)) << std::endl; */
 
     return 0;
 }

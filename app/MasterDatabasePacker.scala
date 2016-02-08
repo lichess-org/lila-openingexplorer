@@ -9,14 +9,16 @@ trait MasterDatabasePacker extends PackHelper {
       entry.recentGames.head.pack
     else if (entry.totalGames <= 6)  // carefully calculated boundary
       Array(1.toByte) ++ entry.recentGames.map(_.pack).flatten
-    else if (entry.maxPerWinner < 256)
+    else if (entry.maxPerWinner < MaxUint8)
       packMulti(entry, 2, packUint8)
-    else if (entry.maxPerWinner < 65536)
+    else if (entry.maxPerWinner < MaxUint16)
       packMulti(entry, 3, packUint16)
-    else if (entry.maxPerWinner < 4294967296L)
-      packMulti(entry, 4, packUint32)
+    else if (entry.maxPerWinner < MaxUint24)
+      packMulti(entry, 4, packUint24)
+    else if (entry.maxPerWinner < MaxUint32)
+      packMulti(entry, 5, packUint32)
     else
-      packMulti(entry, 5, packUint48)
+      packMulti(entry, 6, packUint48)
   }
 
   private def packMulti(
@@ -49,8 +51,10 @@ trait MasterDatabasePacker extends PackHelper {
       case 3 =>
         unpackMulti(b, unpackUint16, 2)
       case 4 =>
-        unpackMulti(b, unpackUint32, 4)
+        unpackMulti(b, unpackUint24, 3)
       case 5 =>
+        unpackMulti(b, unpackUint32, 4)
+      case 6 =>
         unpackMulti(b, unpackUint48, 6)
     }
   }
