@@ -19,17 +19,6 @@ final class MasterDatabase extends MasterDatabasePacker {
       .buckets(2000000L * 40)
       .buildAndOpen
 
-  private val pgnFile = new File("data/master-pgn.kct")
-  pgnFile.createNewFile
-
-  private val pgnDb =
-    new KyotoDbBuilder(pgnFile)
-      .modes(Mode.CREATE, Mode.READ_WRITE)
-      .buckets(2000000L)
-      .compressor(Compressor.LZMA)
-      .pageComparator(PageComparator.LEXICAL)
-      .buildAndOpen
-
   def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))
 
   private def probe(h: PositionHash): SubEntry = {
@@ -56,13 +45,8 @@ final class MasterDatabase extends MasterDatabasePacker {
     })
   }
 
-  def getPgn(gameId: String): Option[String] = Option(pgnDb.get(gameId))
-
-  def storePgn(gameId: String, pgn: String) = pgnDb.set(gameId, pgn)
-
   def close = {
     db.close()
-    pgnDb.close()
   }
 
 }
