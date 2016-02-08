@@ -34,9 +34,15 @@ object Forms {
         speeds: List[String],
         ratings: List[Int]) {
 
-      def ratingGroups = RatingGroup.all.filter { rg =>
-        ratings contains rg.range.min
+      def ratingGroups = RatingGroup.all.filter { x =>
+        ratings contains x.range.min
       }
+
+      def speedGroups = SpeedGroup.all.filter { x =>
+        speeds contains x.name
+      }
+
+      def actualVariant = chess.variant.Variant orDefault variant
 
       def movesOrDefault = moves getOrElse movesDefault
     }
