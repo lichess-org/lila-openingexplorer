@@ -23,7 +23,10 @@ class WebApi @Inject() (
   val importer = new Importer(masterDb, lichessDb)
 
   lifecycle.addStopHook { () =>
-    Future.successful(masterDb.close)
+    Future.successful {
+      masterDb.close
+      lichessDb.closeAll
+    }
   }
 
   def getMaster = Action { implicit req =>
