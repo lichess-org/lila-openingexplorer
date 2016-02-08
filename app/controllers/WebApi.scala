@@ -6,12 +6,10 @@ import javax.inject.{ Inject, Singleton }
 
 import play.api._
 import play.api.inject.ApplicationLifecycle
-import play.api.libs.json._
 import play.api.mvc._
 
 import chess.format.Forsyth
 import chess.format.pgn.San
-import chess.Move
 import chess.PositionHash
 import chess.variant._
 
@@ -27,28 +25,6 @@ class WebApi @Inject() (
     Future.successful(masterDb.close)
   }
 
-  private def gameRefToJson(ref: GameRef): JsValue = {
-    Json.toJson(Map(
-      "id" -> Json.toJson(ref.gameId),
-      "rating" -> Json.toJson(ref.averageRating),
-      "winner" -> Json.toJson(ref.winner.map(_.fold("white", "black")).getOrElse("draw"))
-    ))
-  }
-
-  private def moveEntriesToJson(children: List[(Move, SubEntry)], take: Int): JsArray = JsArray {
-    children.filter(_._2.totalGames > 0).sortBy(-_._2.totalGames).take(take).map {
-      case (move, entry) => Json.toJson(Map(
-        "uci" -> Json.toJson(move.toUci.uci),
-        "san" -> Json.toJson(chess.format.pgn.Dumper(move)),
-        "total" -> Json.toJson(entry.totalGames),
-        "white" -> Json.toJson(entry.whiteWins),
-        "draws" -> Json.toJson(entry.draws),
-        "black" -> Json.toJson(entry.blackWins),
-        "averageRating" -> Json.toJson(entry.averageRating)
-      ))
-    }
-  }
-
   def getMaster = Action { implicit req =>
     Forms.master.form.bindFromRequest.fold(
       err => BadRequest(err.toString),
@@ -56,16 +32,11 @@ class WebApi @Inject() (
         (Forsyth << data.fen) match {
           case Some(situation) =>
             val entry = masterDb.probe(situation)
-
-            Ok(Json.toJson(Map(
-              "total" -> Json.toJson(entry.totalGames),
-              "white" -> Json.toJson(entry.whiteWins),
-              "draws" -> Json.toJson(entry.draws),
-              "black" -> Json.toJson(entry.blackWins),
-              "moves" -> moveEntriesToJson(masterDb.probeChildren(situation), data.movesOrDefault),
-              "averageRating" -> Json.toJson(entry.averageRating),
-              "topGames" -> Json.toJson(entry.topGames.map(gameRefToJson))
-            ))).withHeaders(
+            val children = masterDb.probeChildren(situation)
+              .filter(_._2.totalGames > 0)
+              .sortBy(-_._2.totalGames)
+              .take(data.movesOrDefault)
+            Ok(JsonView.entry(entry, children)).withHeaders(
               "Access-Control-Allow-Origin" -> "*"
             )
           case None =>
