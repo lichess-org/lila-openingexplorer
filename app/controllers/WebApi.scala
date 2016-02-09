@@ -9,6 +9,8 @@ import javax.inject.{ Inject, Singleton }
 import play.api._
 import play.api.inject.ApplicationLifecycle
 import play.api.mvc._
+import play.api.Play.current
+import play.api.i18n.Messages.Implicits._
 
 import chess.format.Forsyth
 
@@ -33,7 +35,7 @@ class WebApi @Inject() (
 
   def getMaster = Action { implicit req =>
     Forms.master.form.bindFromRequest.fold(
-      err => BadRequest(err.toString),
+      err => BadRequest(err.errorsAsJson),
       data => (Forsyth << data.fen) match {
         case Some(situation) =>
           val entry = masterDb.probe(situation)
@@ -58,7 +60,7 @@ class WebApi @Inject() (
 
   def getLichess = Action { implicit req =>
     Forms.lichess.form.bindFromRequest.fold(
-      err => BadRequest(err.toString),
+      err => BadRequest(err.errorsAsJson),
       data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
         case Some(situation) =>
           val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
