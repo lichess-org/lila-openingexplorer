@@ -10,7 +10,7 @@ import chess.{ Hash, PositionHash, Replay }
 final class Importer(
     masterDb: MasterDatabase,
     lichessDb: LichessDatabase,
-    pgnDb: PgnDatabase) extends Validation {
+    pgnDb: PgnDatabase) extends Validation with scalaz.syntax.ToValidationOps {
 
   private val lichessSeparator = "\n\n\n"
 
@@ -18,7 +18,7 @@ final class Importer(
     val pgns = text.split(lichessSeparator)
     pgns flatMap { origPgn =>
       val pgn = if (variant.exotic) s"[Variant ${variant.name}]\n$origPgn" else origPgn
-      process(pgn) match {
+      process(pgn, fastPgn = true) match {
         case scalaz.Success(processed) => Some(processed)
         case scalaz.Failure(errors) =>
           play.api.Logger("importer").warn(errors.list mkString ", ")
@@ -32,7 +32,7 @@ final class Importer(
   }
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
-    process(pgn) map {
+    process(pgn, fastPgn = false) map {
       case Processed(parsed, replay, gameRef) =>
         masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
         pgnDb.store(gameRef.gameId, parsed, replay)
@@ -41,11 +41,19 @@ final class Importer(
 
   private case class Processed(parsed: ParsedPgn, replay: Replay, gameRef: GameRef)
 
-  private def process(pgn: String): Valid[Processed] = for {
-    parsed <- Parser.full(pgn)
+  private def process(pgn: String, fastPgn: Boolean): Valid[Processed] = for {
+    parsed <- if (fastPgn) parseFastPgn(pgn) else Parser.full(pgn)
     replay <- makeReplay(parsed)
     gameRef <- GameRef.fromPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
+
+  private def parseFastPgn(pgn: String): Valid[ParsedPgn] = pgn.split("\n\n") match {
+    case Array(tagStr, moveStr) => for {
+      tags ← Parser.TagParser(tagStr)
+      moves <- Parser.moves(moveStr, Parser.getVariantFromTags(tags))
+    } yield ParsedPgn(tags, moves)
+    case _ => s"Invalid fast pgn $pgn".failureNel
+  }
 
   private def Time[A](f: => A): (A, Int) = {
     val start = System.currentTimeMillis
