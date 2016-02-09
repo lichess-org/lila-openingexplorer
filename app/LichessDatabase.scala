@@ -32,7 +32,7 @@ final class LichessDatabase extends LichessDatabasePacker {
     probe(situation.board.variant, LichessDatabase.hash(situation), request)
 
   private def probe(variant: Variant, h: PositionHash, request: Request): SubEntry = {
-    Option(dbs(variant).get(h)) match {
+    dbs.get(variant).flatMap(db => Option(db.get(h))) match {
       case Some(bytes) => unpack(bytes).select(request.ratings, request.speeds)
       case None        => SubEntry.empty
     }
@@ -43,10 +43,10 @@ final class LichessDatabase extends LichessDatabasePacker {
       move -> probe(move.fold(_.situationAfter, _.situationAfter), request)
     }.toList
 
-  def merge(variant: Variant, gameRef: GameRef, hashes: Set[PositionHash]) = {
+  def merge(variant: Variant, gameRef: GameRef, hashes: Set[PositionHash]) = dbs get variant foreach { db =>
     val freshRecord = pack(Entry.fromGameRef(gameRef))
 
-    dbs(variant).accept(hashes.toArray, new WritableVisitor {
+    db.accept(hashes.toArray, new WritableVisitor {
       def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
         pack(unpack(value).withGameRef(gameRef))
       }
