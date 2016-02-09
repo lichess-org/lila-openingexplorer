@@ -68,8 +68,6 @@ final class Importer(
   }
 
   private def collectHashes(replay: Replay, hash: Hash): Set[PositionHash] = {
-    List(hash(replay.moves.last.fold(_.situationBefore, _.situationBefore))) ++
-      // all others
-      replay.moves.map(_.fold(_.situationAfter, _.situationAfter)).map(hash(_))
-  }.toSet
+    replay.setup.situation :: replay.moves.map(_.fold(_.situationAfter, _.situationAfter))
+  }.map(hash.apply).toSet
 }
