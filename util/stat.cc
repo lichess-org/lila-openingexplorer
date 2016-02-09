@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 
     std::cerr << std::endl;
 
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
         std::cout << "Pack format " << i << ": " << pack[i] << " nodes " << std::endl;
     }
 
