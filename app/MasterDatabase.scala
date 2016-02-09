@@ -16,7 +16,7 @@ final class MasterDatabase extends MasterDatabasePacker {
     new KyotoDbBuilder(dbFile)
       .modes(Mode.CREATE, Mode.READ_WRITE)
       .pageComparator(PageComparator.LEXICAL)
-      .buckets(2000000L * 40)
+      .buckets(2000000L * MAX_PLIES)
       .buildAndOpen
 
   def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))

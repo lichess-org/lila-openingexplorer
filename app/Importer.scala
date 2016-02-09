@@ -63,7 +63,7 @@ final class Importer(
   }
 
   private def makeReplay(parsed: ParsedPgn): Valid[Replay] = {
-    def truncateMoves(moves: List[San]) = moves take 40
+    def truncateMoves(moves: List[San]) = moves take MAX_PLIES
     Reader.fullWithSans(parsed, truncateMoves _)
   }
 

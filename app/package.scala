@@ -2,6 +2,8 @@ package lila
 
 package object openingexplorer {
 
+  val MAX_PLIES = 50
+
   def parseIntOption(str: String): Option[Int] = {
     try {
       Some(java.lang.Integer.parseInt(str))
