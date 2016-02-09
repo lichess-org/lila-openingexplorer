@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 
     kyotocabinet::TreeDB db;
 
-    if (!db.open(argv[1], kyotocabinet::TreeDB::OREADER | kyotocabinet::TreeDB::ONOLOCK)) {
+    if (!db.open(argv[1], kyotocabinet::TreeDB::OREADER)) {
       std::cout << "Could not open database." << std::endl;
       return 2;
     }
