@@ -65,7 +65,6 @@ final class LichessDatabase extends LichessDatabasePacker {
 object LichessDatabase {
 
   case class Request(
-    variant: Variant,
     speeds: List[SpeedGroup],
     ratings: List[RatingGroup])
 

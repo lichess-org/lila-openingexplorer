@@ -59,14 +59,11 @@ class WebApi @Inject() (
   def getLichess = Action { implicit req =>
     Forms.lichess.form.bindFromRequest.fold(
       err => BadRequest(err.toString),
-      data => (Forsyth << data.fen) match {
+      data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
         case Some(situation) =>
-          val request = LichessDatabase.Request(
-            variant = data.actualVariant,
-            speeds = data.speedGroups,
-            ratings = data.ratingGroups)
-          val entry = lichessDb.probe(situation withVariant data.actualVariant, request)
-          val children = lichessDb.probeChildren(situation withVariant data.actualVariant, request)
+          val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
+          val entry = lichessDb.probe(situation, request)
+          val children = lichessDb.probeChildren(situation, request)
             .filter(_._2.totalGames > 0)
             .sortBy(-_._2.totalGames)
             .take(data.movesOrDefault)
