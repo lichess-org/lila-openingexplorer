@@ -3,7 +3,7 @@
 
 GET /master controllers.WebApi.getMaster
 GET /master/pgn/:gameId controllers.WebApi.getMasterPgn(gameId: String)
-PUT /master controllers.WebApi.putMaster
-
 GET /lichess controllers.WebApi.getLichess
-PUT /lichess/:variant controllers.WebApi.putLichess(variant: String)
+
+PUT /import/master controllers.WebApi.putMaster
+PUT /import/lichess/:variant controllers.WebApi.putLichess(variant: String)
