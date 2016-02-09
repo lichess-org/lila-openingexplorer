@@ -19,6 +19,14 @@ class UtilTest extends Specification {
       Util.situationDrops(situation) must contain(drop)
     }
 
+    "uniquify hashes" in {
+      val a = Array(1.toByte, 2.toByte, 3.toByte)
+      val b = a.toList.toArray
+
+      Util.distinctHashes(List(a, b)) mustEqual Array(a)
+      Util.distinctHashes(List(b, a)) mustEqual Array(a)
+    }
+
   }
 
 }

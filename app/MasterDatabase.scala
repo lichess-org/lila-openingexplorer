@@ -34,6 +34,7 @@ final class MasterDatabase extends MasterDatabasePacker {
     }.toList
 
   def merge(gameRef: GameRef, hashes: Array[PositionHash]) = {
+
     val freshRecord = pack(SubEntry.fromGameRef(gameRef))
 
     db.accept(hashes, new WritableVisitor {

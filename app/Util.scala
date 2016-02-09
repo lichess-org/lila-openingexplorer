@@ -1,5 +1,7 @@
 package lila.openingexplorer
 
+import scala.collection.mutable.WrappedArray
+
 import scalaz.Validation.FlatMap._
 
 object Util {
@@ -25,4 +27,7 @@ object Util {
 
   def situationMovesOrDrops(situation: chess.Situation): List[chess.MoveOrDrop] =
     situationMoves(situation).map(Left(_)) ::: situationDrops(situation).map(Right(_))
+
+  def distinctHashes(hashes: List[chess.PositionHash]): Array[chess.PositionHash] =
+    hashes.map(h => (h: WrappedArray[Byte])).distinct.map(_.array).toArray
 }

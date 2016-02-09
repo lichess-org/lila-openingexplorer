@@ -73,7 +73,7 @@ final class Importer(
     Reader.fullWithSans(parsed, truncateMoves _)
   }
 
-  private def collectHashes(replay: Replay, hash: Hash): Array[PositionHash] = {
+  private def collectHashes(replay: Replay, hash: Hash) = Util.distinctHashes({
     replay.setup.situation :: replay.moves.map(_.fold(_.situationAfter, _.situationAfter))
-  }.map(hash.apply).toArray
+  }.map(hash.apply))
 }
