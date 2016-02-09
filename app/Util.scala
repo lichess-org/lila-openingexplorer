@@ -16,9 +16,10 @@ object Util {
     }._1
 
   def situationDrops(situation: chess.Situation): List[chess.Drop] = {
+    val droppablePositions = situation.drops.getOrElse(chess.Pos.all filterNot situation.board.pieces.contains)
     (for {
       role <- situation.board.crazyData.map(_.pockets(situation.color).roles.distinct).getOrElse(List.empty)
-      pos <- situation.drops.getOrElse(chess.Pos.all)
+      pos <- droppablePositions
     } yield situation.drop(role, pos).toOption).flatten
   }
 
