@@ -20,7 +20,7 @@ final class LichessDatabase extends LichessDatabasePacker {
         new KyotoDbBuilder(file)
           .modes(Mode.CREATE, Mode.READ_WRITE)
           .pageComparator(PageComparator.LEXICAL)
-          .buckets(140000000L * MAX_PLIES / 2) // at least 10% of expected records
+          .buckets(5000000L * MAX_PLIES / 2) // at least 10% of expected records
           .buildAndOpen
 
       variant -> db
