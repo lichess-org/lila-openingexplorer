@@ -44,14 +44,13 @@ final class LichessDatabase extends LichessDatabasePacker {
     }.toList
 
   def merge(variant: Variant, gameRef: GameRef, hashes: Set[PositionHash]) = dbs get variant foreach { db =>
-    val freshRecord = pack(Entry.fromGameRef(gameRef))
 
     db.accept(hashes.toArray, new WritableVisitor {
       def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
         pack(unpack(value).withGameRef(gameRef))
       }
 
-      def emptyRecord(key: PositionHash): Array[Byte] = freshRecord
+      def emptyRecord(key: PositionHash): Array[Byte] = pack(Entry.fromGameRef(gameRef))
     })
   }
 
