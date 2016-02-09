@@ -3,6 +3,7 @@ package lila.openingexplorer
 import ornicar.scalalib.Validation
 import scalaz.Validation.FlatMap._
 
+import chess.format.Forsyth
 import chess.format.pgn.{ Parser, Reader, ParsedPgn, San }
 import chess.variant.Variant
 import chess.{ Hash, PositionHash, Replay }
@@ -32,11 +33,17 @@ final class Importer(
     play.api.Logger("importer").info(pgns.size.toString)
   }
 
+  private val masterInitBoard = chess.Board.init(chess.variant.Standard)
+
   def master(pgn: String): (Valid[Unit], Int) = Time {
-    process(pgn, fastPgn = false) map {
+    process(pgn, fastPgn = false) flatMap {
       case Processed(parsed, replay, gameRef) =>
-        masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
-        pgnDb.store(gameRef.gameId, parsed, replay)
+        if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
+          s"Invalid initial position ${Forsyth >> replay.setup.situation}".failureNel
+        else scalaz.Success {
+          masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
+          pgnDb.store(gameRef.gameId, parsed, replay)
+        }
     }
   }
 

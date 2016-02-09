@@ -22,7 +22,7 @@ final class PgnDatabase extends MasterDatabasePacker {
       .pageComparator(PageComparator.LEXICAL)
       .buildAndOpen
 
-  private val relevantTags: Set[TagType] = 
+  private val relevantTags: Set[TagType] =
     Tag.tagTypes.toSet diff Set(Tag.ECO, Tag.Opening, Tag.Variant)
 
   def get(gameId: String): Option[String] = Option(db.get(gameId))
