@@ -33,10 +33,10 @@ final class MasterDatabase extends MasterDatabasePacker {
       move -> probe(move.fold(_.situationAfter, _.situationAfter))
     }.toList
 
-  def merge(gameRef: GameRef, hashes: Set[PositionHash]) = {
+  def merge(gameRef: GameRef, hashes: Array[PositionHash]) = {
     val freshRecord = pack(SubEntry.fromGameRef(gameRef))
 
-    db.accept(hashes.toArray, new WritableVisitor {
+    db.accept(hashes, new WritableVisitor {
       def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
         pack(unpack(value).withGameRef(gameRef))
       }

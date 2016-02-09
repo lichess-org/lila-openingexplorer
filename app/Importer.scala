@@ -27,8 +27,7 @@ final class Importer(
       }
     } foreach {
       case Processed(_, replay, gameRef) =>
-        val hashes = collectHashes(replay, LichessDatabase.hash)
-        lichessDb.merge(variant, gameRef, hashes)
+        lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
     }
     play.api.Logger("importer").info(pgns.size.toString)
   }
@@ -74,7 +73,7 @@ final class Importer(
     Reader.fullWithSans(parsed, truncateMoves _)
   }
 
-  private def collectHashes(replay: Replay, hash: Hash): Set[PositionHash] = {
+  private def collectHashes(replay: Replay, hash: Hash): Array[PositionHash] = {
     replay.setup.situation :: replay.moves.map(_.fold(_.situationAfter, _.situationAfter))
-  }.map(hash.apply).toSet
+  }.map(hash.apply).toArray
 }
