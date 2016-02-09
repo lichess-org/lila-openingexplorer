@@ -26,7 +26,8 @@ final class Importer(
       }
     } foreach {
       case Processed(_, replay, gameRef) =>
-        lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
+        val hashes = collectHashes(replay, LichessDatabase.hash)
+        lichessDb.merge(variant, gameRef, hashes)
     }
     play.api.Logger("importer").info(pgns.size.toString)
   }
