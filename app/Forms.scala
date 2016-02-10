@@ -5,7 +5,6 @@ import play.api.data.Forms._
 
 object Forms {
 
-  private val moves = (1 to 20)
   private val movesDefault = 12
 
   private val variants = chess.variant.Variant.all.map(_.key)
@@ -21,7 +20,7 @@ object Forms {
 
     val form = Form(mapping(
       "fen" -> nonEmptyText,
-      "moves" -> optional(number.verifying(moves contains _))
+      "moves" -> optional(number)
     )(Data.apply)(Data.unapply))
   }
 
@@ -49,7 +48,7 @@ object Forms {
 
     val form = Form(mapping(
       "fen" -> nonEmptyText,
-      "moves" -> optional(number.verifying(moves contains _)),
+      "moves" -> optional(number),
       "variant" -> nonEmptyText.verifying(variants contains _),
       "speeds" -> list(nonEmptyText.verifying(speeds contains _)),
       "ratings" -> list(number.verifying(ratings contains _))

@@ -53,7 +53,7 @@ HTTP API
 name | type | default | description
 --- | --- | --- | ---
 **fen** | string | required | FEN of the position to look up
-**moves** | 1 to 20 | 12 | number of most common moves to display
+**moves** | int | 12 | number of most common moves to display
 
 ```javascript
 {
@@ -132,4 +132,4 @@ name | type | default | description
 **variant** | string | required | one of `standard`, `antichess`, `chess960`, `horde`, `racingKings`, `threeCheck`, `atomic`, `crazyhouse` or `kingOfTheHill`
 **speeds[]** | list | none | `bullet`, `blitz` and/or `classical`
 **ratings[]** | list | none | rating groups ranging from their value to the next higher group: `1600`, `1800`, `2000`, `2200` and `2500` to unlimited
-**moves** | 1 to 20 | 12 | number of most common moves to display
+**moves** | int | 12 | number of most common moves to display
