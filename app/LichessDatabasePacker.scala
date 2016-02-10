@@ -27,7 +27,7 @@ trait LichessDatabasePacker extends PackHelper {
       helper: Long => Array[Byte],
       ratingHelper: Long => Array[Byte]): Array[Byte] = {
     val sampleGames =
-      entry.sub.values.map(_.recentGames.take(LichessDatabasePacker.maxRecentGames)).flatten
+      entry.sub.values.map(_.recentGames.take(LichessDatabasePacker.maxRecentGames)).flatten ++
       entry.selectAll.topGames.take(LichessDatabasePacker.maxTopGames)
 
     packUint8(meta) ++

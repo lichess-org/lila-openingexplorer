@@ -49,6 +49,18 @@ class LichessDatabasePackerTest extends Specification with LichessDatabasePacker
       unpack(pack(entry)).selectAll.recentGames mustEqual List(g3, g2, g1)
     }
 
+    "save some top games" in {
+      val topGame = GameRef("abcdefgh", Some(Color.Black), SpeedGroup.Classical, 2871)
+      val subEntry = new SubEntry(123456789L, 234567890L, 345678901L, 864197252500L, List(topGame), List.empty)
+      val entry = new Entry(Map((RatingGroup.Group2500, SpeedGroup.Classical) -> subEntry))
+      val restored = unpack(pack(entry))
+
+      restored.selectAll.topGames mustEqual List(topGame)
+
+      restored.selectAll.whiteWins mustEqual 123456789L
+      restored.selectAll.averageRatingSum mustEqual 864197252500L
+    }
+
   }
 
 }
