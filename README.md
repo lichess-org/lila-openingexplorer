@@ -44,7 +44,7 @@ Index master games
 HTTP API
 --------
 
-### `GET /master` query master opening database
+### `GET /master` query opening database with master games
 
 ```
 > curl http://explorer.lichess.org/master?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
@@ -91,7 +91,7 @@ HTTP API
     },
     // ...
   ],
-  "recentGames": []  // roughly order by date, newer first
+  "recentGames": []  // roughly ordered by date, newer first
 }
 ```
 
@@ -127,7 +127,7 @@ name | type | default | description
 **fen** | string | required | FEN of the position to look up
 **variant** | string | required | one of `standard`, `antichess`, `chess960`, `horde`, `racingKings`, `threeCheck`, `atomic`, `crazyhouse` or `kingOfTheHill`
 **speeds[]** | list | none | `bullet`, `blitz` and/or `classical`
-**ratings[]** | list | none | rating groups ranging from their value to the next higher group: `1600`, `1800`, `2000`, `2200`, `2500`
+**ratings[]** | list | none | rating groups ranging from their value to the next higher group: `1600`, `1800`, `2000`, `2200` and `2500` to unlimited
 **moves** | 1 to 20 | 12 | number of most common moves to display
 
 ```
