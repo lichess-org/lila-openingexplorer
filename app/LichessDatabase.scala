@@ -21,6 +21,7 @@ final class LichessDatabase extends LichessDatabasePacker {
           .modes(Mode.CREATE, Mode.READ_WRITE)
           .buckets(50000000L * MAX_PLIES / 2)
           .memoryMapSize(2L << 30)  // 2 GB
+          .pageCacheSize(2L << 30)  // 2 GB
           .pageComparator(PageComparator.LEXICAL)
           .buildAndOpen
 

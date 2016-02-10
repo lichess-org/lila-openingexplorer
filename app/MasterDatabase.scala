@@ -17,6 +17,7 @@ final class MasterDatabase extends MasterDatabasePacker {
       .modes(Mode.CREATE, Mode.READ_WRITE)
       .buckets(2000000L * MAX_PLIES)
       .memoryMapSize(2L << 30)  // 2 GB
+      .pageCacheSize(2L << 30)  // 2 GB
       .pageComparator(PageComparator.LEXICAL)
       .buildAndOpen
 
