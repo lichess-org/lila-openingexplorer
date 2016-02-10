@@ -3,6 +3,8 @@ package lila.openingexplorer
 import ornicar.scalalib.Validation
 import scalaz.Validation.FlatMap._
 
+import orestes.bloomfilter.BloomFilter
+
 import chess.format.Forsyth
 import chess.format.pgn.{ Parser, Reader, ParsedPgn, San }
 import chess.variant.Variant
@@ -11,7 +13,8 @@ import chess.{ Hash, PositionHash, Replay }
 final class Importer(
     masterDb: MasterDatabase,
     lichessDb: LichessDatabase,
-    pgnDb: PgnDatabase) extends Validation with scalaz.syntax.ToValidationOps {
+    pgnDb: PgnDatabase,
+    filter: BloomFilter[String]) extends Validation with scalaz.syntax.ToValidationOps {
 
   private val lichessSeparator = "\n\n\n"
 
@@ -27,7 +30,12 @@ final class Importer(
       }
     } foreach {
       case Processed(_, replay, gameRef) =>
-        lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
+        if (filter.contains(gameRef.gameId))
+          play.api.Logger("importer").warn(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
+        else {
+          lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
+          filter.add(gameRef.gameId)
+        }
     }
   }
 
@@ -37,13 +45,16 @@ final class Importer(
   def master(pgn: String): (Valid[Unit], Int) = Time {
     process(pgn, fastPgn = false, Config.explorer.master.maxPlies) flatMap {
       case Processed(parsed, replay, gameRef) =>
-        if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
+        if (filter.contains(gameRef.gameId))
+          s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}".failureNel
+        else if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
           s"Invalid initial position ${Forsyth >> replay.setup.situation}".failureNel
         else if (gameRef.averageRating < masterMinRating)
           s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
         else scalaz.Success {
           masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
           pgnDb.store(gameRef.gameId, parsed, replay)
+          filter.add(gameRef.gameId)
         }
     }
   }
