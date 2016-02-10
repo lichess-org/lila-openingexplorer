@@ -1,6 +1,8 @@
 package lila.openingexplorer
 
 import ornicar.scalalib.Validation
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scalaz.Validation.FlatMap._
 
 import orestes.bloomfilter.BloomFilter
@@ -33,8 +35,8 @@ final class Importer(
         if (filter.contains(gameRef.gameId))
           play.api.Logger("importer").warn(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
         else {
+          Future(filter.add(gameRef.gameId))
           lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
-          filter.add(gameRef.gameId)
         }
     }
   }
@@ -52,9 +54,9 @@ final class Importer(
         else if (gameRef.averageRating < masterMinRating)
           s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
         else scalaz.Success {
+          Future(filter.add(gameRef.gameId))
           masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
           pgnDb.store(gameRef.gameId, parsed, replay)
-          filter.add(gameRef.gameId)
         }
     }
   }
