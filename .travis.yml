@@ -12,3 +12,5 @@ scala:
 
 jdk:
   - oraclejdk8
+
+install: ./bin/build-deps.sh
