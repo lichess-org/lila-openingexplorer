@@ -1,4 +1,7 @@
 # Copy this file to application.conf
-# This is environment specific config, it overwrites base.conf
+# This is environment specific config, it overrides base.conf
 
 include "base"
+
+# override example =
+# explorer.lichess.standard.maxPlies = 60
