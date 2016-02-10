@@ -36,6 +36,11 @@ Create configuration file.
 
     cp conf/application.conf.example conf/application.conf
 
+Install a local redis server or disable bloom filter persistence in
+`conf/application.conf`.
+
+    sudo apt-get install redis-server
+
 Run server
 ----------
 

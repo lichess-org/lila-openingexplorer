@@ -29,7 +29,7 @@ class WebApi @Inject() (
   val filter: BloomFilter[String] =
     new FilterBuilder(Config.explorer.bloomFilter.expectedGames, Config.explorer.bloomFilter.acceptableError)
       .name("games")
-      .redisBacked(true)
+      .redisBacked(Config.explorer.bloomFilter.persistent)
       .buildBloomFilter()
 
   val importer = new Importer(masterDb, lichessDb, pgnDb, filter)

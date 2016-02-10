@@ -53,5 +53,6 @@ object Config {
 
   case class BloomFilter(
     expectedGames: Int,
-    acceptableError: Double)
+    acceptableError: Double,
+    persistent: Boolean)
 }
