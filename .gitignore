@@ -1,6 +1,7 @@
 logs
 target
 *.swp
+conf/application.conf
 
 util/gen
 util/stat
