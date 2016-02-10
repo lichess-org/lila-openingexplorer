@@ -29,7 +29,6 @@ final class Importer(
       case Processed(_, replay, gameRef) =>
         lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
     }
-    play.api.Logger("importer").info(pgns.size.toString)
   }
 
   private val masterInitBoard = chess.Board.init(chess.variant.Standard)
