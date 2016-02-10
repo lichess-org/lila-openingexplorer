@@ -1,6 +1,8 @@
 Opening explorer for lichess.org
 ================================
 
+[![Build Status](https://travis-ci.org/niklasf/lila-openingexplorer.svg?branch=master)](https://travis-ci.org/niklasf/lila-openingexplorer)
+
 Preparations
 ------------
 
