@@ -31,10 +31,8 @@ final class Importer(
       }
     } foreach {
       case Processed(_, replay, gameRef) =>
-        if (filter.contains(gameRef.gameId)) {
-          println(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
+        if (filter.contains(gameRef.gameId)) 
           play.api.Logger("importer").warn(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
-        }
         else {
           Future(filter.add(gameRef.gameId))
           val variant = replay.setup.board.variant
