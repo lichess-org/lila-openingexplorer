@@ -11,14 +11,14 @@ final class MasterDatabase extends MasterDatabasePacker {
 
   private val dbFile = new File("data/master.kct")
   dbFile.createNewFile
+  private val config = Config.explorer.master
 
-  private val db =
-    new KyotoDbBuilder(dbFile)
+  private val db = new KyotoDbBuilder(dbFile)
       .modes(Mode.CREATE, Mode.READ_WRITE)
-      .buckets(Config.explorer.master.kyoto.buckets)
-      .memoryMapSize(Config.explorer.master.kyoto.memory.mapSize)
-      .pageCacheSize(Config.explorer.master.kyoto.memory.pageCacheSize)
-      .defragUnitSize(Config.explorer.master.kyoto.defragUnitSize)
+      .buckets(config.kyoto.buckets)
+      .memoryMapSize(config.kyoto.memory.mapSize)
+      .pageCacheSize(config.kyoto.memory.pageCacheSize)
+      .defragUnitSize(config.kyoto.defragUnitSize)
       .pageComparator(PageComparator.LEXICAL)
       .buildAndOpen
 

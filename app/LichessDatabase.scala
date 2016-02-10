@@ -16,13 +16,13 @@ final class LichessDatabase extends LichessDatabasePacker {
     case variant =>
       val file = new File(s"data/${variant.key}.kct")
       file.createNewFile
-      val db =
-        new KyotoDbBuilder(file)
+      val config = Config.explorer.lichess(variant)
+      val db = new KyotoDbBuilder(file)
           .modes(Mode.CREATE, Mode.READ_WRITE)
-          .buckets(Config.explorer.lichess(variant).kyoto.buckets)
-          .memoryMapSize(Config.explorer.lichess(variant).kyoto.memory.mapSize)
-          .pageCacheSize(Config.explorer.lichess(variant).kyoto.memory.pageCacheSize)
-          .defragUnitSize(Config.explorer.lichess(variant).kyoto.defragUnitSize)
+          .buckets(config.kyoto.buckets)
+          .memoryMapSize(config.kyoto.memory.mapSize)
+          .pageCacheSize(config.kyoto.memory.pageCacheSize)
+          .defragUnitSize(config.kyoto.defragUnitSize)
           .pageComparator(PageComparator.LEXICAL)
           .buildAndOpen
 
