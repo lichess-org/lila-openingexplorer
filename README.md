@@ -9,7 +9,6 @@ Preparations
 Assuming `build-essential`, `openjdk-8-jdk`, `scala` and `sbt` are installed.
 You already have this, if you are running a local lila instance.
 
-    cp conf/application.conf.example conf/application.conf # your config
     ./bin/build-deps.sh  # install scalalib
 
 Install Kyoto cabinet headers and utilities.
