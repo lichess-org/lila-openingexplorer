@@ -15,8 +15,9 @@ final class MasterDatabase extends MasterDatabasePacker {
   private val db =
     new KyotoDbBuilder(dbFile)
       .modes(Mode.CREATE, Mode.READ_WRITE)
-      .pageComparator(PageComparator.LEXICAL)
       .buckets(2000000L * MAX_PLIES)
+      .memoryMapSize(2L << 30)  // 2 GB
+      .pageComparator(PageComparator.LEXICAL)
       .buildAndOpen
 
   def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))

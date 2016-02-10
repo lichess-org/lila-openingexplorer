@@ -19,8 +19,9 @@ final class LichessDatabase extends LichessDatabasePacker {
       val db =
         new KyotoDbBuilder(file)
           .modes(Mode.CREATE, Mode.READ_WRITE)
+          .buckets(50000000L * MAX_PLIES / 2)
+          .memoryMapSize(2L << 30)  // 2 GB
           .pageComparator(PageComparator.LEXICAL)
-          .buckets(5000000L * MAX_PLIES / 2) // at least 10% of expected records
           .buildAndOpen
 
       variant -> db
