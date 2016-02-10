@@ -33,12 +33,15 @@ final class Importer(
   }
 
   private val masterInitBoard = chess.Board.init(chess.variant.Standard)
+  private val masterMinRating = 2200
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
     process(pgn, fastPgn = false) flatMap {
       case Processed(parsed, replay, gameRef) =>
         if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
           s"Invalid initial position ${Forsyth >> replay.setup.situation}".failureNel
+        else if (gameRef.averageRating < masterMinRating)
+          s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
         else scalaz.Success {
           masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
           pgnDb.store(gameRef.gameId, parsed, replay)
