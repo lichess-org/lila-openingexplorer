@@ -25,7 +25,13 @@ class WebApi @Inject() (
   val masterDb = new MasterDatabase()
   val lichessDb = new LichessDatabase()
   val pgnDb = new PgnDatabase()
-  val filter: BloomFilter[String] = new FilterBuilder(140000000, 0.001).buildBloomFilter()
+
+  val filter: BloomFilter[String] =
+    new FilterBuilder(Config.explorer.bloomFilter.expectedGames, Config.explorer.bloomFilter.acceptableError)
+      .name("games")
+      .redisBacked(true)
+      .buildBloomFilter()
+
   val importer = new Importer(masterDb, lichessDb, pgnDb, filter)
 
   lifecycle.addStopHook { () =>

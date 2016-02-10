@@ -11,7 +11,8 @@ object Config {
 
   case class Explorer(
     master: Domain,
-    lichess: Lichess)
+    lichess: Lichess,
+    bloomFilter: BloomFilter)
 
   case class Domain(
     maxPlies: Int,
@@ -49,4 +50,8 @@ object Config {
       case Crazyhouse    => crazyhouse
     }
   }
+
+  case class BloomFilter(
+    expectedGames: Int,
+    acceptableError: Double)
 }
