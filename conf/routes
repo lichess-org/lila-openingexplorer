@@ -6,4 +6,4 @@ GET /master/pgn/:gameId controllers.WebApi.getMasterPgn(gameId: String)
 GET /lichess controllers.WebApi.getLichess
 
 PUT /import/master controllers.WebApi.putMaster
-PUT /import/lichess/:variant controllers.WebApi.putLichess(variant: String)
+PUT /import/lichess controllers.WebApi.putLichess

@@ -20,11 +20,10 @@ final class Importer(
 
   private val lichessSeparator = "\n\n\n"
 
-  def lichess(variant: Variant, text: String): (Unit, Int) = Time {
+  def lichess(text: String): (Unit, Int) = Time {
     val pgns = text.split(lichessSeparator)
-    pgns flatMap { origPgn =>
-      val pgn = if (variant.exotic) s"[Variant ${variant.name}]\n$origPgn" else origPgn
-      process(pgn, fastPgn = true, Config.explorer.lichess(variant).maxPlies) match {
+    pgns flatMap { pgn =>
+      processLichess(pgn) match {
         case scalaz.Success(processed) => Some(processed)
         case scalaz.Failure(errors) =>
           play.api.Logger("importer").warn(errors.list mkString ", ")
@@ -32,10 +31,13 @@ final class Importer(
       }
     } foreach {
       case Processed(_, replay, gameRef) =>
-        if (filter.contains(gameRef.gameId))
+        if (filter.contains(gameRef.gameId)) {
+          println(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
           play.api.Logger("importer").warn(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
+        }
         else {
           Future(filter.add(gameRef.gameId))
+          val variant = replay.setup.board.variant
           lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
         }
     }
@@ -45,7 +47,7 @@ final class Importer(
   private val masterMinRating = 2200
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
-    process(pgn, fastPgn = false, Config.explorer.master.maxPlies) flatMap {
+    processMaster(pgn, Config.explorer.master.maxPlies) flatMap {
       case Processed(parsed, replay, gameRef) =>
         if (filter.contains(gameRef.gameId))
           s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}".failureNel
@@ -63,9 +65,16 @@ final class Importer(
 
   private case class Processed(parsed: ParsedPgn, replay: Replay, gameRef: GameRef)
 
-  private def process(pgn: String, fastPgn: Boolean, maxPlies: Int): Valid[Processed] = for {
-    parsed <- if (fastPgn) parseFastPgn(pgn) else Parser.full(pgn)
+  private def processMaster(pgn: String, maxPlies: Int): Valid[Processed] = for {
+    parsed <- Parser.full(pgn)
     replay <- makeReplay(parsed, maxPlies)
+    gameRef <- GameRef.fromPgn(parsed)
+  } yield Processed(parsed, replay, gameRef)
+
+  private def processLichess(pgn: String): Valid[Processed] = for {
+    parsed <- parseFastPgn(pgn)
+    variant = Parser.getVariantFromTags(parsed.tags)
+    replay <- makeReplay(parsed, Config.explorer.lichess(variant).maxPlies)
     gameRef <- GameRef.fromPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
 

@@ -7,10 +7,10 @@ import scalaz.{ Success, Failure }
 import javax.inject.{ Inject, Singleton }
 
 import play.api._
+import play.api.i18n.Messages.Implicits._
 import play.api.inject.ApplicationLifecycle
 import play.api.mvc._
 import play.api.Play.current
-import play.api.i18n.Messages.Implicits._
 
 import orestes.bloomfilter.{ BloomFilter, FilterBuilder }
 
@@ -89,11 +89,9 @@ class WebApi @Inject() (
     }
   }
 
-  def putLichess(variantKey: String) = Action(parse.tolerantText) { implicit req =>
-    chess.variant.Variant.byKey.get(variantKey).fold(BadRequest(s"Unknown variant $variantKey")) { variant =>
-      importer.lichess(variant, req.body) match {
-        case (_, ms) => Ok(s"$ms ms")
-      }
+  def putLichess = Action(parse.tolerantText) { implicit req =>
+    importer.lichess(req.body) match {
+      case (_, ms) => Ok(s"$ms ms")
     }
   }
 }
