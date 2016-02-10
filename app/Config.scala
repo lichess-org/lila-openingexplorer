@@ -19,6 +19,7 @@ object Config {
 
   case class Kyoto(
     buckets: Long,
+    defragUnitSize: Int,
     memory: Memory)
 
   case class Memory(

@@ -22,7 +22,7 @@ final class LichessDatabase extends LichessDatabasePacker {
           .buckets(Config.explorer.lichess(variant).kyoto.buckets)
           .memoryMapSize(Config.explorer.lichess(variant).kyoto.memory.mapSize)
           .pageCacheSize(Config.explorer.lichess(variant).kyoto.memory.pageCacheSize)
-          .defragUnitSize(Config.explorer.lichess(variant).maxPlies)
+          .defragUnitSize(Config.explorer.lichess(variant).kyoto.defragUnitSize)
           .pageComparator(PageComparator.LEXICAL)
           .buildAndOpen
 

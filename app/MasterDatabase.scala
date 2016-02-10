@@ -18,7 +18,7 @@ final class MasterDatabase extends MasterDatabasePacker {
       .buckets(Config.explorer.master.kyoto.buckets)
       .memoryMapSize(Config.explorer.master.kyoto.memory.mapSize)
       .pageCacheSize(Config.explorer.master.kyoto.memory.pageCacheSize)
-      .defragUnitSize(Config.explorer.master.maxPlies)
+      .defragUnitSize(Config.explorer.master.kyoto.defragUnitSize)
       .pageComparator(PageComparator.LEXICAL)
       .buildAndOpen
 
