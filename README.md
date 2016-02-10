@@ -50,6 +50,11 @@ HTTP API
 > curl http://explorer.lichess.org/master?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
 ```
 
+name | type | default | description
+--- | --- | --- | ---
+**fen** | string | required | FEN of the position to look up
+**moves** | 1 to 20 | 12 | number of most common moves to display
+
 ```javascript
 {
   "total": 1946396,
@@ -95,11 +100,6 @@ HTTP API
 }
 ```
 
-name | type | default | description
---- | --- | --- | ---
-**fen** | string | required | FEN of the position to look up
-**moves** | 1 to 20 | 12 | number of most common moves to display
-
 ### `GET /master/pgn/{id}` fetch one master game by ID
 
 ```
@@ -122,6 +122,10 @@ name | type | default | description
 
 ### `GET /lichess` query lichess opening database
 
+```
+> http://explorer.lichess.org/lichess?variant=standard&speeds[]=blitz&speeds[]=classical&ratings[]=2200&ratings[]=2500&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
+```
+
 name | type | default | description
 --- | --- | --- | ---
 **fen** | string | required | FEN of the position to look up
@@ -129,7 +133,3 @@ name | type | default | description
 **speeds[]** | list | none | `bullet`, `blitz` and/or `classical`
 **ratings[]** | list | none | rating groups ranging from their value to the next higher group: `1600`, `1800`, `2000`, `2200` and `2500` to unlimited
 **moves** | 1 to 20 | 12 | number of most common moves to display
-
-```
-> http://explorer.lichess.org/lichess?variant=standard&speeds[]=blitz&speeds[]=classical&ratings[]=2200&ratings[]=2500&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
-```
