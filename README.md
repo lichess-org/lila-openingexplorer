@@ -32,6 +32,10 @@ Download and unpack [Kyotocabinet Java package](http://fallabs.com/kyotocabinet/
     make
     sudo make install
 
+Create configuration file.
+
+    cp conf/application.conf.example conf/application.conf
+
 Run server
 ----------
 

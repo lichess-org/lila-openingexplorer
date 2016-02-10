@@ -19,7 +19,7 @@ final class Importer(
     val pgns = text.split(lichessSeparator)
     pgns flatMap { origPgn =>
       val pgn = if (variant.exotic) s"[Variant ${variant.name}]\n$origPgn" else origPgn
-      process(pgn, fastPgn = true) match {
+      process(pgn, fastPgn = true, Config.explorer.lichess(variant).maxPlies) match {
         case scalaz.Success(processed) => Some(processed)
         case scalaz.Failure(errors) =>
           play.api.Logger("importer").warn(errors.list mkString ", ")
@@ -35,7 +35,7 @@ final class Importer(
   private val masterMinRating = 2200
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
-    process(pgn, fastPgn = false) flatMap {
+    process(pgn, fastPgn = false, Config.explorer.master.maxPlies) flatMap {
       case Processed(parsed, replay, gameRef) =>
         if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
           s"Invalid initial position ${Forsyth >> replay.setup.situation}".failureNel
@@ -50,9 +50,9 @@ final class Importer(
 
   private case class Processed(parsed: ParsedPgn, replay: Replay, gameRef: GameRef)
 
-  private def process(pgn: String, fastPgn: Boolean): Valid[Processed] = for {
+  private def process(pgn: String, fastPgn: Boolean, maxPlies: Int): Valid[Processed] = for {
     parsed <- if (fastPgn) parseFastPgn(pgn) else Parser.full(pgn)
-    replay <- makeReplay(parsed)
+    replay <- makeReplay(parsed, maxPlies)
     gameRef <- GameRef.fromPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
 
@@ -70,8 +70,8 @@ final class Importer(
     res -> (System.currentTimeMillis - start).toInt
   }
 
-  private def makeReplay(parsed: ParsedPgn): Valid[Replay] = {
-    def truncateMoves(moves: List[San]) = moves take MAX_PLIES
+  private def makeReplay(parsed: ParsedPgn, maxPlies: Int): Valid[Replay] = {
+    def truncateMoves(moves: List[San]) = moves take maxPlies
     Reader.fullWithSans(parsed, truncateMoves _)
   }
 

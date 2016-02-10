@@ -23,7 +23,7 @@ object Config {
 
   case class Memory(
     mapSize: Long,
-    pageSize: Long)
+    pageCacheSize: Long)
 
   case class Lichess(
       standard: Domain,

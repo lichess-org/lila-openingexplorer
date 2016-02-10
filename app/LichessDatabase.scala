@@ -19,10 +19,10 @@ final class LichessDatabase extends LichessDatabasePacker {
       val db =
         new KyotoDbBuilder(file)
           .modes(Mode.CREATE, Mode.READ_WRITE)
-          .buckets(50000000L * MAX_PLIES / 2)
-          .memoryMapSize(2L << 30)  // 2 GB
-          .pageCacheSize(2L << 30)  // 2 GB
-          .defragUnitSize(MAX_PLIES)
+          .buckets(Config.explorer.lichess(variant).kyoto.buckets)
+          .memoryMapSize(Config.explorer.lichess(variant).kyoto.memory.mapSize)
+          .pageCacheSize(Config.explorer.lichess(variant).kyoto.memory.pageCacheSize)
+          .defragUnitSize(Config.explorer.lichess(variant).maxPlies)
           .pageComparator(PageComparator.LEXICAL)
           .buildAndOpen
 
