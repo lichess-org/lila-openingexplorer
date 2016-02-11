@@ -27,12 +27,17 @@ trait MasterDatabasePacker extends PackHelper {
       entry: SubEntry,
       meta: Int,
       helper: Long => Array[Byte]): Array[Byte] = {
+    val exampleGames =
+      entry.gameRefs
+        .sortWith(_.averageRating > _.averageRating)
+        .take(MasterDatabasePacker.maxTopGames)
+
     packUint8(meta) ++
       helper(entry.whiteWins) ++
       helper(entry.draws) ++
       helper(entry.blackWins) ++
       packUint48(entry.averageRatingSum) ++
-      (entry.recentGames ::: entry.topGames).distinct.map(_.pack).flatten
+      exampleGames.map(_.pack).flatten
   }
 
   protected def unpack(b: Array[Byte]): SubEntry = {
@@ -81,6 +86,8 @@ trait MasterDatabasePacker extends PackHelper {
 
 object MasterDatabasePacker {
 
-  val maxPackFormat1 = SubEntry.maxTopGames + (1 + 1 + 1 + 6) / GameRef.packSize
+  val maxTopGames = 4
+
+  val maxPackFormat1 = maxTopGames + (1 + 1 + 1 + 6) / GameRef.packSize
 
 }

@@ -6,9 +6,9 @@ import chess.MoveOrDrop
 
 object JsonView {
 
-  private type Children = List[(MoveOrDrop, SubEntry)]
+  private type Children = List[(MoveOrDrop, QueryResult)]
 
-  def masterEntry(fetchPgn: String => Option[String])(entry: SubEntry, children: Children) = {
+  def masterEntry(fetchPgn: String => Option[String])(entry: QueryResult, children: Children) = {
     def refToJson(ref: GameRef) =
       fetchPgn(ref.gameId) flatMap GameInfo.parse map richGameRef(ref)
     baseEntry(entry, children) ++ Json.obj(
@@ -16,7 +16,7 @@ object JsonView {
       "topGames" -> entry.topGames.flatMap(refToJson))
   }
 
-  def lichessEntry(fetchInfo: String => Option[GameInfo])(entry: SubEntry, children: Children) = {
+  def lichessEntry(fetchInfo: String => Option[GameInfo])(entry: QueryResult, children: Children) = {
     def refToJson(ref: GameRef) =
       fetchInfo(ref.gameId) map richGameRef(ref)
     baseEntry(entry, children) ++ Json.obj(
@@ -29,7 +29,6 @@ object JsonView {
       case (move, entry) => Json.obj(
         "uci" -> move.fold(_.toUci, _.toUci).uci,
         "san" -> move.fold(chess.format.pgn.Dumper(_), chess.format.pgn.Dumper(_)),
-        "total" -> entry.totalGames,
         "white" -> entry.whiteWins,
         "draws" -> entry.draws,
         "black" -> entry.blackWins,
@@ -37,8 +36,7 @@ object JsonView {
     }
   }
 
-  private def baseEntry(entry: SubEntry, children: Children) = Json.obj(
-    "total" -> entry.totalGames,
+  private def baseEntry(entry: QueryResult, children: Children) = Json.obj(
     "white" -> entry.whiteWins,
     "draws" -> entry.draws,
     "black" -> entry.blackWins,

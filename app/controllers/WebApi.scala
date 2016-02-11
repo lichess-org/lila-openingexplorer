@@ -41,8 +41,8 @@ class WebApi @Inject() (
         err => BadRequest(err.errorsAsJson),
         data => (Forsyth << data.fen) match {
           case Some(situation) =>
-            val entry = masterDb.probe(situation)
-            val children = masterDb.probeChildren(situation)
+            val entry = masterDb.query(situation)
+            val children = masterDb.queryChildren(situation)
               .filter(_._2.totalGames > 0)
               .sortBy(-_._2.totalGames)
               .take(data.movesOrDefault)
@@ -67,8 +67,8 @@ class WebApi @Inject() (
         data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
           case Some(situation) =>
             val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
-            val entry = lichessDb.probe(situation, request)
-            val children = lichessDb.probeChildren(situation, request)
+            val entry = lichessDb.query(situation, request)
+            val children = lichessDb.queryChildren(situation, request)
               .filter(_._2.totalGames > 0)
               .sortBy(-_._2.totalGames)
               .take(data.movesOrDefault)

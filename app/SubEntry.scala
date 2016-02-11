@@ -9,14 +9,6 @@ case class SubEntry(
     averageRatingSum: Long,
     gameRefs: List[GameRef]) {
 
-  // game refs must be in chronological order, newer first
-  def recentGames: List[GameRef] = gameRefs.take(SubEntry.maxRecentGames)
-
-  def topGames: List[GameRef] =
-    gameRefs
-      .sortWith(_.averageRating > _.averageRating)
-      .take(SubEntry.maxTopGames)
-
   def totalGames = whiteWins + draws + blackWins
 
   def averageRating: Int =
@@ -47,9 +39,5 @@ object SubEntry {
   def empty = new SubEntry(0, 0, 0, 0, List.empty)
 
   def fromGameRef(game: GameRef) = empty.withGameRef(game)
-
-  val maxTopGames = 4
-
-  val maxRecentGames = 2
 
 }

@@ -5,6 +5,9 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
   def subEntry(ratingGroup: RatingGroup, speedGroup: SpeedGroup): SubEntry =
     sub.getOrElse((ratingGroup, speedGroup), SubEntry.empty)
 
+  def subEntries(groups: List[(RatingGroup, SpeedGroup)]): List[SubEntry] =
+    groups.map((g) => subEntry(g._1, g._2))
+
   def totalGames = sub.values.map(_.totalGames).sum
 
   def maxPerWinnerAndGroup = sub.values.map(_.maxPerWinner).max
@@ -27,26 +30,34 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
     }
   }
 
-  def gameRefs: List[GameRef] =
-    sub.values.flatMap(_.gameRefs).toList
+  def gameRefs(groups: List[(RatingGroup, SpeedGroup)]): List[GameRef] =
+    subEntries(groups)
+      .map(_.gameRefs)
+      .flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)  // interleave
 
-  def select(ratings: List[RatingGroup], speeds: List[SpeedGroup]): SubEntry =
-    selectGroups(Entry.groups(ratings, speeds))
+  def whiteWins(groups: List[(RatingGroup, SpeedGroup)]): Long =
+    subEntries(groups).map(_.whiteWins).sum
 
-  def selectAll: SubEntry = selectGroups(Entry.allGroups)
+  def draws(groups: List[(RatingGroup, SpeedGroup)]): Long =
+    subEntries(groups).map(_.draws).sum
 
-  def selectGroups(groups: List[(RatingGroup, SpeedGroup)]): SubEntry = {
-    val subEntries = groups.map((g) => subEntry(g._1, g._2))
+  def blackWins(groups: List[(RatingGroup, SpeedGroup)]): Long =
+    subEntries(groups).map(_.blackWins).sum
 
-    new SubEntry(
-      subEntries.map(_.whiteWins).sum,
-      subEntries.map(_.draws).sum,
-      subEntries.map(_.blackWins).sum,
-      subEntries.map(_.averageRatingSum).sum,
-      // interleave recent game refs
-      subEntries.map(_.gameRefs).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)
-    )
-  }
+  def averageRatingSum(groups: List[(RatingGroup, SpeedGroup)]): Long =
+    subEntries(groups).map(_.averageRatingSum).sum
+
+  def numGames(groups: List[(RatingGroup, SpeedGroup)]): Long =
+    subEntries(groups).map(_.totalGames).sum
+
+  def averageRating(groups: List[(RatingGroup, SpeedGroup)]): Int =
+    (averageRatingSum(groups) / numGames(groups)).toInt
+
+  lazy val allGameRefs = gameRefs(Entry.allGroups)
+  def totalWhiteWins = whiteWins(Entry.allGroups)
+  def totalDraws = draws(Entry.allGroups)
+  def totalBlackWins = blackWins(Entry.allGroups)
+  def totalAverageRatingSum = averageRatingSum(Entry.allGroups)
 
 }
 

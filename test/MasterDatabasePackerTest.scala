@@ -12,7 +12,7 @@ class MasterDatabasePackerTest extends Specification with MasterDatabasePacker {
       val ref = GameRef("ref00000", Some(Color.White), SpeedGroup.Blitz, 1230)
       val entry = SubEntry.fromGameRef(ref)
 
-      unpack(pack(entry)).topGames mustEqual List(ref)
+      unpack(pack(entry)).gameRefs mustEqual List(ref)
     }
 
     "pack two games" in {
@@ -20,7 +20,7 @@ class MasterDatabasePackerTest extends Specification with MasterDatabasePacker {
       val g2 = GameRef("g0000002", None, SpeedGroup.Classical, 2455)
       val entry = SubEntry.fromGameRef(g1).withGameRef(g2)
 
-      unpack(pack(entry)).topGames.toSet mustEqual Set(g1, g2)
+      unpack(pack(entry)).gameRefs mustEqual List(g2, g1)
     }
 
     "pack thousands of games" in {
@@ -41,7 +41,7 @@ class MasterDatabasePackerTest extends Specification with MasterDatabasePacker {
       restored.draws mustEqual 9222333
       restored.blackWins mustEqual 12
       restored.averageRatingSum mustEqual 1234567890L
-      restored.topGames mustEqual List(g1)
+      restored.gameRefs mustEqual List(g1)
     }
 
   }

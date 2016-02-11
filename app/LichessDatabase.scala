@@ -30,19 +30,33 @@ final class LichessDatabase extends LichessDatabasePacker {
 
   import LichessDatabase.Request
 
-  def probe(situation: Situation, request: Request): SubEntry =
-    probe(situation.board.variant, LichessDatabase.hash(situation), request)
+  private def probe(situation: Situation): Entry =
+    probe(situation.board.variant, LichessDatabase.hash(situation))
 
-  private def probe(variant: Variant, h: PositionHash, request: Request): SubEntry = {
+  private def probe(variant: Variant, h: PositionHash): Entry = {
     dbs.get(variant).flatMap(db => Option(db.get(h))) match {
-      case Some(bytes) => unpack(bytes).select(request.ratings, request.speeds)
-      case None        => SubEntry.empty
+      case Some(bytes) => unpack(bytes)
+      case None        => Entry.empty
     }
   }
 
-  def probeChildren(situation: Situation, request: Request): List[(MoveOrDrop, SubEntry)] =
+  def query(situation: Situation, request: Request): QueryResult = {
+    val entry = probe(situation)
+    val groups = Entry.groups(request.ratings, request.speeds)
+    new QueryResult(
+      entry.whiteWins(groups),
+      entry.draws(groups),
+      entry.blackWins(groups),
+      entry.averageRating(groups),
+      entry.gameRefs(groups).take(LichessDatabasePacker.maxRecentGames),
+      entry.gameRefs(groups)
+        .sortWith(_.averageRating > _.averageRating)
+        .take(LichessDatabasePacker.maxTopGames))
+  }
+
+  def queryChildren(situation: Situation, request: Request): List[(MoveOrDrop, QueryResult)] =
     Util.situationMovesOrDrops(situation).map { move =>
-      move -> probe(move.fold(_.situationAfter, _.situationAfter), request)
+      move -> query(move.fold(_.situationAfter, _.situationAfter), request)
     }.toList
 
   def merge(variant: Variant, gameRef: GameRef, hashes: Array[PositionHash]) = dbs get variant foreach { db =>

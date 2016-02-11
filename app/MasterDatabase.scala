@@ -23,7 +23,7 @@ final class MasterDatabase extends MasterDatabasePacker {
         .buildAndOpen
     }
 
-  def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))
+  private def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))
 
   private def probe(h: PositionHash): SubEntry = {
     Option(db.get(h)) match {
@@ -32,13 +32,25 @@ final class MasterDatabase extends MasterDatabasePacker {
     }
   }
 
-  def probeChildren(situation: Situation): List[(MoveOrDrop, SubEntry)] =
+  def query(situation: Situation): QueryResult = {
+    val entry = probe(situation)
+    new QueryResult(
+      entry.whiteWins,
+      entry.draws,
+      entry.blackWins,
+      entry.averageRating,
+      List.empty,
+      entry.gameRefs
+        .sortWith(_.averageRating > _.averageRating)
+        .take(MasterDatabasePacker.maxTopGames))
+  }
+
+  def queryChildren(situation: Situation): List[(MoveOrDrop, QueryResult)] =
     Util.situationMovesOrDrops(situation).map { move =>
-      move -> probe(move.fold(_.situationAfter, _.situationAfter))
+      move -> query(move.fold(_.situationAfter, _.situationAfter))
     }.toList
 
   def merge(gameRef: GameRef, hashes: Array[PositionHash]) = {
-
     val freshRecord = pack(SubEntry.fromGameRef(gameRef))
 
     db.accept(hashes, new WritableVisitor {
