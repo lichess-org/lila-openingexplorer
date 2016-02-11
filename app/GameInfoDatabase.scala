@@ -7,16 +7,21 @@ import fm.last.commons.kyoto.KyotoDb
 
 final class GameInfoDatabase extends MasterDatabasePacker {
 
-  private val dbFile = new File("data/game-info.kct")
-  dbFile.createNewFile
+  private val db = Util.wrapLog(
+    "Loading gameInfo database...",
+    "GameInfo database loaded!") {
+      val dbFile = new File("data/lichess-info.kct")
+      dbFile.createNewFile
+      val config = Config.explorer.gameInfo
 
-  private val db =
-    new KyotoDbBuilder(dbFile)
-      .modes(Mode.CREATE, Mode.READ_WRITE)
-      .buckets(2000000L)
-      .compressor(Compressor.LZMA)
-      .pageComparator(PageComparator.LEXICAL)
-      .buildAndOpen
+      new KyotoDbBuilder(dbFile)
+        .modes(Mode.CREATE, Mode.READ_WRITE)
+        .buckets(config.kyoto.buckets)
+        .defragUnitSize(config.kyoto.defragUnitSize)
+        .compressor(Compressor.LZMA)
+        .pageComparator(PageComparator.LEXICAL)
+        .buildAndOpen
+    }
 
   def get(gameId: String): Option[GameInfo] =
     Option(db.get(gameId)) flatMap GameInfoDatabase.unpack

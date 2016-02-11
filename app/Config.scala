@@ -12,12 +12,22 @@ object Config {
   case class Explorer(
     master: Domain,
     lichess: Lichess,
+    pgn: Pgn,
+    gameInfo: GameInfo,
     bloomFilter: BloomFilter,
     corsHeader: Boolean)
 
   case class Domain(
     maxPlies: Int,
     kyoto: Kyoto)
+
+  case class Pgn(kyoto: KyotoMin)
+
+  case class GameInfo(kyoto: KyotoMin)
+
+  case class KyotoMin(
+    buckets: Long,
+    defragUnitSize: Int)
 
   case class Kyoto(
     buckets: Long,

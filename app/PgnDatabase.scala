@@ -11,16 +11,21 @@ import chess.Replay
 
 final class PgnDatabase extends MasterDatabasePacker {
 
-  private val dbFile = new File("data/master-pgn.kct")
-  dbFile.createNewFile
+  private val db = Util.wrapLog(
+    "Loading PGN database...",
+    "PGN database loaded!") {
+      val dbFile = new File("data/master-pgn.kct")
+      dbFile.createNewFile
+      val config = Config.explorer.pgn
 
-  private val db =
-    new KyotoDbBuilder(dbFile)
-      .modes(Mode.CREATE, Mode.READ_WRITE)
-      .buckets(2000000L)
-      .compressor(Compressor.LZMA)
-      .pageComparator(PageComparator.LEXICAL)
-      .buildAndOpen
+      new KyotoDbBuilder(dbFile)
+        .modes(Mode.CREATE, Mode.READ_WRITE)
+        .buckets(config.kyoto.buckets)
+        .defragUnitSize(config.kyoto.defragUnitSize)
+        .compressor(Compressor.LZMA)
+        .pageComparator(PageComparator.LEXICAL)
+        .buildAndOpen
+    }
 
   private val relevantTags: Set[TagType] =
     Tag.tagTypes.toSet diff Set(Tag.ECO, Tag.Opening, Tag.Variant)
