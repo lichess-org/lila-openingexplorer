@@ -36,7 +36,7 @@ object Util {
     println(before)
     val res = f
     val duration = System.currentTimeMillis - start
-    println(s"$after (${duration / 1000}) seconds)")
+    println(s"$after (${duration / 1000} seconds)")
     res
   }
 
