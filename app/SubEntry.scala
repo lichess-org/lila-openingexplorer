@@ -36,6 +36,8 @@ case class SubEntry(
     }
   }
 
+  def gameRefs: List[GameRef] = recentGames
+
 }
 
 object SubEntry {

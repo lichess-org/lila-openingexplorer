@@ -5,10 +5,12 @@ trait LichessDatabasePacker extends PackHelper {
   protected def pack(entry: Entry): Array[Byte] = {
     if (entry.totalGames == 0)
       Array.empty
-    else if (entry.totalGames == 1)
-      entry.selectAll.recentGames.head.pack
-    else if (entry.totalGames <= LichessDatabasePacker.maxPackFormat1)
-      Array(1.toByte) ++ entry.selectAll.recentGames.map(_.pack).flatten
+    else if (entry.totalGames == 1 && entry.gameRefs.size == 1)
+      entry.gameRefs.head.pack
+    else if (entry.totalGames <= LichessDatabasePacker.maxPackFormat1 &&
+             entry.totalGames == entry.gameRefs.size)
+      // all games explicitly known by ref
+      Array(1.toByte) ++ entry.gameRefs.map(_.pack).flatten
     else if (entry.maxPerWinnerAndGroup < MaxUint8)
       packMulti(entry, 2, packUint8, packUint24)
     else if (entry.maxPerWinnerAndGroup < MaxUint16)

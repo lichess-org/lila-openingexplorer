@@ -27,6 +27,9 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
     }
   }
 
+  def gameRefs: List[GameRef] =
+    sub.values.flatMap(_.gameRefs).toList
+
   def select(ratings: List[RatingGroup], speeds: List[SpeedGroup]): SubEntry =
     selectGroups(Entry.groups(ratings, speeds))
 

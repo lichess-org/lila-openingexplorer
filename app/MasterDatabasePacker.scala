@@ -5,10 +5,12 @@ trait MasterDatabasePacker extends PackHelper {
   protected def pack(entry: SubEntry): Array[Byte] = {
     if (entry.totalGames == 0)
       Array.empty
-    else if (entry.totalGames == 1)
-      entry.recentGames.head.pack
-    else if (entry.totalGames <= MasterDatabasePacker.maxPackFormat1)
-      Array(1.toByte) ++ entry.recentGames.map(_.pack).flatten
+    else if (entry.totalGames == 1 && entry.gameRefs.size == 1)
+      entry.gameRefs.head.pack
+    else if (entry.totalGames <= MasterDatabasePacker.maxPackFormat1 &&
+             entry.gameRefs.size == entry.totalGames)
+      // all game refs are explicitly known
+      Array(1.toByte) ++ entry.gameRefs.map(_.pack).flatten
     else if (entry.maxPerWinner < MaxUint8)
       packMulti(entry, 2, packUint8)
     else if (entry.maxPerWinner < MaxUint16)
