@@ -43,19 +43,21 @@ class WebApi @Inject() (
   }
 
   def getMaster = Action { implicit req =>
-    Forms.master.form.bindFromRequest.fold(
-      err => BadRequest(err.errorsAsJson),
-      data => (Forsyth << data.fen) match {
-        case Some(situation) =>
-          val entry = masterDb.probe(situation)
-          val children = masterDb.probeChildren(situation)
-            .filter(_._2.totalGames > 0)
-            .sortBy(-_._2.totalGames)
-            .take(data.movesOrDefault)
-          Ok(JsonView.entry(entry, children))
-        case None => BadRequest("valid fen required")
-      }
-    )
+    CORS {
+      Forms.master.form.bindFromRequest.fold(
+        err => BadRequest(err.errorsAsJson),
+        data => (Forsyth << data.fen) match {
+          case Some(situation) =>
+            val entry = masterDb.probe(situation)
+            val children = masterDb.probeChildren(situation)
+              .filter(_._2.totalGames > 0)
+              .sortBy(-_._2.totalGames)
+              .take(data.movesOrDefault)
+            Ok(JsonView.entry(entry, children))
+          case None => BadRequest("valid fen required")
+        }
+      )
+    }
   }
 
   def getMasterPgn(gameId: String) = Action { implicit req =>
@@ -66,20 +68,22 @@ class WebApi @Inject() (
   }
 
   def getLichess = Action { implicit req =>
-    Forms.lichess.form.bindFromRequest.fold(
-      err => BadRequest(err.errorsAsJson),
-      data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
-        case Some(situation) =>
-          val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
-          val entry = lichessDb.probe(situation, request)
-          val children = lichessDb.probeChildren(situation, request)
-            .filter(_._2.totalGames > 0)
-            .sortBy(-_._2.totalGames)
-            .take(data.movesOrDefault)
-          Ok(JsonView.entry(entry, children))
-        case None => BadRequest("valid fen required")
-      }
-    )
+    CORS {
+      Forms.lichess.form.bindFromRequest.fold(
+        err => BadRequest(err.errorsAsJson),
+        data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
+          case Some(situation) =>
+            val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
+            val entry = lichessDb.probe(situation, request)
+            val children = lichessDb.probeChildren(situation, request)
+              .filter(_._2.totalGames > 0)
+              .sortBy(-_._2.totalGames)
+              .take(data.movesOrDefault)
+            Ok(JsonView.entry(entry, children))
+          case None => BadRequest("valid fen required")
+        }
+      )
+    }
   }
 
   def putMaster = Action(parse.tolerantText) { implicit req =>
@@ -94,4 +98,8 @@ class WebApi @Inject() (
       case (_, ms) => Ok(s"$ms ms")
     }
   }
+
+  def CORS(res: Result) =
+    if (Config.explorer.corsHeader) res.withHeaders("Access-Control-Allow-Origin" -> "*")
+    else res
 }

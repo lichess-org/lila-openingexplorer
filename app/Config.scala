@@ -12,7 +12,8 @@ object Config {
   case class Explorer(
     master: Domain,
     lichess: Lichess,
-    bloomFilter: BloomFilter)
+    bloomFilter: BloomFilter,
+    corsHeader: Boolean)
 
   case class Domain(
     maxPlies: Int,

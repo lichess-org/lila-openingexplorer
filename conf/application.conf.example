@@ -8,3 +8,6 @@ include "base"
 
 # disable bloom filter persistence
 # explorer.bloomFilter.persistent = false
+
+# Send header Access-Control-Allow-Origin "*"
+# explorer.corsHeader = true
