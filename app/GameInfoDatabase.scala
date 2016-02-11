@@ -10,9 +10,9 @@ final class GameInfoDatabase extends MasterDatabasePacker {
   private val db = Util.wrapLog(
     "Loading gameInfo database...",
     "GameInfo database loaded!") {
-      val dbFile = new File("data/lichess-info.kct")
-      dbFile.createNewFile
       val config = Config.explorer.gameInfo
+      val dbFile = new File(config.kyoto.file)
+      dbFile.createNewFile
 
       new KyotoDbBuilder(dbFile)
         .modes(Mode.CREATE, Mode.READ_WRITE)

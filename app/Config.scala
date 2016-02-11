@@ -26,10 +26,12 @@ object Config {
   case class GameInfo(kyoto: KyotoMin)
 
   case class KyotoMin(
+    file: String,
     buckets: Long,
     defragUnitSize: Int)
 
   case class Kyoto(
+    file: String,
     buckets: Long,
     defragUnitSize: Int,
     memory: Memory)

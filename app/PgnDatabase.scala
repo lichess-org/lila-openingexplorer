@@ -14,9 +14,9 @@ final class PgnDatabase extends MasterDatabasePacker {
   private val db = Util.wrapLog(
     "Loading PGN database...",
     "PGN database loaded!") {
-      val dbFile = new File("data/master-pgn.kct")
-      dbFile.createNewFile
       val config = Config.explorer.pgn
+      val dbFile = new File(config.kyoto.file)
+      dbFile.createNewFile
 
       new KyotoDbBuilder(dbFile)
         .modes(Mode.CREATE, Mode.READ_WRITE)

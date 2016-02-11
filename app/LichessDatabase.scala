@@ -16,10 +16,10 @@ final class LichessDatabase extends LichessDatabasePacker {
     case variant => variant -> Util.wrapLog(
       s"Loading ${variant.name} database...",
       s"${variant.name} database loaded!") {
-        val file = new File(s"data/${variant.key}.kct")
-        file.createNewFile
         val config = Config.explorer.lichess(variant)
-        new KyotoDbBuilder(file)
+        val dbFile = new File(config.kyoto.file.replace("(variant)", variant.key))
+        dbFile.createNewFile
+        new KyotoDbBuilder(dbFile)
           .modes(Mode.CREATE, Mode.READ_WRITE)
           .buckets(config.kyoto.buckets)
           .memoryMapSize(config.kyoto.memory.mapSize)

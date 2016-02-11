@@ -12,9 +12,9 @@ final class MasterDatabase extends MasterDatabasePacker {
   private val db = Util.wrapLog(
     "Loading master database...",
     "Master database loaded!") {
-      val dbFile = new File("data/master.kct")
-      dbFile.createNewFile
       val config = Config.explorer.master
+      val dbFile = new File(config.kyoto.file)
+      dbFile.createNewFile
       new KyotoDbBuilder(dbFile)
         .modes(Mode.CREATE, Mode.READ_WRITE)
         .buckets(config.kyoto.buckets)
