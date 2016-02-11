@@ -2,25 +2,28 @@ package lila.openingexplorer
 
 import java.io.File
 
-import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, Mode, PageComparator }
+import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 
-import chess.{Hash, Situation, MoveOrDrop, PositionHash}
+import chess.{ Hash, Situation, MoveOrDrop, PositionHash }
 
 final class MasterDatabase extends MasterDatabasePacker {
 
-  private val dbFile = new File("data/master.kct")
-  dbFile.createNewFile
-  private val config = Config.explorer.master
-
-  private val db = new KyotoDbBuilder(dbFile)
-      .modes(Mode.CREATE, Mode.READ_WRITE)
-      .buckets(config.kyoto.buckets)
-      .memoryMapSize(config.kyoto.memory.mapSize)
-      .pageCacheSize(config.kyoto.memory.pageCacheSize)
-      .defragUnitSize(config.kyoto.defragUnitSize)
-      .pageComparator(PageComparator.LEXICAL)
-      .buildAndOpen
+  private val db = Util.wrapLog(
+    "Loading master database...",
+    "Master database loaded!") {
+      val dbFile = new File("data/master.kct")
+      dbFile.createNewFile
+      val config = Config.explorer.master
+      new KyotoDbBuilder(dbFile)
+        .modes(Mode.CREATE, Mode.READ_WRITE)
+        .buckets(config.kyoto.buckets)
+        .memoryMapSize(config.kyoto.memory.mapSize)
+        .pageCacheSize(config.kyoto.memory.pageCacheSize)
+        .defragUnitSize(config.kyoto.defragUnitSize)
+        .pageComparator(PageComparator.LEXICAL)
+        .buildAndOpen
+    }
 
   def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))
 
@@ -57,6 +60,6 @@ final class MasterDatabase extends MasterDatabasePacker {
 
 object MasterDatabase {
 
-  val hash = new Hash(32)  // 128 bit Zobrist hasher
+  val hash = new Hash(32) // 128 bit Zobrist hasher
 
 }

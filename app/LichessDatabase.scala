@@ -13,11 +13,13 @@ final class LichessDatabase extends LichessDatabasePacker {
   private val variants = Variant.all.filter(chess.variant.FromPosition!=)
 
   private val dbs: Map[Variant, KyotoDb] = variants.map({
-    case variant =>
-      val file = new File(s"data/${variant.key}.kct")
-      file.createNewFile
-      val config = Config.explorer.lichess(variant)
-      val db = new KyotoDbBuilder(file)
+    case variant => variant -> Util.wrapLog(
+      s"Loading ${variant.name} database...",
+      s"${variant.name} database loaded!") {
+        val file = new File(s"data/${variant.key}.kct")
+        file.createNewFile
+        val config = Config.explorer.lichess(variant)
+        new KyotoDbBuilder(file)
           .modes(Mode.CREATE, Mode.READ_WRITE)
           .buckets(config.kyoto.buckets)
           .memoryMapSize(config.kyoto.memory.mapSize)
@@ -25,8 +27,7 @@ final class LichessDatabase extends LichessDatabasePacker {
           .defragUnitSize(config.kyoto.defragUnitSize)
           .pageComparator(PageComparator.LEXICAL)
           .buildAndOpen
-
-      variant -> db
+      }
   }).toMap
 
   import LichessDatabase.Request

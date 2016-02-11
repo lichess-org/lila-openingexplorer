@@ -30,4 +30,12 @@ object Util {
 
   def distinctHashes(hashes: List[chess.PositionHash]): Array[chess.PositionHash] =
     hashes.map(h => (h: WrappedArray[Byte])).distinct.map(_.array).toArray
+
+  def wrapLog[A](before: String, after: String)(f: => A): A = {
+    println(before)
+    val res = f
+    println(after)
+    res
+  }
+
 }
