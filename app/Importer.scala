@@ -31,7 +31,7 @@ final class Importer(
       case Processed(parsed, replay, gameRef) =>
         GameInfo parse parsed.tags match {
           case _ if gameInfoDb.contains(gameRef.gameId) =>
-            play.api.Logger("importer").warn("skip dup ${gameRef.gameId}")
+            play.api.Logger("importer").warn(s"skip dup ${gameRef.gameId}")
           case None =>
             play.api.Logger("importer").warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
           case Some(info) =>
