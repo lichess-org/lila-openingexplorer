@@ -22,6 +22,10 @@ class EntryTest extends Specification {
       Entry.fromGameRef(g1).withGameRef(g2).totalGames mustEqual 2
     }
 
+    "show an average rating 0 if empty" in {
+      Entry.empty.averageRating(Entry.allGroups) mustEqual 0
+    }
+
   }
 
 }
