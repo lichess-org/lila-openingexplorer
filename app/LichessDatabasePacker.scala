@@ -7,7 +7,7 @@ trait LichessDatabasePacker extends PackHelper {
       Array.empty
     else if (entry.totalGames == 1)
       entry.selectAll.recentGames.head.pack
-    else if (entry.totalGames <= 42)  // not kidding! carefully calculated boundary
+    else if (entry.totalGames <= LichessDatabasePacker.maxPackFormat1)
       Array(1.toByte) ++ entry.selectAll.recentGames.map(_.pack).flatten
     else if (entry.maxPerWinnerAndGroup < MaxUint8)
       packMulti(entry, 2, packUint8, packUint24)
@@ -107,8 +107,10 @@ trait LichessDatabasePacker extends PackHelper {
 
 object LichessDatabasePacker {
 
-  val maxTopGames = 5
+  val maxTopGames = 4
 
   val maxRecentGames = 2
+
+  val maxPackFormat1 = maxTopGames + Entry.allGroups.size * (1 + 1 + 1 + 3 + maxRecentGames * GameRef.packSize) / GameRef.packSize
 
 }

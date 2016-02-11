@@ -11,7 +11,7 @@ def master_pack_format_2(n):
     return 1 + (1 + 1 + 1 + 6) + 8 * min(n, 4)
 
 def lichess_pack_format_2(n):
-    return 1 + (1 + 1 + 1 + 3) * GROUPS + 8 * min(n, 2 * GROUPS)
+    return 1 + (1 + 1 + 1 + 3) * GROUPS + 8 * min(n, 2 * GROUPS) + 4 * 8
 
 print("games", "f1", "master2", "lichess2", sep="\t")
 for n in range(1, 100):
