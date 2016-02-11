@@ -16,6 +16,7 @@ final class Importer(
     masterDb: MasterDatabase,
     lichessDb: LichessDatabase,
     pgnDb: PgnDatabase,
+    gameInfoDb: GameInfoDatabase,
     filter: BloomFilter[String]) extends Validation with scalaz.syntax.ToValidationOps {
 
   private val lichessSeparator = "\n\n\n"
@@ -30,13 +31,19 @@ final class Importer(
           None
       }
     } foreach {
-      case Processed(_, replay, gameRef) =>
-        if (filter.contains(gameRef.gameId))
-          play.api.Logger("importer").warn(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
-        else {
-          Future(filter.add(gameRef.gameId))
-          val variant = replay.setup.board.variant
-          lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
+      case Processed(parsed, replay, gameRef) =>
+        GameInfo parse parsed.tags match {
+          case None =>
+            play.api.Logger("importer").warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
+          case Some(info) =>
+            if (filter.contains(gameRef.gameId))
+              play.api.Logger("importer").warn(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
+            else {
+              Future(filter.add(gameRef.gameId))
+              val variant = replay.setup.board.variant
+              lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
+              gameInfoDb.store(gameRef.gameId, info)
+            }
         }
     }
   }
