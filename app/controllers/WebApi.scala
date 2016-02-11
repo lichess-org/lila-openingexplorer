@@ -72,7 +72,7 @@ class WebApi @Inject() (
               .filter(_._2.totalGames > 0)
               .sortBy(-_._2.totalGames)
               .take(data.movesOrDefault)
-            Ok(JsonView.entry(entry, children))
+            Ok(JsonView.lichessEntry(gameInfoDb.get)(entry, children))
           case None => BadRequest("valid fen required")
         }
       )

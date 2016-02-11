@@ -8,8 +8,7 @@ object JsonView {
 
   private type Children = List[(MoveOrDrop, SubEntry)]
 
-  def masterEntry(fetchPgn: String => Option[String])(
-    entry: SubEntry, children: List[(MoveOrDrop, SubEntry)]) = {
+  def masterEntry(fetchPgn: String => Option[String])(entry: SubEntry, children: Children) = {
     def refToJson(ref: GameRef) =
       fetchPgn(ref.gameId) flatMap GameInfo.parse map richGameRef(ref)
     baseEntry(entry, children) ++ Json.obj(
@@ -17,10 +16,13 @@ object JsonView {
       "topGames" -> entry.topGames.flatMap(refToJson))
   }
 
-  def entry(entry: SubEntry, children: Children) =
+  def lichessEntry(fetchInfo: String => Option[GameInfo])(entry: SubEntry, children: Children) = {
+    def refToJson(ref: GameRef) =
+      fetchInfo(ref.gameId) map richGameRef(ref)
     baseEntry(entry, children) ++ Json.obj(
-      "recentGames" -> entry.recentGames.map(gameRef),
-      "topGames" -> entry.topGames.map(gameRef))
+      "recentGames" -> entry.recentGames.map(refToJson),
+      "topGames" -> entry.topGames.map(refToJson))
+  }
 
   def moveEntries(elems: Children) = JsArray {
     elems.map {
@@ -45,7 +47,6 @@ object JsonView {
 
   private def gameRef(ref: GameRef) = Json.obj(
     "id" -> ref.gameId,
-    "rating" -> ref.averageRating,
     "winner" -> ref.winner.fold("draw")(_.fold("white", "black")))
 
   private def richGameRef(ref: GameRef)(info: GameInfo) = gameRef(ref) ++ Json.obj(
