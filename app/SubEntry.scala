@@ -7,8 +7,15 @@ case class SubEntry(
     draws: Long,
     blackWins: Long,
     averageRatingSum: Long,
-    topGames: List[GameRef],
-    recentGames: List[GameRef]) {
+    gameRefs: List[GameRef]) {
+
+  // game refs must be in chronological order, newer first
+  def recentGames: List[GameRef] = gameRefs.take(SubEntry.maxRecentGames)
+
+  def topGames: List[GameRef] =
+    gameRefs
+      .sortWith(_.averageRating > _.averageRating)
+      .take(SubEntry.maxTopGames)
 
   def totalGames = whiteWins + draws + blackWins
 
@@ -17,15 +24,12 @@ case class SubEntry(
 
   def maxPerWinner = math.max(math.max(whiteWins, blackWins), draws)
 
-  def withExistingGameRef(game: GameRef): SubEntry = {
-    copy(
-      topGames = (game :: topGames).sortWith(_.averageRating > _.averageRating),
-      recentGames = game :: recentGames
-    )
-  }
+  def withExistingGameRef(game: GameRef): SubEntry =
+    copy(gameRefs = game :: gameRefs)
 
   def withGameRef(game: GameRef): SubEntry = {
-    val intermediate = withExistingGameRef(game).copy(
+    val intermediate = copy(
+      gameRefs = game :: gameRefs,
       averageRatingSum = averageRatingSum + game.averageRating
     )
 
@@ -36,14 +40,16 @@ case class SubEntry(
     }
   }
 
-  def gameRefs: List[GameRef] = recentGames
-
 }
 
 object SubEntry {
 
-  def empty = new SubEntry(0, 0, 0, 0, List.empty, List.empty)
+  def empty = new SubEntry(0, 0, 0, 0, List.empty)
 
   def fromGameRef(game: GameRef) = empty.withGameRef(game)
+
+  val maxTopGames = 4
+
+  val maxRecentGames = 2
 
 }

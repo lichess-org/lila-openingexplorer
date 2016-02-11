@@ -43,9 +43,8 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
       subEntries.map(_.draws).sum,
       subEntries.map(_.blackWins).sum,
       subEntries.map(_.averageRatingSum).sum,
-      subEntries.map(_.topGames).flatten.sortWith(_.averageRating > _.averageRating),
-      // interleave recent games
-      subEntries.map(_.recentGames).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)
+      // interleave recent game refs
+      subEntries.map(_.gameRefs).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)
     )
   }
 

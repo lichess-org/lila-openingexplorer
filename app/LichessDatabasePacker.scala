@@ -28,13 +28,13 @@ trait LichessDatabasePacker extends PackHelper {
       meta: Int,
       helper: Long => Array[Byte],
       ratingHelper: Long => Array[Byte]): Array[Byte] = {
-    val sampleGames =
-      entry.sub.values.map(_.recentGames.take(LichessDatabasePacker.maxRecentGames)).flatten ++
-      entry.selectAll.topGames.take(LichessDatabasePacker.maxTopGames)
+    val exampleGames =
+      entry.sub.values.map(_.recentGames).flatten ++
+      entry.selectAll.topGames
 
     packUint8(meta) ++
       Entry.allGroups.map((g) => packSubEntry(entry.subEntry(g._1, g._2), helper, ratingHelper)).flatten ++
-      sampleGames.toList.distinct.map(_.pack).flatten
+      exampleGames.toList.distinct.map(_.pack).flatten
   }
 
   private def packSubEntry(
@@ -101,7 +101,7 @@ trait LichessDatabasePacker extends PackHelper {
       helper(b.drop(width)),
       helper(b.drop(width + width)),
       ratingHelper(b.drop(width + width + width)),
-      List.empty, List.empty
+      List.empty
     )
   }
 
@@ -109,10 +109,6 @@ trait LichessDatabasePacker extends PackHelper {
 
 object LichessDatabasePacker {
 
-  val maxTopGames = 4
-
-  val maxRecentGames = 2
-
-  val maxPackFormat1 = maxTopGames + Entry.allGroups.size * (1 + 1 + 1 + 3 + maxRecentGames * GameRef.packSize) / GameRef.packSize
+  val maxPackFormat1 = SubEntry.maxTopGames + Entry.allGroups.size * (1 + 1 + 1 + 3 + SubEntry.maxRecentGames * GameRef.packSize) / GameRef.packSize
 
 }
