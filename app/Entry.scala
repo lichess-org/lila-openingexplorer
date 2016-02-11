@@ -50,8 +50,10 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
   def numGames(groups: List[(RatingGroup, SpeedGroup)]): Long =
     subEntries(groups).map(_.totalGames).sum
 
-  def averageRating(groups: List[(RatingGroup, SpeedGroup)]): Int =
-    (averageRatingSum(groups) / numGames(groups)).toInt
+  def averageRating(groups: List[(RatingGroup, SpeedGroup)]): Int = {
+    val games = numGames(groups)
+    if (games == 0) 0 else (averageRatingSum(groups) / games).toInt
+  }
 
   lazy val allGameRefs = gameRefs(Entry.allGroups)
   def totalWhiteWins = whiteWins(Entry.allGroups)
