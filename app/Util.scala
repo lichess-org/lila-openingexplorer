@@ -32,9 +32,11 @@ object Util {
     hashes.map(h => (h: WrappedArray[Byte])).distinct.map(_.array).toArray
 
   def wrapLog[A](before: String, after: String)(f: => A): A = {
+    val start = System.currentTimeMillis
     println(before)
     val res = f
-    println(after)
+    val duration = System.currentTimeMillis - start
+    println(s"$after (${duration / 1000}) seconds)")
     res
   }
 
