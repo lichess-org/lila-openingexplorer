@@ -43,15 +43,26 @@ final class LichessDatabase extends LichessDatabasePacker {
   def query(situation: Situation, request: Request): QueryResult = {
     val entry = probe(situation)
     val groups = Entry.groups(request.ratings, request.speeds)
+    val gameRefs = entry.gameRefs(groups)
+
+    val topGames =
+      if (request.ratings.contains(RatingGroup.Group2500)) {
+        gameRefs
+          .sortWith(_.averageRating > _.averageRating)
+          .take(LichessDatabasePacker.maxTopGames)
+      }
+      else List.empty
+
+    val numRecentGames =
+      math.max(LichessDatabasePacker.maxRecentGames, gameRefs.size - LichessDatabasePacker.maxTopGames)
+
     new QueryResult(
       entry.whiteWins(groups),
       entry.draws(groups),
       entry.blackWins(groups),
       entry.averageRating(groups),
-      entry.gameRefs(groups).take(LichessDatabasePacker.maxRecentGames),
-      entry.gameRefs(groups)
-        .sortWith(_.averageRating > _.averageRating)
-        .take(LichessDatabasePacker.maxTopGames))
+      gameRefs.take(math.min(4, numRecentGames)),
+      topGames)
   }
 
   def queryChildren(situation: Situation, request: Request): List[(MoveOrDrop, QueryResult)] =
