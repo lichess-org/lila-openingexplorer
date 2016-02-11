@@ -24,6 +24,7 @@ RSYNC_OPTIONS=" \
   --checksum \
   --verbose \
   --exclude RUNNING_PID \
+  --exclude conf/application.conf \
   --exclude data \
   --exclude '.git/'"
 
