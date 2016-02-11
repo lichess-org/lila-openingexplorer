@@ -8,7 +8,7 @@ def pack_format_1(n):
     return 1 + (n * 8)
 
 def master_pack_format_2(n):
-    return 1 + (1 + 1 + 1 + 6) + 8 * min(n, 5)
+    return 1 + (1 + 1 + 1 + 6) + 8 * min(n, 4)
 
 def lichess_pack_format_2(n):
     return 1 + (1 + 1 + 1 + 3) * GROUPS + 8 * min(n, 2 * GROUPS)

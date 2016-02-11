@@ -7,7 +7,7 @@ trait MasterDatabasePacker extends PackHelper {
       Array.empty
     else if (entry.totalGames == 1)
       entry.recentGames.head.pack
-    else if (entry.totalGames <= 6)  // carefully calculated boundary
+    else if (entry.totalGames <= MasterDatabasePacker.maxPackFormat1)
       Array(1.toByte) ++ entry.recentGames.map(_.pack).flatten
     else if (entry.maxPerWinner < MaxUint8)
       packMulti(entry, 2, packUint8)
@@ -80,6 +80,8 @@ trait MasterDatabasePacker extends PackHelper {
 
 object MasterDatabasePacker {
 
-  val maxTopGames = 5
+  val maxTopGames = 4
+
+  val maxPackFormat1 = maxTopGames + (1 + 1 + 1 + 6) / GameRef.packSize
 
 }
