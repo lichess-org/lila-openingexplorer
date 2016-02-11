@@ -26,6 +26,9 @@ final class GameInfoDatabase extends MasterDatabasePacker {
   def get(gameId: String): Option[GameInfo] =
     Option(db.get(gameId)) flatMap GameInfoDatabase.unpack
 
+  def contains(gameId: String): Boolean =
+    Option(db.get(gameId)).isDefined
+
   def store(gameId: String, info: GameInfo) =
     db.set(gameId, GameInfoDatabase pack info)
 

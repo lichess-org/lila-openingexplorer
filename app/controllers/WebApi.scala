@@ -12,8 +12,6 @@ import play.api.inject.ApplicationLifecycle
 import play.api.mvc._
 import play.api.Play.current
 
-import orestes.bloomfilter.{ BloomFilter, FilterBuilder }
-
 import chess.format.Forsyth
 
 import lila.openingexplorer._
@@ -27,13 +25,7 @@ class WebApi @Inject() (
   val pgnDb = new PgnDatabase()
   val gameInfoDb = new GameInfoDatabase()
 
-  val filter: BloomFilter[String] =
-    new FilterBuilder(Config.explorer.bloomFilter.expectedGames, Config.explorer.bloomFilter.acceptableError)
-      .name("games")
-      .redisBacked(Config.explorer.bloomFilter.persistent)
-      .buildBloomFilter()
-
-  val importer = new Importer(masterDb, lichessDb, pgnDb, gameInfoDb, filter)
+  val importer = new Importer(masterDb, lichessDb, pgnDb, gameInfoDb)
 
   lifecycle.addStopHook { () =>
     Future.successful {

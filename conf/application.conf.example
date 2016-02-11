@@ -6,8 +6,5 @@ include "base"
 # override example =
 # explorer.lichess.standard.maxPlies = 60
 
-# disable bloom filter persistence
-# explorer.bloomFilter.persistent = false
-
 # Send header Access-Control-Allow-Origin "*"
 # explorer.corsHeader = true

@@ -17,7 +17,6 @@ libraryDependencies ++= Seq(
   "com.github.ornicar" %% "scalalib" % "5.3",
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
   "com.github.kxbmap" %% "configs" % "0.3.0",
-  "com.baqend" % "bloom-filter" % "1.01",
   cache,
   ws
 )

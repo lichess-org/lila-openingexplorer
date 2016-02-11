@@ -14,7 +14,6 @@ object Config {
     lichess: Lichess,
     pgn: Pgn,
     gameInfo: GameInfo,
-    bloomFilter: BloomFilter,
     corsHeader: Boolean)
 
   case class Domain(
@@ -63,9 +62,4 @@ object Config {
       case Crazyhouse    => crazyhouse
     }
   }
-
-  case class BloomFilter(
-    expectedGames: Int,
-    acceptableError: Double,
-    persistent: Boolean)
 }

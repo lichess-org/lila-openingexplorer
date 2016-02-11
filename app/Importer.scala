@@ -5,8 +5,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scalaz.Validation.FlatMap._
 
-import orestes.bloomfilter.BloomFilter
-
 import chess.format.Forsyth
 import chess.format.pgn.{ Parser, Reader, ParsedPgn, San }
 import chess.variant.Variant
@@ -16,8 +14,7 @@ final class Importer(
     masterDb: MasterDatabase,
     lichessDb: LichessDatabase,
     pgnDb: PgnDatabase,
-    gameInfoDb: GameInfoDatabase,
-    filter: BloomFilter[String]) extends Validation with scalaz.syntax.ToValidationOps {
+    gameInfoDb: GameInfoDatabase) extends Validation with scalaz.syntax.ToValidationOps {
 
   private val lichessSeparator = "\n\n\n"
 
@@ -33,17 +30,14 @@ final class Importer(
     } foreach {
       case Processed(parsed, replay, gameRef) =>
         GameInfo parse parsed.tags match {
+          case _ if gameInfoDb.contains(gameRef.gameId) =>
+            play.api.Logger("importer").warn("skip dup ${gameRef.gameId}")
           case None =>
             play.api.Logger("importer").warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
           case Some(info) =>
-            if (filter.contains(gameRef.gameId))
-              play.api.Logger("importer").warn(s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}")
-            else {
-              Future(filter.add(gameRef.gameId))
-              val variant = replay.setup.board.variant
-              lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
-              gameInfoDb.store(gameRef.gameId, info)
-            }
+            val variant = replay.setup.board.variant
+            lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
+            gameInfoDb.store(gameRef.gameId, info)
         }
     }
   }
@@ -54,14 +48,11 @@ final class Importer(
   def master(pgn: String): (Valid[Unit], Int) = Time {
     processMaster(pgn, Config.explorer.master.maxPlies) flatMap {
       case Processed(parsed, replay, gameRef) =>
-        if (filter.contains(gameRef.gameId))
-          s"probable duplicate: ${gameRef.gameId}, err = ${filter.getFalsePositiveProbability}".failureNel
-        else if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
+        if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
           s"Invalid initial position ${Forsyth >> replay.setup.situation}".failureNel
         else if (gameRef.averageRating < masterMinRating)
           s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
         else scalaz.Success {
-          Future(filter.add(gameRef.gameId))
           masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
           pgnDb.store(gameRef.gameId, parsed, replay)
         }
