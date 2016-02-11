@@ -21,6 +21,7 @@ final class PgnDatabase extends MasterDatabasePacker {
       new KyotoDbBuilder(dbFile)
         .modes(Mode.CREATE, Mode.READ_WRITE)
         .buckets(config.kyoto.buckets)
+        .memoryMapSize(config.kyoto.memoryMapSize)
         .defragUnitSize(config.kyoto.defragUnitSize)
         .compressor(Compressor.LZMA)
         .pageComparator(PageComparator.LEXICAL)

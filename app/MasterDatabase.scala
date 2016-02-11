@@ -18,10 +18,8 @@ final class MasterDatabase extends MasterDatabasePacker {
       new KyotoDbBuilder(dbFile)
         .modes(Mode.CREATE, Mode.READ_WRITE)
         .buckets(config.kyoto.buckets)
-        .memoryMapSize(config.kyoto.memory.mapSize)
-        .pageCacheSize(config.kyoto.memory.pageCacheSize)
+        .memoryMapSize(config.kyoto.memoryMapSize)
         .defragUnitSize(config.kyoto.defragUnitSize)
-        .pageComparator(PageComparator.LEXICAL)
         .buildAndOpen
     }
 

@@ -20,24 +20,15 @@ object Config {
     maxPlies: Int,
     kyoto: Kyoto)
 
-  case class Pgn(kyoto: KyotoMin)
+  case class Pgn(kyoto: Kyoto)
 
-  case class GameInfo(kyoto: KyotoMin)
-
-  case class KyotoMin(
-    file: String,
-    buckets: Long,
-    defragUnitSize: Int)
+  case class GameInfo(kyoto: Kyoto)
 
   case class Kyoto(
     file: String,
     buckets: Long,
     defragUnitSize: Int,
-    memory: Memory)
-
-  case class Memory(
-    mapSize: Long,
-    pageCacheSize: Long)
+    memoryMapSize: Long)
 
   case class Lichess(
       standard: Domain,
