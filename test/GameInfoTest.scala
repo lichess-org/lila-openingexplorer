@@ -25,7 +25,6 @@ class GameInfoTest extends Specification {
       GameInfo.parse(pgn) must_== Some(GameInfo(
         white = GameInfo.Player("Morozevich, Alexander", 2788),
         black = GameInfo.Player("Karjakin, Sergey", 2727),
-        result = Some(chess.Black),
         year = Some(2008)))
     }
   }
