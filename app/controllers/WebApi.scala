@@ -106,7 +106,7 @@ class WebApi @Inject() (
 
   def JsonResult(json: String)(implicit req: RequestHeader) =
     req.queryString.get("callback").flatMap(_.headOption) match {
-      case Some(callback) => Ok(s"${callback}(${json})").as("application/javascript")
+      case Some(callback) => Ok(s"$callback($json)").as("application/javascript")
       case None =>           Ok(json).as("application/json")
     }
 }
