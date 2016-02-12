@@ -32,6 +32,7 @@ class WebApi @Inject() (
       masterDb.close
       lichessDb.closeAll
       pgnDb.close
+      gameInfoDb.close
     }
   }
 
