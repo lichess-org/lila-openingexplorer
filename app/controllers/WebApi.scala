@@ -45,7 +45,7 @@ class WebApi @Inject() (
       Forms.master.form.bindFromRequest.fold(
         err => BadRequest(err.errorsAsJson),
         data => (Forsyth << data.fen) match {
-          case Some(situation) => Ok {
+          case Some(situation) => JsonResult {
             cache.master(data.fen) {
               val entry = masterDb.query(situation)
               val children = curate(masterDb.queryChildren(situation), data.movesOrDefault)
@@ -70,7 +70,7 @@ class WebApi @Inject() (
       Forms.lichess.form.bindFromRequest.fold(
         err => BadRequest(err.errorsAsJson),
         data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
-          case Some(situation) => Ok {
+          case Some(situation) => JsonResult {
             cache.lichess(data) {
               val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
               val entry = lichessDb.query(situation, request)
@@ -103,4 +103,10 @@ class WebApi @Inject() (
   def CORS(res: Result) =
     if (Config.explorer.corsHeader) res.withHeaders("Access-Control-Allow-Origin" -> "*")
     else res
+
+  def JsonResult(json: String)(implicit req: RequestHeader) =
+    req.queryString.get("callback").flatMap(_.headOption) match {
+      case Some(callback) => Ok(s"${callback}(${json})").as("application/javascript")
+      case None =>           Ok(json).as("application/json")
+    }
 }
