@@ -36,7 +36,8 @@ final class Importer(
             play.api.Logger("importer").warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
           case Some(info) =>
             val variant = replay.setup.board.variant
-            lichessDb.merge(variant, gameRef, collectHashes(replay, LichessDatabase.hash))
+            val hashes = collectHashes(replay, LichessDatabase.hash, Config.explorer.lichess(variant).maxPlies)
+            lichessDb.merge(variant, gameRef, hashes)
             gameInfoDb.store(gameRef.gameId, info)
         }
     }
@@ -53,7 +54,8 @@ final class Importer(
         else if (gameRef.averageRating < masterMinRating)
           s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
         else scalaz.Success {
-          masterDb.merge(gameRef, collectHashes(replay, MasterDatabase.hash))
+          val hashes = collectHashes(replay, MasterDatabase.hash, Config.explorer.master.maxPlies)
+          masterDb.merge(gameRef, hashes)
           pgnDb.store(gameRef.gameId, parsed, replay)
         }
     }
@@ -63,14 +65,14 @@ final class Importer(
 
   private def processMaster(pgn: String, maxPlies: Int): Valid[Processed] = for {
     parsed <- Parser.full(pgn)
-    replay <- makeReplay(parsed, maxPlies)
+    replay <- Reader.fullWithSans(parsed, identity[List[San]] _)
     gameRef <- GameRef.fromPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
 
   private def processLichess(pgn: String): Valid[Processed] = for {
     parsed <- parseFastPgn(pgn)
     variant = Parser.getVariantFromTags(parsed.tags)
-    replay <- makeReplay(parsed, Config.explorer.lichess(variant).maxPlies)
+    replay <- Reader.fullWithSans(parsed, (moves: List[San]) => moves.take(Config.explorer.lichess(variant).maxPlies))
     gameRef <- GameRef.fromPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
 
@@ -88,12 +90,8 @@ final class Importer(
     res -> (System.currentTimeMillis - start).toInt
   }
 
-  private def makeReplay(parsed: ParsedPgn, maxPlies: Int): Valid[Replay] = {
-    def truncateMoves(moves: List[San]) = moves take maxPlies
-    Reader.fullWithSans(parsed, truncateMoves _)
-  }
-
-  private def collectHashes(replay: Replay, hash: Hash) = Util.distinctHashes({
-    replay.setup.situation :: replay.moves.map(_.fold(_.situationAfter, _.situationAfter))
+  private def collectHashes(replay: Replay, hash: Hash, maxPlies: Int) = Util.distinctHashes({
+    println(replay.setup.situation)
+    replay.setup.situation :: replay.chronoMoves.take(maxPlies).map(_.fold(_.situationAfter, _.situationAfter))
   }.map(hash.apply))
 }
