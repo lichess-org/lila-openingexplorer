@@ -48,7 +48,7 @@ Index master games
 HTTP API
 --------
 
-CORS enabled for all domains, provide `callback` paremeter to use JSONP.
+CORS enabled for all domains. Provide `callback` parameter to use JSONP.
 
 ### `GET /master` query opening database with master games
 
