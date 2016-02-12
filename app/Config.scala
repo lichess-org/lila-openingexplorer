@@ -3,6 +3,8 @@ package lila.openingexplorer
 import com.github.kxbmap.configs.syntax._
 import com.typesafe.config.ConfigFactory
 
+import scala.concurrent.duration._
+
 import chess.variant._
 
 object Config {
@@ -14,7 +16,12 @@ object Config {
     lichess: Lichess,
     pgn: Pgn,
     gameInfo: GameInfo,
-    corsHeader: Boolean)
+    corsHeader: Boolean,
+    cache: Cache)
+
+  case class Cache(
+    maxMoves: Int,
+    ttl: FiniteDuration)
 
   case class Domain(
     maxPlies: Int,

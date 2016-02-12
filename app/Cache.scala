@@ -7,20 +7,19 @@ import chess.variant.Variant
 
 final class Cache(cache: CacheApi) {
 
-  private val maxMoveNumber = 2
-  private val ttl = 10 minutes
+  private val config = Config.explorer.cache
 
   def master(fen: String)(computation: => String): String =
     fenMoveNumber(fen).fold(computation) { moveNumber =>
-      if (moveNumber > maxMoveNumber) computation
-      else cache.getOrElse(s"master:$fen", ttl)(computation)
+      if (moveNumber > config.maxMoves) computation
+      else cache.getOrElse(s"master:$fen", config.ttl)(computation)
     }
 
   def lichess(data: Forms.lichess.Data)(computation: => String): String =
     fenMoveNumber(data.fen).fold(computation) { moveNumber =>
-      if (moveNumber > maxMoveNumber) computation
+      if (moveNumber > config.maxMoves) computation
       if (!data.fullHouse) computation
-      else cache.getOrElse(s"${data.actualVariant.key}:${data.fen}", ttl)(computation)
+      else cache.getOrElse(s"${data.actualVariant.key}:${data.fen}", config.ttl)(computation)
     }
 
   private def fenMoveNumber(fen: String) =
