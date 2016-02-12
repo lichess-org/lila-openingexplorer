@@ -52,7 +52,7 @@ class WebApi @Inject() (
                 .filter(_._2.totalGames > 0)
                 .sortBy(-_._2.totalGames)
                 .take(data.movesOrDefault)
-              Json stringify JsonView.masterEntry(pgnDb.get)(entry, children)
+              Json stringify JsonView.masterEntry(pgnDb.get)(entry, children, data.fen)
             }
           }
           case None => BadRequest("valid fen required")
@@ -81,7 +81,7 @@ class WebApi @Inject() (
                 .filter(_._2.totalGames > 0)
                 .sortBy(-_._2.totalGames)
                 .take(data.movesOrDefault)
-              Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, children)
+              Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, children, data.fen)
             }
           }
           case None => BadRequest("valid fen required")
