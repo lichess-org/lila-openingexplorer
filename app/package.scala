@@ -2,6 +2,8 @@ package lila
 
 package object openingexplorer {
 
+  type Children = List[(chess.MoveOrDrop, QueryResult)]
+
   def parseIntOption(str: String): Option[Int] = {
     try {
       Some(java.lang.Integer.parseInt(str))

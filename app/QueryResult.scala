@@ -10,4 +10,5 @@ case class QueryResult(
 
   def totalGames: Long = whiteWins + draws + blackWins
 
+  def isEmpty = totalGames == 0
 }

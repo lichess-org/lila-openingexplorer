@@ -48,10 +48,7 @@ class WebApi @Inject() (
           case Some(situation) => Ok {
             cache.master(data.fen) {
               val entry = masterDb.query(situation)
-              val children = masterDb.queryChildren(situation)
-                .filter(_._2.totalGames > 0)
-                .sortBy(-_._2.totalGames)
-                .take(data.movesOrDefault)
+              val children = curate(masterDb.queryChildren(situation), data.movesOrDefault)
               Json stringify JsonView.masterEntry(pgnDb.get)(entry, children, data.fen)
             }
           }
@@ -77,10 +74,7 @@ class WebApi @Inject() (
             cache.lichess(data) {
               val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
               val entry = lichessDb.query(situation, request)
-              val children = lichessDb.queryChildren(situation, request)
-                .filter(_._2.totalGames > 0)
-                .sortBy(-_._2.totalGames)
-                .take(data.movesOrDefault)
+              val children = curate(lichessDb.queryChildren(situation, request), data.movesOrDefault)
               Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, children, data.fen)
             }
           }
@@ -89,6 +83,9 @@ class WebApi @Inject() (
       )
     }
   }
+
+  private def curate(children: Children, max: Int) =
+    children.sortBy(-_._2.totalGames).dropWhile(_._2.isEmpty).take(max)
 
   def putMaster = Action(parse.tolerantText) { implicit req =>
     importer.master(req.body) match {

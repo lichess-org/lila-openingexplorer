@@ -65,7 +65,7 @@ final class LichessDatabase extends LichessDatabasePacker {
       topGames)
   }
 
-  def queryChildren(situation: Situation, request: Request): List[(MoveOrDrop, QueryResult)] =
+  def queryChildren(situation: Situation, request: Request): Children =
     Util.situationMovesOrDrops(situation).map { move =>
       move -> query(move.fold(_.situationAfter, _.situationAfter), request)
     }.toList

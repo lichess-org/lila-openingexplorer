@@ -45,7 +45,7 @@ final class MasterDatabase extends MasterDatabasePacker {
         .take(MasterDatabasePacker.maxTopGames))
   }
 
-  def queryChildren(situation: Situation): List[(MoveOrDrop, QueryResult)] =
+  def queryChildren(situation: Situation): Children =
     Util.situationMovesOrDrops(situation).map { move =>
       move -> query(move.fold(_.situationAfter, _.situationAfter))
     }.toList

@@ -6,8 +6,6 @@ import chess.MoveOrDrop
 
 object JsonView {
 
-  private type Children = List[(MoveOrDrop, QueryResult)]
-
   def masterEntry(fetchPgn: String => Option[String])(entry: QueryResult, children: Children, fen: String) = {
     def refToJson(ref: GameRef) =
       fetchPgn(ref.gameId) flatMap GameInfo.parse map richGameRef(ref)
