@@ -7,8 +7,10 @@ import scalaz.{ Success, Failure }
 import javax.inject.{ Inject, Singleton }
 
 import play.api._
+import play.api.cache.CacheApi
 import play.api.i18n.Messages.Implicits._
 import play.api.inject.ApplicationLifecycle
+import play.api.libs.json.Json
 import play.api.mvc._
 import play.api.Play.current
 
@@ -18,7 +20,8 @@ import lila.openingexplorer._
 
 @Singleton
 class WebApi @Inject() (
-    protected val lifecycle: ApplicationLifecycle) extends Controller with Validation {
+    val cacheApi: CacheApi,
+    val lifecycle: ApplicationLifecycle) extends Controller with Validation {
 
   val masterDb = new MasterDatabase()
   val lichessDb = new LichessDatabase()
@@ -26,6 +29,7 @@ class WebApi @Inject() (
   val gameInfoDb = new GameInfoDatabase()
 
   val importer = new Importer(masterDb, lichessDb, pgnDb, gameInfoDb)
+  val cache = new Cache(cacheApi)
 
   lifecycle.addStopHook { () =>
     Future.successful {
@@ -41,13 +45,16 @@ class WebApi @Inject() (
       Forms.master.form.bindFromRequest.fold(
         err => BadRequest(err.errorsAsJson),
         data => (Forsyth << data.fen) match {
-          case Some(situation) =>
-            val entry = masterDb.query(situation)
-            val children = masterDb.queryChildren(situation)
-              .filter(_._2.totalGames > 0)
-              .sortBy(-_._2.totalGames)
-              .take(data.movesOrDefault)
-            Ok(JsonView.masterEntry(pgnDb.get)(entry, children))
+          case Some(situation) => Ok {
+            cache.master(data.fen) {
+              val entry = masterDb.query(situation)
+              val children = masterDb.queryChildren(situation)
+                .filter(_._2.totalGames > 0)
+                .sortBy(-_._2.totalGames)
+                .take(data.movesOrDefault)
+              Json stringify JsonView.masterEntry(pgnDb.get)(entry, children)
+            }
+          }
           case None => BadRequest("valid fen required")
         }
       )
@@ -66,14 +73,17 @@ class WebApi @Inject() (
       Forms.lichess.form.bindFromRequest.fold(
         err => BadRequest(err.errorsAsJson),
         data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
-          case Some(situation) =>
-            val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
-            val entry = lichessDb.query(situation, request)
-            val children = lichessDb.queryChildren(situation, request)
-              .filter(_._2.totalGames > 0)
-              .sortBy(-_._2.totalGames)
-              .take(data.movesOrDefault)
-            Ok(JsonView.lichessEntry(gameInfoDb.get)(entry, children))
+          case Some(situation) => Ok {
+            cache.lichess(data) {
+              val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
+              val entry = lichessDb.query(situation, request)
+              val children = lichessDb.queryChildren(situation, request)
+                .filter(_._2.totalGames > 0)
+                .sortBy(-_._2.totalGames)
+                .take(data.movesOrDefault)
+              Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, children)
+            }
+          }
           case None => BadRequest("valid fen required")
         }
       )

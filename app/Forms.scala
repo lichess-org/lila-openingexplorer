@@ -44,6 +44,8 @@ object Forms {
       def actualVariant = chess.variant.Variant orDefault variant
 
       def movesOrDefault = moves getOrElse movesDefault
+
+      def fullHouse = speeds == Forms.speeds && ratings == Forms.ratings
     }
 
     val form = Form(mapping(
