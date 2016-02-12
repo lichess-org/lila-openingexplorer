@@ -48,6 +48,8 @@ Index master games
 HTTP API
 --------
 
+CORS enabled for all domains.
+
 ### `GET /master` query opening database with master games
 
 ```
@@ -61,46 +63,47 @@ name | type | default | description
 
 ```javascript
 {
-  "total": 1946396,
-  "white": 645089,
-  "draws": 838975,
+  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  "white": 645088,
+  "draws": 838971,
   "black": 462332,
-  "moves": [  // ordered by total number of games
+  "averageRating": 2407,
+  "moves": [  // sorted by total number of games, higher first
     {
       "uci": "e2e4",
       "san": "e4",
-      "total": 885598,
       "white": 291056,
       "draws": 376163,
-      "black": 218379,
+      "black": 218378,
       "averageRating": 2401
     },
     {
       "uci": "d2d4",
       "san": "d4",
-      "total": 697653,
-      "white": 234075,
-      "draws": 304135,
-      "black": 159443,
+      "white": 234074,
+      "draws": 304134,
+      "black": 159442,
       "averageRating": 2414
     },
     // ...
   ],
-  "averageRating": 2407,
-  "topGames": [  // ordered by average rating, higher first
+  "topGames": [  // higher ratings first
     {
-      "id": "Z67CCrfr",
-      "rating": 2849,
-      "winner": "white"
-    },
-    {
-      "id": "14datddM",
-      "rating": 2848,
-      "winner": "draw"
+      "id": "JzjKnFKm",
+      "winner": "white",
+      "white": {
+        "name": "Aronian, L.",
+        "rating": 2826
+      },
+      "black": {
+        "name": "Carlsen, M.",
+        "rating": 2872
+      },
+      "year": 2014
     },
     // ...
   ],
-  "recentGames": []  // roughly ordered by date, newer first
+  "recentGames": []  // roughly ordered by date, newer games first
 }
 ```
 
