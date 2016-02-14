@@ -110,21 +110,21 @@ name | type | default | description
 ### `GET /master/pgn/{id}` fetch one master game by ID
 
 ```
-> curl http://explorer.lichess.org/master/pgn/Z67CCrfr
+> curl http://explorer.lichess.org/master/pgn/6UKt001Q
 ```
 
 ```
-[Event "Zurich CC Rapid 2014"]
-[Site "Zurich SUI"]
-[Date "2014.02.04"]
-[Round "2.3"]
-[White "Aronian, L."]
-[Black "Carlsen, M."]
+[Event "Wch Blitz"]
+[Site "Astana"]
+[Date "2012.07.10"]
+[Round "23"]
+[White "Carlsen, Magnus"]
+[Black "Chadaev, Nikolay"]
 [Result "1-0"]
-[WhiteElo "2826"]
-[BlackElo "2872"]
+[WhiteElo "2837"]
+[BlackElo "2580"]
 
-1. Nf3 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. d4 O-O 6. Qc2 c5 7. O-O cxd4 8. Nxd4 e5 9. Nf5 d4 10. Nxe7+ Qxe7 11. Bg5 h6 12. Bxf6 Qxf6 13. Nd2 Bf5 14. Qb3 Nd7 15. Qa3 Qb6 16. Rfc1 Rfc8 17. b4 a5 18. c5 Qa6 19. Nc4 Be6 20. Nd6 axb4 21. Qxa6 bxa6 22. Nxc8 Rxc8 23. c6 Nb6 24. Rab1 a5 25. a3 b3 1-0
+1. e4 e5 2. f4 d5 3. exd5 exf4 4. Nf3 Nf6 5. c4 c6 6. d4 cxd5 7. c5 Nc6 8. Bb5 Be7 9. O-O O-O 10. Bxf4 Bg4 11. Nc3 Ne4 12. Qd3 Bf5 13. Qe3 Bf6 14. Bxc6 bxc6 15. Ne5 Bxe5 16. Bxe5 Bg6 17. Nxe4 Bxe4 18. Qg3 f6 19. Bd6 Re8 20. b4 Bg6 21. a4 a6 22. h4 Qd7 23. h5 Bxh5 24. Rxf6 Qg4 25. Qxg4 Bxg4 26. Rf4 Bh5 27. Raf1 h6 28. Be5 Ra7 29. b5 axb5 30. axb5 cxb5 31. c6 Raa8 32. c7 Kh7 33. Rb1 Be2 34. Rf7 Rg8 35. Re7 Bc4 36. Kh2 Rae8 37. Rd7 Ra8 38. Rb2 Raf8 39. g4 Ra8 40. Rf2 b4 41. Rff7 h5 42. Rxg7+ Rxg7 43. Rxg7+ 1-0
 ```
 
 ### `GET /lichess` query lichess opening database
