@@ -62,6 +62,8 @@ final class MasterDatabase extends MasterDatabasePacker {
     })
   }
 
+  def uniquePositions = db.recordCount()
+
   def close = {
     db.close()
   }

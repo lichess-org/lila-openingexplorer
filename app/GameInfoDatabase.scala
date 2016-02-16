@@ -32,6 +32,8 @@ final class GameInfoDatabase extends MasterDatabasePacker {
   def store(gameId: String, info: GameInfo) =
     db.set(gameId, GameInfoDatabase pack info)
 
+  def count = db.recordCount()
+
   def close = {
     db.close()
   }

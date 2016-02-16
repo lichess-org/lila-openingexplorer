@@ -10,7 +10,7 @@ import chess.{ Hash, PositionHash, Situation, MoveOrDrop }
 
 final class LichessDatabase extends LichessDatabasePacker {
 
-  private val variants = Variant.all.filter(chess.variant.FromPosition!=)
+  val variants = Variant.all.filter(chess.variant.FromPosition!=)
 
   private val dbs: Map[Variant, KyotoDb] = variants.map({
     case variant => variant -> Util.wrapLog(
@@ -81,6 +81,9 @@ final class LichessDatabase extends LichessDatabasePacker {
       def emptyRecord(key: PositionHash): Array[Byte] = freshRecord
     })
   }
+
+  def uniquePositions(variant: Variant): Long =
+    dbs.get(variant).map(_.recordCount()).getOrElse(0L)
 
   def closeAll = {
     dbs.values.foreach { db =>

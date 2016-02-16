@@ -87,6 +87,26 @@ class WebApi @Inject() (
   private def curate(children: Children, max: Int) =
     children.filterNot(_._2.isEmpty).sortBy(-_._2.totalGames).take(max)
 
+  def getStats = Action { implicit req =>
+    CORS { JsonResult {
+      Json stringify Json.obj(
+        "master" -> Json.obj(
+          "games" -> pgnDb.count,
+          "uniquePositions" -> Json.obj(
+            "standard" -> masterDb.uniquePositions
+          )
+        ),
+        "lichess" -> Json.obj(
+          "games" -> gameInfoDb.count,
+          "uniquePositions" -> Json.toJson(lichessDb.variants.map({
+            case variant =>
+              variant.key -> lichessDb.uniquePositions(variant)
+          }).toMap)
+        )
+      )
+    } }
+  }
+
   def putMaster = Action(parse.tolerantText) { implicit req =>
     importer.master(req.body) match {
       case (Success(_), ms)      => Ok(s"$ms ms")

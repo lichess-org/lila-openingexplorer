@@ -5,5 +5,7 @@ GET /master controllers.WebApi.getMaster
 GET /master/pgn/:gameId controllers.WebApi.getMasterPgn(gameId: String)
 GET /lichess controllers.WebApi.getLichess
 
+GET /stats controllers.WebApi.getStats
+
 PUT /import/master controllers.WebApi.putMaster
 PUT /import/lichess controllers.WebApi.putLichess
