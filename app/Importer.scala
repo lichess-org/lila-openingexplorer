@@ -91,7 +91,6 @@ final class Importer(
   }
 
   private def collectHashes(replay: Replay, hash: Hash, maxPlies: Int) = Util.distinctHashes({
-    println(replay.setup.situation)
     replay.setup.situation :: replay.chronoMoves.take(maxPlies).map(_.fold(_.situationAfter, _.situationAfter))
   }.map(hash.apply))
 }
