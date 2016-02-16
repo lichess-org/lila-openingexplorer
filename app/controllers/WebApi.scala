@@ -85,7 +85,7 @@ class WebApi @Inject() (
   }
 
   private def curate(children: Children, max: Int) =
-    children.sortBy(-_._2.totalGames).dropWhile(_._2.isEmpty).take(max)
+    children.filterNot(_._2.isEmpty).sortBy(-_._2.totalGames).take(max)
 
   def putMaster = Action(parse.tolerantText) { implicit req =>
     importer.master(req.body) match {
