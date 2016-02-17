@@ -45,13 +45,22 @@ final class LichessDatabase extends LichessDatabasePacker {
     val groups = Entry.groups(request.ratings, request.speeds)
     val gameRefs = entry.gameRefs(groups)
 
+    val potentialTopGames =
+      gameRefs
+        .sortWith(_.averageRating > _.averageRating)
+        .take(LichessDatabasePacker.maxTopGames)
+
+    val highestRatingGroup =
+      potentialTopGames.headOption.flatMap({
+        case bestGame => RatingGroup.find(bestGame.averageRating)
+      })
+
+    // only yield top games if highest rating group selected
     val topGames =
-      if (request.ratings.contains(RatingGroup.Group2500)) {
-        gameRefs
-          .sortWith(_.averageRating > _.averageRating)
-          .take(LichessDatabasePacker.maxTopGames)
-      }
-      else List.empty
+      if (highestRatingGroup.fold(false) { request.ratings.contains _ })
+        potentialTopGames
+      else
+        List.empty
 
     val numRecentGames =
       math.max(LichessDatabasePacker.maxRecentGames, gameRefs.size - LichessDatabasePacker.maxTopGames)
