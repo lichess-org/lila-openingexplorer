@@ -92,17 +92,15 @@ class WebApi @Inject() (
       Json stringify Json.obj(
         "master" -> Json.obj(
           "games" -> pgnDb.count,
-          "uniquePositions" -> Json.obj(
-            "standard" -> masterDb.uniquePositions
-          )
+          "uniquePositions" -> masterDb.uniquePositions
         ),
-        "lichess" -> Json.obj(
-          "games" -> gameInfoDb.count,
-          "uniquePositions" -> Json.toJson(lichessDb.variants.map({
-            case variant =>
-              variant.key -> lichessDb.uniquePositions(variant)
-          }).toMap)
-        )
+        "lichess" -> Json.toJson(lichessDb.variants.map({
+          case variant =>
+            variant.key -> Json.obj(
+              "games" -> lichessDb.totalGames(variant),
+              "uniquePositions" -> lichessDb.uniquePositions(variant)
+            )
+        }).toMap)
       )
     } }
   }
