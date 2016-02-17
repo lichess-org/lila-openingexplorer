@@ -94,10 +94,17 @@ final class LichessDatabase extends LichessDatabasePacker {
   def uniquePositions(variant: Variant): Long =
     dbs.get(variant).map(_.recordCount()).getOrElse(0L)
 
-  def totalGames(variant: Variant): Long =
-    (chess.format.Forsyth << variant.initialFen)
+  def totalGames(variant: Variant): Long = {
+    val games = (chess.format.Forsyth << variant.initialFen)
       .map((situation) => probe(situation withVariant variant).totalGames)
       .getOrElse(0L)
+
+    if (variant == chess.variant.Chess960)
+      // by rule of thumb ...
+      games * 960
+    else
+      games
+  }
 
   def closeAll = {
     dbs.values.foreach { db =>
