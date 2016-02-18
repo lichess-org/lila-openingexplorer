@@ -33,7 +33,6 @@ final class MasterDatabase extends MasterDatabasePacker {
   }
 
   def query(situation: Situation, topGames: Int = 0): QueryResult = {
-    println(topGames)
     val entry = probe(situation)
     new QueryResult(
       entry.whiteWins,
