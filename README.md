@@ -131,7 +131,7 @@ name | type | default | description
 ### `GET /lichess` query lichess opening database
 
 ```
-> http://explorer.lichess.org/lichess?variant=standard&speeds[]=blitz&speeds[]=classical&ratings[]=2200&ratings[]=2500&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
+> curl http://explorer.lichess.org/lichess?variant=standard&speeds[]=blitz&speeds[]=classical&ratings[]=2200&ratings[]=2500&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
 ```
 
 name | type | default | description
@@ -143,3 +143,34 @@ name | type | default | description
 **moves** | int | 12 | number of most common moves to display
 **topGames** | int | 4 | number of top games to display. maximum is 4
 **recentGames** | int | 4 | number of recent games to display. many may be available
+
+
+### `GET /stats` get database stats
+
+```
+curl http://explorer.lichess.org/stats
+```
+
+```javascript
+{
+  "master": {
+    "games": 1946390,
+    "uniquePositions": 49278420
+  },
+  "lichess": {
+    "standard": {
+      "games": 4790308,
+      "uniquePositions": 157749923
+    },
+    "chess960": {
+      "games": 117120,
+      "uniquePositions": 9052539
+    },
+    "kingOfTheHill": {
+      "games": 119989,
+      "uniquePositions": 3626135
+    },
+    // other variants ...
+  }
+}
+```
