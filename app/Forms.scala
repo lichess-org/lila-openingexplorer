@@ -7,7 +7,9 @@ object Forms {
 
   private val movesDefault = 12
   private val topGamesDefault = 4
+  private val topGamesMax = 5
   private val recentGamesDefault = 4
+  private val recentGamesMax = 5
 
   private val variants = chess.variant.Variant.all.map(_.key)
   private val speeds = SpeedGroup.all.map(_.name)
@@ -62,8 +64,8 @@ object Forms {
       "variant" -> nonEmptyText.verifying(variants contains _),
       "speeds" -> list(nonEmptyText.verifying(speeds contains _)),
       "ratings" -> list(number.verifying(ratings contains _)),
-      "topGames" -> optional(number),
-      "recentGames" -> optional(number)
+      "topGames" -> optional(number(min = 0, max = topGamesMax)),
+      "recentGames" -> optional(number(min = 0, max = recentGamesMax))
     )(Data.apply)(Data.unapply))
   }
 }
