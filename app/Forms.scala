@@ -7,9 +7,9 @@ object Forms {
 
   private val movesDefault = 12
   private val topGamesDefault = 4
-  private val topGamesMax = 5
+  private val topGamesMax = 4
   private val recentGamesDefault = 4
-  private val recentGamesMax = 5
+  private val recentGamesMax = 10
 
   private val variants = chess.variant.Variant.all.map(_.key)
   private val speeds = SpeedGroup.all.map(_.name)
