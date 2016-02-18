@@ -8,6 +8,7 @@ import chess.variant.Variant
 final class Cache(cache: CacheApi) {
 
   private val config = Config.explorer.cache
+  private val statConfig = Config.explorer.statCache
 
   def master(fen: String)(computation: => String): String =
     fenMoveNumber(fen).fold(computation) { moveNumber =>
@@ -21,6 +22,9 @@ final class Cache(cache: CacheApi) {
       if (!data.fullHouse) computation
       else cache.getOrElse(s"${data.actualVariant.key}:${data.fen}", config.ttl)(computation)
     }
+
+  def stat(computation: => String): String =
+    cache.getOrElse(s"stat", statConfig.ttl)(computation)
 
   private def fenMoveNumber(fen: String) =
     fen split ' ' lift 5 flatMap parseIntOption

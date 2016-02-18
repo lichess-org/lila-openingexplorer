@@ -88,21 +88,25 @@ class WebApi @Inject() (
     children.filterNot(_._2.isEmpty).sortBy(-_._2.totalGames).take(max)
 
   def getStats = Action { implicit req =>
-    CORS { JsonResult {
-      Json stringify Json.obj(
-        "master" -> Json.obj(
-          "games" -> pgnDb.count,
-          "uniquePositions" -> masterDb.uniquePositions
-        ),
-        "lichess" -> Json.toJson(lichessDb.variants.map({
-          case variant =>
-            variant.key -> Json.obj(
-              "games" -> lichessDb.totalGames(variant),
-              "uniquePositions" -> lichessDb.uniquePositions(variant)
-            )
-        }).toMap)
-      )
-    } }
+    CORS {
+      JsonResult {
+        cache.stat {
+          Json stringify Json.obj(
+            "master" -> Json.obj(
+              "games" -> pgnDb.count,
+              "uniquePositions" -> masterDb.uniquePositions
+            ),
+            "lichess" -> Json.toJson(lichessDb.variants.map({
+              case variant =>
+                variant.key -> Json.obj(
+                  "games" -> lichessDb.totalGames(variant),
+                  "uniquePositions" -> lichessDb.uniquePositions(variant)
+                )
+            }).toMap)
+          )
+        }
+      }
+    }
   }
 
   def putMaster = Action(parse.tolerantText) { implicit req =>
@@ -125,6 +129,6 @@ class WebApi @Inject() (
   def JsonResult(json: String)(implicit req: RequestHeader) =
     req.queryString.get("callback").flatMap(_.headOption) match {
       case Some(callback) => Ok(s"$callback($json)").as("application/javascript")
-      case None =>           Ok(json).as("application/json")
+      case None           => Ok(json).as("application/json")
     }
 }

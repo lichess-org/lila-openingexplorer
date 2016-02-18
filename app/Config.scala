@@ -17,10 +17,14 @@ object Config {
     pgn: Pgn,
     gameInfo: GameInfo,
     corsHeader: Boolean,
-    cache: Cache)
+    cache: Cache,
+    statCache: StatCache)
 
   case class Cache(
     maxMoves: Int,
+    ttl: FiniteDuration)
+
+  case class StatCache(
     ttl: FiniteDuration)
 
   case class Domain(
