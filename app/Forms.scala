@@ -6,6 +6,8 @@ import play.api.data.Forms._
 object Forms {
 
   private val movesDefault = 12
+  private val topGamesDefault = 4
+  private val recentGamesDefault = 4
 
   private val variants = chess.variant.Variant.all.map(_.key)
   private val speeds = SpeedGroup.all.map(_.name)
@@ -13,14 +15,16 @@ object Forms {
 
   object master {
 
-    case class Data(fen: String, moves: Option[Int]) {
+    case class Data(fen: String, moves: Option[Int], topGames: Option[Int]) {
 
       def movesOrDefault = moves getOrElse movesDefault
+      def topGamesOrDefault = topGames getOrElse topGamesDefault
     }
 
     val form = Form(mapping(
       "fen" -> nonEmptyText,
-      "moves" -> optional(number)
+      "moves" -> optional(number),
+      "topGames" -> optional(number)
     )(Data.apply)(Data.unapply))
   }
 
@@ -31,7 +35,9 @@ object Forms {
         moves: Option[Int],
         variant: String,
         speeds: List[String],
-        ratings: List[Int]) {
+        ratings: List[Int],
+        topGames: Option[Int],
+        recentGames: Option[Int]) {
 
       def ratingGroups = RatingGroup.all.filter { x =>
         ratings contains x.range.min
@@ -44,6 +50,8 @@ object Forms {
       def actualVariant = chess.variant.Variant orDefault variant
 
       def movesOrDefault = moves getOrElse movesDefault
+      def topGamesOrDefault = topGames getOrElse topGamesDefault
+      def recentGamesOrDefault = recentGames getOrElse recentGamesDefault
 
       def fullHouse = speeds == Forms.speeds && ratings == Forms.ratings
     }
@@ -53,7 +61,9 @@ object Forms {
       "moves" -> optional(number),
       "variant" -> nonEmptyText.verifying(variants contains _),
       "speeds" -> list(nonEmptyText.verifying(speeds contains _)),
-      "ratings" -> list(number.verifying(ratings contains _))
+      "ratings" -> list(number.verifying(ratings contains _)),
+      "topGames" -> optional(number),
+      "recentGames" -> optional(number)
     )(Data.apply)(Data.unapply))
   }
 }

@@ -48,7 +48,7 @@ final class LichessDatabase extends LichessDatabasePacker {
     val potentialTopGames =
       gameRefs
         .sortWith(_.averageRating > _.averageRating)
-        .take(LichessDatabasePacker.maxTopGames)
+        .take(math.min(request.topGames, LichessDatabasePacker.maxTopGames))
 
     val highestRatingGroup =
       potentialTopGames.headOption.flatMap({
@@ -70,14 +70,16 @@ final class LichessDatabase extends LichessDatabasePacker {
       entry.draws(groups),
       entry.blackWins(groups),
       entry.averageRating(groups),
-      gameRefs.take(math.min(4, numRecentGames)),
+      gameRefs.take(math.min(request.recentGames, numRecentGames)),
       topGames)
   }
 
-  def queryChildren(situation: Situation, request: Request): Children =
+  def queryChildren(situation: Situation, request: Request): Children = {
+    val subRequest = request.withoutGames
     Util.situationMovesOrDrops(situation).map { move =>
-      move -> query(move.fold(_.situationAfter, _.situationAfter), request)
+      move -> query(move.fold(_.situationAfter, _.situationAfter), subRequest)
     }.toList
+  }
 
   def merge(variant: Variant, gameRef: GameRef, hashes: Array[PositionHash]) = dbs get variant foreach { db =>
     val freshRecord = pack(Entry.fromGameRef(gameRef))
@@ -116,8 +118,13 @@ final class LichessDatabase extends LichessDatabasePacker {
 object LichessDatabase {
 
   case class Request(
-    speeds: List[SpeedGroup],
-    ratings: List[RatingGroup])
+      speeds: List[SpeedGroup],
+      ratings: List[RatingGroup],
+      topGames: Int,
+      recentGames: Int) {
+
+    def withoutGames = copy(topGames = 0, recentGames = 0)
+  }
 
   val hash = new Hash(32) // 128 bit Zobrist hasher
 

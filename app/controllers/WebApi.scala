@@ -47,7 +47,7 @@ class WebApi @Inject() (
         data => (Forsyth << data.fen) match {
           case Some(situation) => JsonResult {
             cache.master(data.fen) {
-              val entry = masterDb.query(situation)
+              val entry = masterDb.query(situation, data.topGamesOrDefault)
               val children = curate(masterDb.queryChildren(situation), data.movesOrDefault)
               Json stringify JsonView.masterEntry(pgnDb.get)(entry, children, data.fen)
             }
@@ -72,7 +72,7 @@ class WebApi @Inject() (
         data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
           case Some(situation) => JsonResult {
             cache.lichess(data) {
-              val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups)
+              val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups, data.topGamesOrDefault, data.recentGamesOrDefault)
               val entry = lichessDb.query(situation, request)
               val children = curate(lichessDb.queryChildren(situation, request), data.movesOrDefault)
               Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, children, data.fen)

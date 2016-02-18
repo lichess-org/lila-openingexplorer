@@ -32,7 +32,8 @@ final class MasterDatabase extends MasterDatabasePacker {
     }
   }
 
-  def query(situation: Situation): QueryResult = {
+  def query(situation: Situation, topGames: Int = 0): QueryResult = {
+    println(topGames)
     val entry = probe(situation)
     new QueryResult(
       entry.whiteWins,
@@ -42,7 +43,7 @@ final class MasterDatabase extends MasterDatabasePacker {
       List.empty,
       entry.gameRefs
         .sortWith(_.averageRating > _.averageRating)
-        .take(MasterDatabasePacker.maxTopGames))
+        .take(math.min(topGames, MasterDatabasePacker.maxTopGames)))
   }
 
   def queryChildren(situation: Situation): Children =

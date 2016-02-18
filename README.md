@@ -60,6 +60,7 @@ name | type | default | description
 --- | --- | --- | ---
 **fen** | string | required | FEN of the position to look up
 **moves** | int | 12 | number of most common moves to display
+**topGames** | int | 4 | number of top games to display. maximum is 4
 
 ```javascript
 {
@@ -140,3 +141,5 @@ name | type | default | description
 **speeds[]** | list | none | `bullet`, `blitz` and/or `classical`
 **ratings[]** | list | none | rating groups ranging from their value to the next higher group: `1600`, `1800`, `2000`, `2200` and `2500` to unlimited
 **moves** | int | 12 | number of most common moves to display
+**topGames** | int | 4 | number of top games to display. maximum is 4
+**recentGames** | int | 4 | number of recent games to display. many may be available
