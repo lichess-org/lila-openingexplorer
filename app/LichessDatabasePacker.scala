@@ -30,9 +30,11 @@ trait LichessDatabasePacker extends PackHelper {
       ratingHelper: Long => Array[Byte]): Array[Byte] = {
     val exampleGames =
       entry.sub.values.map(_.gameRefs.take(LichessDatabasePacker.maxRecentGames)).flatten ++
-      entry.allGameRefs
-        .sortWith(_.averageRating > _.averageRating)
-        .take(LichessDatabasePacker.maxTopGames)
+      SpeedGroup.all.map { speed =>
+        entry.gameRefs(Entry.groups(speed))
+          .sortWith(_.averageRating > _.averageRating)
+          .take(LichessDatabasePacker.maxTopGames)
+      }.flatten
 
     packUint8(meta) ++
       Entry.allGroups.map((g) => packSubEntry(entry.subEntry(g._1, g._2), helper, ratingHelper)).flatten ++

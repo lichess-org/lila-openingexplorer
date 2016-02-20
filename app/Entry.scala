@@ -71,6 +71,9 @@ object Entry {
     } yield (ratingGroup, speedGroup)
   }
 
+  def groups(speed: SpeedGroup): List[(RatingGroup, SpeedGroup)] =
+    groups(RatingGroup.all, List(speed))
+
   val allGroups = groups(RatingGroup.all, SpeedGroup.all)
 
 }
