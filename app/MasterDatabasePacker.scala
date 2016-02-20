@@ -10,7 +10,7 @@ trait MasterDatabasePacker extends PackHelper {
     else if (entry.totalGames <= MasterDatabasePacker.maxPackFormat1 &&
              entry.gameRefs.size == entry.totalGames)
       // all game refs are explicitly known
-      Array(1.toByte) ++ entry.gameRefs.map(_.pack).flatten
+      Array(1.toByte) ++ entry.gameRefs.flatMap(_.pack)
     else if (entry.maxPerWinner < MaxUint8)
       packMulti(entry, 2, packUint8)
     else if (entry.maxPerWinner < MaxUint16)
@@ -37,7 +37,7 @@ trait MasterDatabasePacker extends PackHelper {
       helper(entry.draws) ++
       helper(entry.blackWins) ++
       packUint48(entry.averageRatingSum) ++
-      exampleGames.map(_.pack).flatten
+      exampleGames.flatMap(_.pack)
   }
 
   protected def unpack(b: Array[Byte]): SubEntry = {
