@@ -8,9 +8,9 @@ class EntryTest extends Specification {
 
   "entries" should {
 
-    "not contain low rated games" in {
+    "can contain low rated games" in {
       val patzerGame = new GameRef("patzer00", Some(Color.White), SpeedGroup.Classical, 456)
-      Entry.empty.withGameRef(patzerGame) mustEqual Entry.empty
+      Entry.empty.withGameRef(patzerGame).totalGames must_== 1
     }
 
     "count total games" in {
