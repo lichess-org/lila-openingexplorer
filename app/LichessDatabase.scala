@@ -51,9 +51,9 @@ final class LichessDatabase extends LichessDatabasePacker {
         .take(math.min(request.topGames, LichessDatabasePacker.maxTopGames))
 
     val highestRatingGroup =
-      potentialTopGames.headOption.flatMap({
-        case bestGame => RatingGroup.find(bestGame.averageRating)
-      })
+      potentialTopGames.headOption.map { bestGame =>
+        RatingGroup.find(bestGame.averageRating)
+      }
 
     // only yield top games if highest rating group selected
     val topGames =

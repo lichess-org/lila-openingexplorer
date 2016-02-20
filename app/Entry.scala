@@ -13,27 +13,19 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
   def maxPerWinnerAndGroup = sub.values.map(_.maxPerWinner).max
 
   def withGameRef(game: GameRef): Entry = {
-    RatingGroup.find(game.averageRating) match {
-      case Some(ratingGroup) =>
-        copy(sub = sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withGameRef(game)))
-      case None =>
-        this  // rating too low
-    }
+    val ratingGroup = RatingGroup.find(game.averageRating)
+    copy(sub = sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withGameRef(game)))
   }
 
   def withExistingGameRef(game: GameRef): Entry = {
-    RatingGroup.find(game.averageRating) match {
-      case Some(ratingGroup) =>
-        new Entry(sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withExistingGameRef(game)))
-      case None =>
-        this  // rating too low
-    }
+    val ratingGroup = RatingGroup.find(game.averageRating)
+    new Entry(sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withExistingGameRef(game)))
   }
 
   def gameRefs(groups: List[(RatingGroup, SpeedGroup)]): List[GameRef] =
     subEntries(groups)
       .map(_.gameRefs)
-      .flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)  // interleave
+      .flatMap(_.zipWithIndex).sortBy(_._2).map(_._1) // interleave
 
   def whiteWins(groups: List[(RatingGroup, SpeedGroup)]): Long =
     subEntries(groups).map(_.whiteWins).sum
@@ -70,8 +62,8 @@ object Entry {
   def fromGameRef(game: GameRef) = Entry.empty.withGameRef(game)
 
   def groups(
-      ratings: List[RatingGroup],
-      speeds: List[SpeedGroup]): List[(RatingGroup, SpeedGroup)] = {
+    ratings: List[RatingGroup],
+    speeds: List[SpeedGroup]): List[(RatingGroup, SpeedGroup)] = {
     // cross product
     for {
       ratingGroup <- ratings

@@ -12,7 +12,7 @@ object RatingGroup {
 
   val all = List(Group1600, Group1800, Group2000, Group2200, Group2500)
 
-  def find(averageRating: Int): Option[RatingGroup] =
-    all.find(_.range contains averageRating)
+  def find(averageRating: Int): RatingGroup =
+    all.find(_.range contains averageRating) getOrElse Group1600
 
 }
