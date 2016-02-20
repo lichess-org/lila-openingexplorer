@@ -58,7 +58,9 @@ final class LichessDatabase extends LichessDatabasePacker {
     // only yield top games if highest rating group selected
     val topGames =
       if (highestRatingGroup.fold(false) { request.ratings.contains _ })
-        potentialTopGames
+        potentialTopGames.filter { game =>
+          request.ratings.contains(RatingGroup.find(game.averageRating))
+        }
       else
         List.empty
 
