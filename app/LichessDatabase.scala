@@ -63,7 +63,10 @@ final class LichessDatabase extends LichessDatabasePacker {
         List.empty
 
     val numRecentGames =
-      math.max(LichessDatabasePacker.maxRecentGames, gameRefs.size - LichessDatabasePacker.maxTopGames)
+      math.max(
+        LichessDatabasePacker.maxRecentGames,
+        gameRefs.size - request.speeds.size * LichessDatabasePacker.maxTopGames
+      )
 
     new QueryResult(
       entry.whiteWins(groups),
