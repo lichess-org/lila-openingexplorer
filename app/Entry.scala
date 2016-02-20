@@ -19,7 +19,7 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
 
   def withExistingGameRef(game: GameRef): Entry = {
     val ratingGroup = RatingGroup.find(game.averageRating)
-    new Entry(sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withExistingGameRef(game)))
+    copy(sub = sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withExistingGameRef(game)))
   }
 
   def gameRefs(groups: List[(RatingGroup, SpeedGroup)]): List[GameRef] =
