@@ -46,7 +46,7 @@ final class LichessDatabase extends LichessDatabasePacker {
     val gameRefs = entry.gameRefs(groups)
 
     val potentialTopGames =
-      gameRefs
+      entry.gameRefs(Entry.groups(RatingGroup.all, request.speeds))
         .sortWith(_.averageRating > _.averageRating)
         .take(math.min(request.topGames, LichessDatabasePacker.maxTopGames))
 
