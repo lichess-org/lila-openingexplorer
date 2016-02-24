@@ -116,6 +116,13 @@ class WebApi @Inject() (
     }
   }
 
+  def deleteMaster(gameId: String) = Action { implicit req =>
+    if (importer.deleteMaster(gameId))
+      Status(204)
+    else
+      NotFound("game not found")
+  }
+
   def putLichess = Action(parse.tolerantText) { implicit req =>
     importer.lichess(req.body) match {
       case (_, ms) => Ok(s"$ms ms")

@@ -59,6 +59,8 @@ final class PgnDatabase extends MasterDatabasePacker {
         black = moves lift 1 map { Move(_) })
     } filterNot (_.isEmpty)
 
+  def delete(gameId: String) = db.remove(gameId)
+
   def count = db.recordCount()
 
   def close = {

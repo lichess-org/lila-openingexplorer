@@ -8,4 +8,5 @@ GET /lichess controllers.WebApi.getLichess
 GET /stats controllers.WebApi.getStats
 
 PUT /import/master controllers.WebApi.putMaster
+DELETE /import/master/:gameId controllers.WebApi.deleteMaster(gameId: String)
 PUT /import/lichess controllers.WebApi.putLichess

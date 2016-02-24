@@ -11,6 +11,8 @@ case class SubEntry(
 
   def totalGames = whiteWins + draws + blackWins
 
+  def isEmpty = totalGames == 0
+
   def averageRating: Int =
     if (totalGames == 0) 0 else (averageRatingSum / totalGames).toInt
 
@@ -29,6 +31,19 @@ case class SubEntry(
       case Some(Color.White) => intermediate.copy(whiteWins = whiteWins + 1)
       case Some(Color.Black) => intermediate.copy(blackWins = blackWins + 1)
       case None              => intermediate.copy(draws = draws + 1)
+    }
+  }
+
+  def withoutExistingGameRef(game: GameRef): SubEntry = {
+    val intermediate = copy(
+      gameRefs = gameRefs.filterNot(_ == game),
+      averageRatingSum = averageRatingSum - game.averageRating
+    )
+
+    game.winner match {
+      case Some(Color.White) => intermediate.copy(whiteWins = whiteWins - 1)
+      case Some(Color.Black) => intermediate.copy(blackWins = blackWins - 1)
+      case None              => intermediate.copy(draws = draws - 1)
     }
   }
 

@@ -47,7 +47,7 @@ final class Importer(
   private val masterMinRating = 2200
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
-    processMaster(pgn, Config.explorer.master.maxPlies) flatMap {
+    processMaster(pgn) flatMap {
       case Processed(parsed, replay, gameRef) =>
         if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
           s"Invalid initial position ${Forsyth >> replay.setup.situation}".failureNel
@@ -61,9 +61,24 @@ final class Importer(
     }
   }
 
+  def deleteMaster(gameId: String) = {
+    pgnDb.get(gameId) map { pgn =>
+      processMaster(pgn) flatMap {
+        case Processed(parsed, replay, newGameRef) =>
+          scalaz.Success {
+            val gameRef = newGameRef.copy(gameId = gameId)
+            val hashes = collectHashes(replay, MasterDatabase.hash, Config.explorer.master.maxPlies)
+            pgnDb.delete(gameRef.gameId)
+            masterDb.subtract(gameRef, hashes)
+          }
+      }
+      true
+    } getOrElse false
+  }
+
   private case class Processed(parsed: ParsedPgn, replay: Replay, gameRef: GameRef)
 
-  private def processMaster(pgn: String, maxPlies: Int): Valid[Processed] = for {
+  private def processMaster(pgn: String): Valid[Processed] = for {
     parsed <- Parser.full(pgn)
     replay <- Reader.fullWithSans(parsed, identity[List[San]] _)
     gameRef <- GameRef.fromPgn(parsed)
