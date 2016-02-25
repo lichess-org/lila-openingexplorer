@@ -36,7 +36,7 @@ case class SubEntry(
 
   def withoutExistingGameRef(game: GameRef): SubEntry = {
     val intermediate = copy(
-      gameRefs = gameRefs.filterNot(_ == game),
+      gameRefs = gameRefs.filterNot(_.gameId == game.gameId),
       averageRatingSum = averageRatingSum - game.averageRating
     )
 
