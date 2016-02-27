@@ -18,8 +18,8 @@ object JsonView {
     def refToJson(ref: GameRef) =
       fetchInfo(ref.gameId) map richGameRef(ref)
     baseEntry(entry, children, fen) ++ Json.obj(
-      "recentGames" -> entry.recentGames.map(refToJson),
-      "topGames" -> entry.topGames.map(refToJson))
+      "recentGames" -> entry.recentGames.flatMap(refToJson),
+      "topGames" -> entry.topGames.flatMap(refToJson))
   }
 
   def moveEntries(elems: Children) = JsArray {
