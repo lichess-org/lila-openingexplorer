@@ -14,11 +14,7 @@ final class PgnDatabase extends MasterDatabasePacker {
   private val db = Util.wrapLog(
     "Loading PGN database...",
     "PGN database loaded!") {
-      val config = Config.explorer.pgn
-      val dbFile = new File(config.kyoto.file)
-      dbFile.createNewFile
-
-      Kyoto.builder(dbFile, config.kyoto)
+      Kyoto.builder(Config.explorer.pgn.kyoto)
         .compressor(Compressor.LZMA)
         .pageComparator(PageComparator.LEXICAL)
         .buildAndOpen

@@ -18,7 +18,6 @@ final class LichessDatabase extends LichessDatabasePacker {
         val config = Config.explorer.lichess(variant)
         val dbFile = new File(config.kyoto.file.replace("(variant)", variant.key))
         dbFile.createNewFile
-
         Kyoto.builder(dbFile, config.kyoto).buildAndOpen
       }
   }).toMap

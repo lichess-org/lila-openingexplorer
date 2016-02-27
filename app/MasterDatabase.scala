@@ -11,11 +11,7 @@ final class MasterDatabase extends MasterDatabasePacker {
   private val db = Util.wrapLog(
     "Loading master database...",
     "Master database loaded!") {
-      val config = Config.explorer.master
-      val dbFile = new File(config.kyoto.file)
-      dbFile.createNewFile
-
-      Kyoto.builder(dbFile, config.kyoto).buildAndOpen
+      Kyoto.builder(Config.explorer.master.kyoto).buildAndOpen
     }
 
   private def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))

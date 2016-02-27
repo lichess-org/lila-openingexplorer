@@ -10,11 +10,7 @@ final class GameInfoDatabase extends MasterDatabasePacker {
   private val db = Util.wrapLog(
     "Loading gameInfo database...",
     "GameInfo database loaded!") {
-      val config = Config.explorer.gameInfo
-      val dbFile = new File(config.kyoto.file)
-      dbFile.createNewFile
-
-      Kyoto.builder(dbFile, config.kyoto)
+      Kyoto.builder(Config.explorer.gameInfo.kyoto)
         .compressor(Compressor.LZMA)
         .pageComparator(PageComparator.LEXICAL)
         .buildAndOpen
