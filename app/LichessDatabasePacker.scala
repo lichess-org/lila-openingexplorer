@@ -108,7 +108,6 @@ trait LichessDatabasePacker extends PackHelper {
       List.empty
     )
   }
-
 }
 
 object LichessDatabasePacker {
@@ -118,5 +117,4 @@ object LichessDatabasePacker {
   val maxRecentGames = 2
 
   val maxPackFormat1 = (Entry.allGroups.size * (1 + 1 + 1 + 3 + maxRecentGames * GameRef.packSize) + SpeedGroup.all.size * maxTopGames * GameRef.packSize) / GameRef.packSize
-
 }

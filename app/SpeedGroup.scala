@@ -38,5 +38,4 @@ object SpeedGroup {
 
     case _ => Classical
   }
-
 }

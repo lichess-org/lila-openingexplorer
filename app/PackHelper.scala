@@ -46,5 +46,4 @@ trait PackHelper {
 
   protected def unpackUint48(b: Array[Byte]): Long =
     unpackUint32(b) << 16 | unpackUint16(b.drop(4)).toLong
-
 }

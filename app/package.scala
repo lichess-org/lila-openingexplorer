@@ -19,5 +19,4 @@ package object openingexplorer {
       case e: NumberFormatException => None
     }
   }
-
 }

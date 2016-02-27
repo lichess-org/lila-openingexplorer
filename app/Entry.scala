@@ -52,7 +52,6 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
   def totalDraws = draws(Entry.allGroups)
   def totalBlackWins = blackWins(Entry.allGroups)
   def totalAverageRatingSum = averageRatingSum(Entry.allGroups)
-
 }
 
 object Entry {
@@ -75,5 +74,4 @@ object Entry {
     groups(RatingGroup.all, List(speed))
 
   val allGroups = groups(RatingGroup.all, SpeedGroup.all)
-
 }

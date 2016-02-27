@@ -81,7 +81,6 @@ trait MasterDatabasePacker extends PackHelper {
         .toList
     )
   }
-
 }
 
 object MasterDatabasePacker {
@@ -89,5 +88,4 @@ object MasterDatabasePacker {
   val maxTopGames = 4
 
   val maxPackFormat1 = maxTopGames + (1 + 1 + 1 + 6) / GameRef.packSize
-
 }

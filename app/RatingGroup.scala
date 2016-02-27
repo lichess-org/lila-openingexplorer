@@ -14,5 +14,4 @@ object RatingGroup {
 
   def find(averageRating: Int): RatingGroup =
     all.find(_.range contains averageRating) getOrElse Group1600
-
 }

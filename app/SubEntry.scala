@@ -46,7 +46,6 @@ case class SubEntry(
       case None              => intermediate.copy(draws = draws - 1)
     }
   }
-
 }
 
 object SubEntry {
@@ -54,5 +53,4 @@ object SubEntry {
   def empty = new SubEntry(0, 0, 0, 0, List.empty)
 
   def fromGameRef(game: GameRef) = empty.withGameRef(game)
-
 }

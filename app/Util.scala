@@ -39,5 +39,4 @@ object Util {
     println(f"$after (${duration / 1000d}%.02f seconds)")
     res
   }
-
 }

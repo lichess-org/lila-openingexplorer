@@ -78,11 +78,9 @@ final class MasterDatabase extends MasterDatabasePacker {
   def close = {
     db.close()
   }
-
 }
 
 object MasterDatabase {
 
   val hash = new Hash(32) // 128 bit Zobrist hasher
-
 }
