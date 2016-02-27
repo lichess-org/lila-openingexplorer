@@ -37,8 +37,8 @@ final class Importer(
           case Some(info) =>
             val variant = replay.setup.board.variant
             val hashes = collectHashes(replay, LichessDatabase.hash, Config.explorer.lichess(variant).maxPlies)
-            lichessDb.merge(variant, gameRef, hashes)
             gameInfoDb.store(gameRef.gameId, info)
+            lichessDb.merge(variant, gameRef, hashes)
         }
     }
   }
@@ -55,8 +55,8 @@ final class Importer(
           s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
         else scalaz.Success {
           val hashes = collectHashes(replay, MasterDatabase.hash, Config.explorer.master.maxPlies)
-          masterDb.merge(gameRef, hashes)
           pgnDb.store(gameRef.gameId, parsed, replay)
+          masterDb.merge(gameRef, hashes)
         }
     }
   }
@@ -68,8 +68,8 @@ final class Importer(
           scalaz.Success {
             val gameRef = newGameRef.copy(gameId = gameId)
             val hashes = collectHashes(replay, MasterDatabase.hash, Config.explorer.master.maxPlies)
-            pgnDb.delete(gameRef.gameId)
             masterDb.subtract(gameRef, hashes)
+            pgnDb.delete(gameRef.gameId)
           }
       }
       true
