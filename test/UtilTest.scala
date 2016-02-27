@@ -26,7 +26,5 @@ class UtilTest extends Specification {
       Util.distinctHashes(List(a, b)) mustEqual Array(a)
       Util.distinctHashes(List(b, a)) mustEqual Array(a)
     }
-
   }
-
 }

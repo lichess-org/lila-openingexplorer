@@ -25,7 +25,5 @@ class EntryTest extends Specification {
     "show an average rating 0 if empty" in {
       Entry.empty.averageRating(Entry.allGroups) mustEqual 0
     }
-
   }
-
 }

@@ -18,7 +18,5 @@ class SubEntryTest extends Specification {
       SubEntry.fromGameRef(g1).withGameRef(g2).withGameRef(g3).totalGames mustEqual 3
       SubEntry.fromGameRef(g1).withGameRef(g2).withGameRef(g3).blackWins mustEqual 1
     }
-
   }
-
 }

@@ -116,7 +116,5 @@ class LichessDatabasePackerTest extends Specification with LichessDatabasePacker
 
       restored.allGameRefs must contain(topGame)
     }
-
   }
-
 }

@@ -18,7 +18,5 @@ class RatingGroupTest extends Specification {
     "find the last group" in {
       RatingGroup.find(3002) mustEqual RatingGroup.Group2500
     }
-
   }
-
 }

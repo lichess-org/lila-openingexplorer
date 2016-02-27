@@ -36,7 +36,5 @@ class GameRefTest extends Specification {
       restored.speed mustEqual g.speed
       restored.averageRating mustEqual 4095
     }
-
   }
-
 }

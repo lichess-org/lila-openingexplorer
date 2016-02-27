@@ -9,5 +9,4 @@ class PackHelperTest extends Specification with PackHelper {
       unpackUint24(packUint24(12345)) mustEqual 12345
     }
   }
-
 }

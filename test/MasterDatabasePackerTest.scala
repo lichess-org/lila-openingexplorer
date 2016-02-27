@@ -43,7 +43,5 @@ class MasterDatabasePackerTest extends Specification with MasterDatabasePacker {
       restored.averageRatingSum mustEqual 1234567890L
       restored.gameRefs mustEqual List(g1)
     }
-
   }
-
 }

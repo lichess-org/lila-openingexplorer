@@ -23,7 +23,5 @@ class SpeedGroupTest extends Specification {
       SpeedGroup.fromTimeControl("600+0") mustEqual SpeedGroup.Classical
       SpeedGroup.fromTimeControl("900+10") mustEqual SpeedGroup.Classical
     }
-
   }
-
 }
