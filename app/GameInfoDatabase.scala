@@ -24,8 +24,11 @@ final class GameInfoDatabase extends MasterDatabasePacker {
         .buildAndOpen
     }
 
-  def get(gameId: String): Option[GameInfo] =
-    Option(db.get(gameId)) flatMap GameInfoDatabase.unpack
+  def get(gameId: String): Option[GameInfo] = {
+    val record = db.get(gameId)
+    println(s"$gameId: $record")
+    Option(record) flatMap GameInfoDatabase.unpack
+  }
 
   def contains(gameId: String): Boolean = db.exists(gameId)
 
