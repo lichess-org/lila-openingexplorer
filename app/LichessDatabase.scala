@@ -2,7 +2,6 @@ package lila.openingexplorer
 
 import java.io.File
 
-import fm.last.commons.kyoto.factory.{ Mode, PageComparator }
 import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 
 import chess.variant.Variant
@@ -19,11 +18,8 @@ final class LichessDatabase extends LichessDatabasePacker {
         val config = Config.explorer.lichess(variant)
         val dbFile = new File(config.kyoto.file.replace("(variant)", variant.key))
         dbFile.createNewFile
-        Kyoto.builder(dbFile)
-          .buckets(config.kyoto.buckets)
-          .memoryMapSize(config.kyoto.memoryMapSize)
-          .defragUnitSize(config.kyoto.defragUnitSize)
-          .buildAndOpen
+
+        Kyoto.builder(dbFile, config.kyoto).buildAndOpen
       }
   }).toMap
 

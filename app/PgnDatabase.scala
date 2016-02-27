@@ -18,10 +18,7 @@ final class PgnDatabase extends MasterDatabasePacker {
       val dbFile = new File(config.kyoto.file)
       dbFile.createNewFile
 
-      Kyoto.builder(dbFile)
-        .buckets(config.kyoto.buckets)
-        .memoryMapSize(config.kyoto.memoryMapSize)
-        .defragUnitSize(config.kyoto.defragUnitSize)
+      Kyoto.builder(dbFile, config.kyoto)
         .compressor(Compressor.LZMA)
         .pageComparator(PageComparator.LEXICAL)
         .buildAndOpen
