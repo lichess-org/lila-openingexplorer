@@ -6,6 +6,7 @@ import java.io.File
 object Kyoto {
 
   def builder(dbFile: File) = new KyotoDbBuilder(dbFile)
+    .modes(Mode.CREATE, Mode.READ_WRITE, Mode.AUTO_TRANSACTION)
     .logLevel(LogLevel.INFO)
     .logAppender(LogAppender.STDOUT)
 }
