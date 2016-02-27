@@ -1,10 +1,16 @@
 # Copy this file to application.conf
 # This is environment specific config, it overrides base.conf
 
-include "base"
+# Format documentation:
+# https://github.com/typesafehub/config#using-hocon-the-json-superset
 
-# override example =
-# explorer.lichess.standard.maxPlies = 60
+include "base"
 
 # Send header Access-Control-Allow-Origin "*"
 # explorer.corsHeader = true
+
+# Disable stat cache
+# explorer.statCache.ttls = 1 ms
+
+# Disable cache
+# explorer.cache.maxMoves = 0
