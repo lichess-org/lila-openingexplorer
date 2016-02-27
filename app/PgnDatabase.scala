@@ -2,7 +2,7 @@ package lila.openingexplorer
 
 import java.io.File
 
-import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, Mode, Compressor, PageComparator }
+import fm.last.commons.kyoto.factory.{ Mode, Compressor, PageComparator }
 import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 
 import chess.format.Forsyth
@@ -18,7 +18,7 @@ final class PgnDatabase extends MasterDatabasePacker {
       val dbFile = new File(config.kyoto.file)
       dbFile.createNewFile
 
-      new KyotoDbBuilder(dbFile)
+      Kyoto.builder(dbFile)
         .modes(Mode.CREATE, Mode.READ_WRITE)
         .buckets(config.kyoto.buckets)
         .memoryMapSize(config.kyoto.memoryMapSize)

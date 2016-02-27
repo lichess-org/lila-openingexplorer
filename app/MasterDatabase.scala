@@ -2,7 +2,7 @@ package lila.openingexplorer
 
 import java.io.File
 
-import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, Mode, PageComparator }
+import fm.last.commons.kyoto.factory.{ Mode, PageComparator }
 import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 
 import chess.{ Hash, Situation, MoveOrDrop, PositionHash }
@@ -15,7 +15,7 @@ final class MasterDatabase extends MasterDatabasePacker {
       val config = Config.explorer.master
       val dbFile = new File(config.kyoto.file)
       dbFile.createNewFile
-      new KyotoDbBuilder(dbFile)
+      Kyoto.builder(dbFile)
         .modes(Mode.CREATE, Mode.READ_WRITE)
         .buckets(config.kyoto.buckets)
         .memoryMapSize(config.kyoto.memoryMapSize)

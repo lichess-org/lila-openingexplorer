@@ -2,7 +2,7 @@ package lila.openingexplorer
 
 import java.io.File
 
-import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, Mode, Compressor, PageComparator, LogLevel, LogAppender }
+import fm.last.commons.kyoto.factory.{ Mode, Compressor, PageComparator }
 import fm.last.commons.kyoto.KyotoDb
 
 final class GameInfoDatabase extends MasterDatabasePacker {
@@ -14,9 +14,7 @@ final class GameInfoDatabase extends MasterDatabasePacker {
       val dbFile = new File(config.kyoto.file)
       dbFile.createNewFile
 
-      new KyotoDbBuilder(dbFile)
-        .logLevel(LogLevel.DEBUG)
-        .logAppender(LogAppender.STDERR)
+      Kyoto.builder(dbFile)
         .modes(Mode.CREATE, Mode.READ_WRITE)
         .buckets(config.kyoto.buckets)
         .memoryMapSize(config.kyoto.memoryMapSize)
