@@ -19,7 +19,6 @@ final class PgnDatabase extends MasterDatabasePacker {
       dbFile.createNewFile
 
       Kyoto.builder(dbFile)
-        .modes(Mode.CREATE, Mode.READ_WRITE)
         .buckets(config.kyoto.buckets)
         .memoryMapSize(config.kyoto.memoryMapSize)
         .defragUnitSize(config.kyoto.defragUnitSize)

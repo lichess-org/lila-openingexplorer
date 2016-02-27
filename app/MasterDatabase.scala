@@ -16,7 +16,6 @@ final class MasterDatabase extends MasterDatabasePacker {
       val dbFile = new File(config.kyoto.file)
       dbFile.createNewFile
       Kyoto.builder(dbFile)
-        .modes(Mode.CREATE, Mode.READ_WRITE)
         .buckets(config.kyoto.buckets)
         .memoryMapSize(config.kyoto.memoryMapSize)
         .defragUnitSize(config.kyoto.defragUnitSize)
