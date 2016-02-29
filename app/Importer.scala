@@ -18,24 +18,24 @@ final class Importer(
 
   private val lichessSeparator = "\n\n\n"
 
+  private val logger = play.api.Logger("importer")
+
   def lichess(text: String): (Unit, Int) = Time {
     val pgns = text.split(lichessSeparator)
     pgns flatMap { pgn =>
       processLichess(pgn) match {
-        case scalaz.Success(processed) =>
-          play.api.Logger("importer").info(s"Successfully imported ${pgns.size} lichess games")
-          Some(processed)
+        case scalaz.Success(processed) => Some(processed)
         case scalaz.Failure(errors) =>
-          play.api.Logger("importer").warn(errors.list mkString ", ")
+          logger.warn(errors.list mkString ", ")
           None
       }
     } foreach {
       case Processed(parsed, replay, gameRef) =>
         GameInfo parse parsed.tags match {
           case _ if gameInfoDb.contains(gameRef.gameId) =>
-            play.api.Logger("importer").warn(s"skip dup ${gameRef.gameId}")
+            logger.warn(s"skip dup ${gameRef.gameId}")
           case None =>
-            play.api.Logger("importer").warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
+            logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
           case Some(info) =>
             val variant = replay.setup.board.variant
             val hashes = collectHashes(replay, LichessDatabase.hash, Config.explorer.lichess(variant).maxPlies)
@@ -43,6 +43,7 @@ final class Importer(
             lichessDb.merge(variant, gameRef, hashes)
         }
     }
+    logger.info(s"Successfully imported ${pgns.size} lichess games")
   }
 
   private val masterInitBoard = chess.Board.init(chess.variant.Standard)
