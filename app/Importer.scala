@@ -22,7 +22,9 @@ final class Importer(
     val pgns = text.split(lichessSeparator)
     pgns flatMap { pgn =>
       processLichess(pgn) match {
-        case scalaz.Success(processed) => Some(processed)
+        case scalaz.Success(processed) =>
+          play.api.Logger("importer").info(s"Successfully imported ${pgns.size} lichess games")
+          Some(processed)
         case scalaz.Failure(errors) =>
           play.api.Logger("importer").warn(errors.list mkString ", ")
           None
