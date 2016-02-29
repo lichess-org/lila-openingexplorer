@@ -42,7 +42,7 @@ t = time.time()
 def send(buf):
     global t
 
-    res = requests.put("http://localhost:9000/import/" + endpoint, data=buf.encode("utf-8"))
+    res = requests.put("http://localhost:9000/import/" + endpoint, data=buf)
 
     new_t = time.time()
 
