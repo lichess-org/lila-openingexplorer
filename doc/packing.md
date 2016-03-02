@@ -14,11 +14,11 @@ bits | type | description
 Mater database
 --------------
 
-# Single game: Game ref (identified by size)
+### Single game: Game ref (identified by size)
 
-# Up to 5 games: Byte `1`, followed by game refs
+### Up to 5 games: Byte `1`, followed by game refs
 
-# More games:
+### More games:
 
 bytes | type      | description
 ----- | --------- | ---
@@ -42,11 +42,11 @@ pack format | k
 Lichess database
 ----------------
 
-# Single game: Game ref (identified by size)
+### Single game: Game ref (identified by size)
 
-# Up to 53 games: Byte `1`, followed by game refs
+### Up to 53 games: Byte `1`, followed by game refs
 
-# More games:
+### More games:
 
 bytes | type | description
 ----- | ---- | ---
