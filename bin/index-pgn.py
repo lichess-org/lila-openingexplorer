@@ -1,11 +1,22 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import requests
 import sys
 import time
 
-if len(sys.argv) != 3:
-    sys.exit("Usage: python3 index-pgn.py <master|lichess/standard|...> <pgn-file>")
+if sys.version_info[0] < 3:
+    sys.exit("Minimum requirement is Python 3.3.")
+elif sys.version_info[0] == 3 and sys.version_info[1] <= 2:
+    sys.exit("Minimum requirement is Python 3.3.")
+elif sys.version_info[0] == 3 and sys.version_info[1] >= 3:
+    pass
+elif sys.version_info[0] >= 4:
+    pass
+else:
+    sys.exit("Oh dear, you appear to have broken reality ... how did you manage that anyway?")
+
+if len(sys.argv) <= 2:
+    sys.exit("Usage: index-pgn.py <master|lichess/standard|...> <pgn-file>")
 
 endpoint = sys.argv[1]
 
