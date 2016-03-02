@@ -9,7 +9,7 @@ if len(sys.argv) != 3:
 
 endpoint = sys.argv[1]
 
-f = open(sys.argv[2], encoding="utf-8", errors="ignore")
+f = open(sys.argv[2], encoding="utf-8-sig", errors="ignore")
 
 def split_pgn(f):
     buf = []
