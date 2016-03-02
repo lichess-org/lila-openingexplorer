@@ -148,27 +148,27 @@ name | type | default | description
 ### `GET /stats` get database stats
 
 ```
-curl http://explorer.lichess.org/stats
+> curl http://explorer.lichess.org/stats
 ```
 
 ```javascript
 {
   "master": {
-    "games": 1946390,
-    "uniquePositions": 49278420
+    "games": 1924132,
+    "uniquePositions": 49260139
   },
   "lichess": {
     "standard": {
-      "games": 4790308,
-      "uniquePositions": 157749923
+      "games": 10361404,
+      "uniquePositions": 335956395
     },
     "chess960": {
-      "games": 117120,
-      "uniquePositions": 9052539
+      "games": 264960,
+      "uniquePositions": 14469620
     },
-    "kingOfTheHill": {
-      "games": 119989,
-      "uniquePositions": 3626135
+    "crazyhouse": {
+      "games": 134221,
+      "uniquePositions": 4512974
     },
     // other variants ...
   }

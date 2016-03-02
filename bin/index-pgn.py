@@ -5,7 +5,7 @@ import sys
 import time
 
 if len(sys.argv) != 3:
-    sys.exit("Usage: python3 index-pgn.py <master|lichess/standard|...> <pgn-file>")
+    sys.exit("Usage: python3 index-pgn.py <master|lichess> <pgn-file>")
 
 endpoint = sys.argv[1]
 
