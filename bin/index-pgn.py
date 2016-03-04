@@ -3,6 +3,7 @@
 import requests
 import sys
 import time
+import re
 
 if len(sys.argv) != 3:
     sys.exit("Usage: python3 index-pgn.py <master|lichess> <pgn-file>")
@@ -37,6 +38,9 @@ def split_pgn(f):
 def has_rating(pgn):
     return "[WhiteElo" in pgn or "[BlackElo" in pgn
 
+def has_10_moves(pgn, _re=re.compile(r"10\.([a-h]|N|B|R|Q|K|\s)")):
+    return bool(_re.search(pgn))
+
 t = time.time()
 
 def send(buf):
@@ -53,5 +57,5 @@ def send(buf):
 
     t = new_t
 
-for buf in (pgn for pgn in split_pgn(f) if has_rating(pgn)):
+for buf in (pgn for pgn in split_pgn(f) if has_rating(pgn) and has_10_moves(pgn)):
     send(buf)
