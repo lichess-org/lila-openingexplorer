@@ -22,20 +22,20 @@ final class Importer(
 
   def lichess(text: String): (Unit, Int) = Time {
     val pgns = text.split(lichessSeparator)
-    pgns flatMap { pgn =>
+    val processed = pgns flatMap { pgn =>
       processLichess(pgn) match {
         case scalaz.Success(processed) => Some(processed)
         case scalaz.Failure(errors) =>
           logger.warn(errors.list mkString ", ")
           None
       }
-    } foreach {
+    }
+    if (processed.exists { p => gameInfoDb.contains(p.gameRef.gameId) })
+      logger.warn(s"found a dup, skipping batch")
+    else processed foreach {
       case Processed(parsed, replay, gameRef) =>
         GameInfo parse parsed.tags match {
-          case _ if gameInfoDb.contains(gameRef.gameId) =>
-            logger.warn(s"skip dup ${gameRef.gameId}")
-          case None =>
-            logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
+          case None => logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
           case Some(info) =>
             val variant = replay.setup.board.variant
             val hashes = collectHashes(replay, LichessDatabase.hash, Config.explorer.lichess(variant).maxPlies)
