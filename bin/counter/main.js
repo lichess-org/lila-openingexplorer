@@ -3,6 +3,7 @@ var qs = require('querystring');
 
 var domain = process.argv[2] || 'expl.lichess.org';
 var variant = process.argv[3] || 'standard';
+var fen = process.argv[4] || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 var uri = 'http://' + domain + '/lichess';
 
@@ -18,7 +19,7 @@ function request(speed, rating) {
   HttpClient.get({
     url: uri,
     qs: {
-      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      fen: fen,
       moves: 12,
       variant: variant,
       'speeds[]': speed,
@@ -31,6 +32,7 @@ function request(speed, rating) {
     if (body.moves) body.moves.forEach(function(m) {
       nb += m.black += m.white += m.draws;
     });
+    else console.log(body, 'no body.moves!');
     results[speed][rating] = nb;
     console.log(results);
   });
