@@ -1,6 +1,6 @@
 #!/bin/sh
 
-REMOTE="lichess-explorer"
+REMOTE="homer"
 REMOTE_DIR="/home/lichess-explorer"
 
 echo "Deploy to server $REMOTE:$REMOTE_DIR"
