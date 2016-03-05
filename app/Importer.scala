@@ -31,19 +31,21 @@ final class Importer(
       }
     }
     if (processed.exists { p => gameInfoDb.contains(p.gameRef.gameId) })
-      logger.warn(s"found a dup, skipping batch")
-    else processed foreach {
-      case Processed(parsed, replay, gameRef) =>
-        GameInfo parse parsed.tags match {
-          case None => logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
-          case Some(info) =>
-            val variant = replay.setup.board.variant
-            val hashes = collectHashes(replay, LichessDatabase.hash, Config.explorer.lichess(variant).maxPlies)
-            gameInfoDb.store(gameRef.gameId, info)
-            lichessDb.merge(variant, gameRef, hashes)
-        }
+      logger.info(s"found a dup, skipping batch")
+    else {
+      processed foreach {
+        case Processed(parsed, replay, gameRef) =>
+          GameInfo parse parsed.tags match {
+            case None => logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
+            case Some(info) =>
+              val variant = replay.setup.board.variant
+              val hashes = collectHashes(replay, LichessDatabase.hash, Config.explorer.lichess(variant).maxPlies)
+              gameInfoDb.store(gameRef.gameId, info)
+              lichessDb.merge(variant, gameRef, hashes)
+          }
+          logger.info(s"Successfully imported ${pgns.size} lichess games")
+      }
     }
-    logger.info(s"Successfully imported ${pgns.size} lichess games")
   }
 
   private val masterInitBoard = chess.Board.init(chess.variant.Standard)
