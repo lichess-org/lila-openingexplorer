@@ -20,6 +20,8 @@ final class Importer(
 
   private val logger = play.api.Logger("importer")
 
+  private var nbImported = 0
+
   def lichess(text: String): (Unit, Int) = Time {
     val pgns = text.split(lichessSeparator)
     val processed = pgns flatMap { pgn =>
@@ -43,7 +45,9 @@ final class Importer(
               gameInfoDb.store(gameRef.gameId, info)
               lichessDb.merge(variant, gameRef, hashes)
           }
-          logger.info(s"Successfully imported ${pgns.size} lichess games")
+          val nb = pgns.size
+          nbImported = nbImported + nb
+          logger.info(s"Imported $nb lichess games; total $nbImported")
       }
     }
   }
