@@ -45,10 +45,10 @@ final class Importer(
               gameInfoDb.store(gameRef.gameId, info)
               lichessDb.merge(variant, gameRef, hashes)
           }
-          val nb = pgns.size
-          nbImported = nbImported + nb
-          logger.info(s"Imported $nb lichess games; total $nbImported")
       }
+      val nb = processed.size
+      nbImported = nbImported + nb
+      logger.info(s"Imported $nb lichess games; total $nbImported")
     }
   }
 
