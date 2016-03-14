@@ -42,8 +42,12 @@ final class Importer(
             case Some(info) =>
               val variant = replay.setup.board.variant
               val hashes = collectHashes(replay, LichessDatabase.hash, Config.explorer.lichess(variant).maxPlies)
-              gameInfoDb.store(gameRef.gameId, info)
-              lichessDb.merge(variant, gameRef, hashes)
+              try {
+                gameInfoDb.store(gameRef.gameId, info)
+                lichessDb.merge(variant, gameRef, hashes)
+              } catch {
+                case e: Exception => logger.error(s"Can't merge game ${gameRef.gameId}: ${e.getMessage}")
+              }
           }
       }
       val nb = processed.size
