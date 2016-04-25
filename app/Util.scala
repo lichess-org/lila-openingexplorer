@@ -6,8 +6,8 @@ import scalaz.Validation.FlatMap._
 
 object Util {
 
-  // deduplicates castling moves
-  def situationMoves(situation: chess.Situation): List[chess.Move] =
+  def situationMoves(situation: chess.Situation): List[chess.Move] = {
+    // deduplicate castling moves
     situation.moves.values.flatten.foldLeft(List.empty[chess.Move] -> Set.empty[chess.Pos]) {
       case ((list, seenRooks), move) => move.castle match {
         case Some((_, (rookPos, _))) =>
@@ -15,7 +15,19 @@ object Util {
           else (move :: list, seenRooks + rookPos)
         case _ => (move :: list, seenRooks)
       }
-    }._1
+    }._1.flatMap { move =>
+      move :: (
+        if (move.promotes)
+          // expand underpromotions
+          List(
+            move.withPromotion(chess.Knight.some),
+            move.withPromotion(chess.Bishop.some),
+            move.withPromotion(chess.Rook.some)
+          ).flatten
+        else Nil
+      )
+    }
+  }
 
   def situationDrops(situation: chess.Situation): List[chess.Drop] = {
     val droppablePositions = situation.drops.getOrElse(chess.Pos.all filterNot situation.board.pieces.contains)
