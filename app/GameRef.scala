@@ -3,6 +3,7 @@ package lila.openingexplorer
 import ornicar.scalalib.Validation
 import scala.util.matching.Regex
 import scala.util.Random
+import java.io.{ OutputStream, InputStream }
 
 import chess.Color
 
@@ -32,6 +33,7 @@ case class GameRef(
     packUint16(packedWinner | packedSpeed | packedRating) ++ packUint48(packedGameId)
   }
 
+  def write(stream: OutputStream) = stream.write(pack)
 }
 
 object GameRef extends PackHelper with Validation {
@@ -72,6 +74,10 @@ object GameRef extends PackHelper with Validation {
       averageRating
     )
   }
+
+  def read(s: InputStream) = unpack(Array[Byte](
+    s.read().toByte, s.read().toByte, s.read().toByte, s.read().toByte,
+    s.read().toByte, s.read().toByte, s.read().toByte, s.read().toByte))
 
   def fromPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
     val gameId = game.tag("LichessID") orElse {

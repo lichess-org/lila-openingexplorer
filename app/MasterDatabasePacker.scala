@@ -1,5 +1,7 @@
 package lila.openingexplorer
 
+import java.io.{ ByteArrayOutputStream, ByteArrayInputStream }
+
 trait MasterDatabasePacker extends PackHelper {
 
   protected def pack(entry: SubEntry): Array[Byte] = {
@@ -11,33 +13,24 @@ trait MasterDatabasePacker extends PackHelper {
              entry.gameRefs.size == entry.totalGames)
       // all game refs are explicitly known
       Array(1.toByte) ++ entry.gameRefs.flatMap(_.pack)
-    else if (entry.maxPerWinner < MaxUint8)
-      packMulti(entry, 2, packUint8)
-    else if (entry.maxPerWinner < MaxUint16)
-      packMulti(entry, 3, packUint16)
-    else if (entry.maxPerWinner < MaxUint24)
-      packMulti(entry, 4, packUint24)
-    else if (entry.maxPerWinner < MaxUint32)
-      packMulti(entry, 5, packUint32)
     else
-      packMulti(entry, 6, packUint48)
+      packVariable(7, entry)
   }
 
-  private def packMulti(
-      entry: SubEntry,
-      meta: Int,
-      helper: Long => Array[Byte]): Array[Byte] = {
+  private def packVariable(meta: Int, entry: SubEntry) : Array[Byte] = {
     val exampleGames =
       entry.gameRefs
         .sortWith(_.averageRating > _.averageRating)
         .take(MasterDatabasePacker.maxTopGames)
 
-    packUint8(meta) ++
-      helper(entry.whiteWins) ++
-      helper(entry.draws) ++
-      helper(entry.blackWins) ++
-      packUint48(entry.averageRatingSum) ++
-      exampleGames.flatMap(_.pack)
+    val out = new ByteArrayOutputStream()
+    out.write(meta)
+    writeUint(out, entry.whiteWins)
+    writeUint(out, entry.draws)
+    writeUint(out, entry.blackWins)
+    writeUint(out, entry.averageRatingSum)
+    exampleGames.foreach(_.write(out))
+    out.toByteArray()
   }
 
   protected def unpack(b: Array[Byte]): SubEntry = {
@@ -63,6 +56,8 @@ trait MasterDatabasePacker extends PackHelper {
         unpackMulti(b, unpackUint32, 4)
       case 6 =>
         unpackMulti(b, unpackUint48, 6)
+      case 7 =>
+        unpackVariable(b)
     }
   }
 
@@ -80,6 +75,20 @@ trait MasterDatabasePacker extends PackHelper {
         .map(GameRef.unpack _)
         .toList
     )
+  }
+
+  private def unpackVariable(b: Array[Byte]): SubEntry = {
+    val in = new ByteArrayInputStream(b)
+    in.read()
+    val white = readUint(in)
+    val draws = readUint(in)
+    val black = readUint(in)
+    val averageRatingSum = readUint(in)
+    val games = scala.collection.mutable.ListBuffer.empty[GameRef]
+    while (in.available() > 0) {
+      games += GameRef.read(in)
+    }
+    new SubEntry(white, draws, black, averageRatingSum, games.toList)
   }
 }
 

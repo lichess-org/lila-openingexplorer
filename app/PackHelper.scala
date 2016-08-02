@@ -1,6 +1,6 @@
 package lila.openingexplorer
 
-import java.io.{ ByteArrayOutputStream, ByteArrayInputStream }
+import java.io.{ OutputStream, InputStream }
 
 trait PackHelper {
 
@@ -52,7 +52,7 @@ trait PackHelper {
     unpackUint32(b) << 16 | unpackUint16(b.drop(4)).toLong
 
 
-  protected def writeUint(stream: ByteArrayOutputStream, v: Long) = {
+  protected def writeUint(stream: OutputStream, v: Long) = {
     var value = v
     while (value > 127) {
       stream.write(((value & 127) | 128).toInt)
@@ -61,7 +61,7 @@ trait PackHelper {
     stream.write((value & 127).toInt)
   }
 
-  protected def readUint(stream: ByteArrayInputStream): Long = {
+  protected def readUint(stream: InputStream): Long = {
     var value: Long = 0
     var i: Int = 0
     var byte: Int = 0
