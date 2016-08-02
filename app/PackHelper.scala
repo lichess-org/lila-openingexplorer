@@ -1,6 +1,10 @@
 package lila.openingexplorer
 
 import java.io.{ OutputStream, InputStream }
+import chess.format.Uci
+import chess.Pos
+import chess.Role
+import chess.{ Pawn, Knight, Bishop, Rook, Queen, King }
 
 trait PackHelper {
 
@@ -73,5 +77,30 @@ trait PackHelper {
     } while ((byte & 128) != 0)
 
     value
+  }
+
+
+  protected def writeUint16(stream: OutputStream, v: Int) = {
+    stream.write(0xff & (v >> 8))
+    stream.write(0xff & v)
+  }
+
+  protected def readUint16(stream: InputStream): Int =
+    stream.read() << 8 | stream.read()
+
+
+  protected def writeMove(stream: OutputStream, move: Uci.Move) = {
+    writeUint16(stream,
+      Pos.all.indexOf(move.orig) |
+      Pos.all.indexOf(move.dest) << 6 |
+      move.promotion.fold(0)(r => (Role.allPromotable.indexOf(r)) + 1) << 12)
+  }
+
+  protected def readMove(stream: InputStream): Uci.Move = {
+    val enc = readUint16(stream)
+    val orig = Pos.all(enc & 63)
+    val dest = Pos.all((enc >> 6) & 63)
+    val role = if ((enc >> 12) != 0) Some(Role.allPromotable((enc >> 12) - 1)) else None
+    new Uci.Move(orig, dest, role)
   }
 }
