@@ -4,16 +4,16 @@ import java.io.{ ByteArrayOutputStream, ByteArrayInputStream }
 import org.specs2.mutable._
 import chess.format.Uci
 import chess.Pos
-import chess.Rook
+import chess.{ Rook, King }
 
 class PackHelperTest extends Specification with PackHelper {
 
-  def pipeMove(move: Uci.Move): Uci.Move = {
+  def pipeMove(move: Either[Uci.Move, Uci.Drop]): Either[Uci.Move, Uci.Drop] = {
     val out = new ByteArrayOutputStream()
-    writeMove(out, move)
+    writeUci(out, move)
 
     val in = new ByteArrayInputStream(out.toByteArray)
-    readMove(in)
+    readUci(in)
   }
 
   "the pack helper" should {
@@ -23,12 +23,17 @@ class PackHelperTest extends Specification with PackHelper {
 
     "correctly pack moves" in {
       val move = Uci.Move(Pos.E2, Pos.E3)
-      pipeMove(move) mustEqual move
+      pipeMove(Left(move)) mustEqual Left(move)
     }
 
     "correctly pack promotions" in {
       val move = Uci.Move(Pos.A7, Pos.A8, Some(Rook))
-      pipeMove(move) mustEqual move
+      pipeMove(Left(move)) mustEqual Left(move)
+    }
+
+    "correctly pack drops" in {
+      val drop = Uci.Drop(King, Pos.H3)
+      pipeMove(Right(drop)) mustEqual Right(drop)
     }
   }
 

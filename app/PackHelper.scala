@@ -89,18 +89,29 @@ trait PackHelper {
     stream.read() << 8 | stream.read()
 
 
-  protected def writeMove(stream: OutputStream, move: Uci.Move) = {
+  protected def writeUci(stream: OutputStream, move: Uci.Move): Unit =
     writeUint16(stream,
       Pos.all.indexOf(move.orig) |
       Pos.all.indexOf(move.dest) << 6 |
       move.promotion.fold(0)(r => (Role.allPromotable.indexOf(r)) + 1) << 12)
+
+  protected def writeUci(stream: OutputStream, drop: Uci.Drop): Unit = {
+    val dest = Pos.all.indexOf(drop.pos)
+    writeUint16(stream, dest | dest << 6 | (Role.all.indexOf(drop.role) + 1) << 12)
   }
 
-  protected def readMove(stream: InputStream): Uci.Move = {
+  protected def writeUci(stream: OutputStream, move: Either[Uci.Move, Uci.Drop]): Unit =
+    move.fold(writeUci(stream, _), writeUci(stream, _))
+
+  protected def readUci(stream: InputStream): Either[Uci.Move, Uci.Drop] = {
     val enc = readUint16(stream)
     val orig = Pos.all(enc & 63)
     val dest = Pos.all((enc >> 6) & 63)
-    val role = if ((enc >> 12) != 0) Some(Role.allPromotable((enc >> 12) - 1)) else None
-    new Uci.Move(orig, dest, role)
+    if (orig == dest) {
+      Right(new Uci.Drop(Role.all((enc >> 12) - 1), dest))
+    } else {
+      val role = if ((enc >> 12) != 0) Some(Role.allPromotable((enc >> 12) - 1)) else None
+      Left(new Uci.Move(orig, dest, role))
+    }
   }
 }
