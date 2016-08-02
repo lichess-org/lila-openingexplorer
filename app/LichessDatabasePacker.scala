@@ -1,5 +1,7 @@
 package lila.openingexplorer
 
+import java.io.{ ByteArrayOutputStream, ByteArrayInputStream }
+
 trait LichessDatabasePacker extends PackHelper {
 
   protected def pack(entry: Entry): Array[Byte] = {
@@ -11,23 +13,11 @@ trait LichessDatabasePacker extends PackHelper {
              entry.totalGames == entry.allGameRefs.size)
       // all games explicitly known by ref
       Array(1.toByte) ++ entry.allGameRefs.flatMap(_.pack)
-    else if (entry.maxPerWinnerAndGroup < MaxUint8)
-      packMulti(entry, 2, packUint8, packUint24)
-    else if (entry.maxPerWinnerAndGroup < MaxUint16)
-      packMulti(entry, 3, packUint16, packUint32)
-    else if (entry.maxPerWinnerAndGroup < MaxUint24)
-      packMulti(entry, 4, packUint24, packUint48)
-    else if (entry.maxPerWinnerAndGroup < MaxUint32)
-      packMulti(entry, 5, packUint32, packUint48)
     else
-      packMulti(entry, 6, packUint48, packUint48)
+      packVariable(7, entry)
   }
 
-  private def packMulti(
-      entry: Entry,
-      meta: Int,
-      helper: Long => Array[Byte],
-      ratingHelper: Long => Array[Byte]): Array[Byte] = {
+  private def packVariable(meta: Int, entry: Entry): Array[Byte] = {
     val exampleGames =
       entry.sub.values.flatMap(_.gameRefs.take(LichessDatabasePacker.maxRecentGames)) ++
       SpeedGroup.all.flatMap { speed =>
@@ -36,19 +26,20 @@ trait LichessDatabasePacker extends PackHelper {
           .take(LichessDatabasePacker.maxTopGames)
       }
 
-    packUint8(meta) ++
-      Entry.allGroups.flatMap((g) => packSubEntry(entry.subEntry(g._1, g._2), helper, ratingHelper)) ++
-      exampleGames.toList.distinct.flatMap(_.pack)
-  }
+    val out = new ByteArrayOutputStream()
+    out.write(meta)
 
-  private def packSubEntry(
-      subEntry: SubEntry,
-      helper: Long => Array[Byte],
-      ratingHelper: Long => Array[Byte]): Array[Byte] = {
-    helper(subEntry.whiteWins) ++
-      helper(subEntry.draws) ++
-      helper(subEntry.blackWins) ++
-      ratingHelper(subEntry.averageRatingSum)
+    Entry.allGroups.foreach { g =>
+      val subEntry = entry.subEntry(g._1, g._2)
+      writeUint(out, subEntry.whiteWins)
+      writeUint(out, subEntry.draws)
+      writeUint(out, subEntry.blackWins)
+      writeUint(out, subEntry.averageRatingSum)
+    }
+
+    exampleGames.toList.distinct.foreach(_.write(out))
+
+    out.toByteArray()
   }
 
   protected def unpack(b: Array[Byte]): Entry = {
@@ -74,7 +65,30 @@ trait LichessDatabasePacker extends PackHelper {
         unpackMulti(b, unpackUint32, 4, unpackUint48, 6)
       case 6 =>
         unpackMulti(b, unpackUint48, 6, unpackUint48, 6)
+      case 7 =>
+        unpackVariable(b)
     }
+  }
+
+  private def unpackVariable(b: Array[Byte]): Entry = {
+    val in = new ByteArrayInputStream(b)
+    in.read()
+
+    val subEntries = scala.collection.mutable.Map.empty[(RatingGroup, SpeedGroup), SubEntry]
+    Entry.allGroups.foreach { g =>
+      val white = readUint(in)
+      val draws = readUint(in)
+      val black = readUint(in)
+      val averageRatingSum = readUint(in)
+      subEntries += g -> SubEntry(white, draws, black, averageRatingSum, List.empty)
+    }
+
+    val games = scala.collection.mutable.ListBuffer.empty[GameRef]
+    while (in.available() > 0) {
+      games += GameRef.read(in)
+    }
+
+    games.foldRight(new Entry(subEntries.toMap))((l, r) => r.withExistingGameRef(l))
   }
 
   private def unpackMulti(

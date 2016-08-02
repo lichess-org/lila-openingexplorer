@@ -11,7 +11,7 @@ class PackHelperTest extends Specification with PackHelper {
     }
   }
 
-  List(7, 127, 128, 129, 254, 255, 256, 257, 1234, 12345678).foreach { x =>
+  List(7, 127, 128, 129, 254, 255, 256, 257, 1234, 864197252500L).foreach { x =>
     "correctly pack uint: " + x in {
       val out = new ByteArrayOutputStream()
       writeUint(out, x)

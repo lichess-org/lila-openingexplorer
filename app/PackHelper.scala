@@ -68,7 +68,7 @@ trait PackHelper {
 
     do {
       byte = stream.read()
-      value |= (byte & 127) << (7 * i)
+      value |= (byte.toLong & 127) << (7 * i)
       i += 1
     } while ((byte & 128) != 0)
 
