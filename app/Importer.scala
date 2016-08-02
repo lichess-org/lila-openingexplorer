@@ -6,7 +6,7 @@ import scala.concurrent.Future
 import scalaz.Validation.FlatMap._
 
 import chess.format.Forsyth
-import chess.format.pgn.{ Parser, Reader, ParsedPgn, San }
+import chess.format.pgn.{ Parser, Reader, ParsedPgn, InitialPosition, San }
 import chess.variant.Variant
 import chess.{ Hash, PositionHash, Replay }
 
@@ -108,7 +108,7 @@ final class Importer(
     case Array(tagStr, moveStr) => for {
       tags ← Parser.TagParser(tagStr)
       moves <- Parser.moves(moveStr, Parser.getVariantFromTags(tags))
-    } yield ParsedPgn(tags, moves)
+    } yield ParsedPgn(InitialPosition(List.empty), tags, moves)
     case _ => s"Invalid fast pgn $pgn".failureNel
   }
 
