@@ -9,12 +9,12 @@ lazy val root = project in file(".") enablePlugins PlayScala dependsOn chess set
   publishArtifact in (Compile, packageDoc) := false,
   publishArtifact in (Compile, packageSrc) := false)
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.8"
 
 scalacOptions ++= Seq("-unchecked", "-language:_")
 
 libraryDependencies ++= Seq(
-  "com.github.ornicar" %% "scalalib" % "5.3",
+  "com.github.ornicar" %% "scalalib" % "5.5",
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
   "com.github.kxbmap" %% "configs" % "0.3.0",
   cache
