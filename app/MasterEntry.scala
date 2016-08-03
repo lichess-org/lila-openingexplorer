@@ -7,6 +7,17 @@ case class MasterEntry(
     moves: Map[Either[Uci.Move, Uci.Drop], MoveStats],
     games: List[GameRef]) extends PackHelper {
 
+  lazy val totalWhite = moves.values.map(_.white).sum
+  lazy val totalDraws = moves.values.map(_.draws).sum
+  lazy val totalBlack = moves.values.map(_.black).sum
+
+  def totalGames = totalWhite + totalDraws + totalBlack
+
+  def totalAverageRatingSum = moves.values.map(_.averageRatingSum).sum
+
+  def averageRating: Int =
+    if (totalGames == 0) 0 else (totalAverageRatingSum / totalGames).toInt
+
   def withGameRef(game: GameRef, move: Either[Uci.Move, Uci.Drop]) =
     new MasterEntry(
       moves + (move -> moves.getOrElse(move, MoveStats.empty).withGameRef(game)),

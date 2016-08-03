@@ -6,12 +6,16 @@ import chess.MoveOrDrop
 
 object JsonView {
 
-  def masterEntry(fetchPgn: String => Option[String])(entry: QueryResult, children: Children, fen: String) = {
+  def masterEntry(fetchPgn: String => Option[String])(result: MasterQueryResult) = {
     def refToJson(ref: GameRef) =
       fetchPgn(ref.gameId) flatMap GameInfo.parse map richGameRef(ref)
-    baseEntry(entry, children, fen) ++ Json.obj(
-      "recentGames" -> entry.recentGames.flatMap(refToJson),
-      "topGames" -> entry.topGames.flatMap(refToJson))
+
+    Json.obj(
+      "white" -> result.white,
+      "draws" -> result.draws,
+      "black" -> result.black,
+      "averageRating" -> result.averageRating,
+      "topGames" -> result.topGames.flatMap(refToJson))
   }
 
   def lichessEntry(fetchInfo: String => Option[GameInfo])(entry: QueryResult, children: Children, fen: String) = {

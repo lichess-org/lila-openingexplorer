@@ -47,9 +47,8 @@ class WebApi @Inject() (
         data => (Forsyth << data.fen) match {
           case Some(situation) => JsonResult {
             cache.master(data.fen) {
-              val entry = masterDb.query(situation, data.topGamesOrDefault)
-              val children = curate(masterDb.queryChildren(situation), data.movesOrDefault)
-              Json stringify JsonView.masterEntry(pgnDb.get)(entry, children, data.fen)
+              val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
+              Json stringify JsonView.masterEntry(pgnDb.get)(result)
             }
           }
           case None => BadRequest("valid fen required")

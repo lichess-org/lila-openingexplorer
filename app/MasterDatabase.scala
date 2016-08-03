@@ -1,12 +1,13 @@
 package lila.openingexplorer
 
 import java.io.File
+import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
 
 import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 
 import chess.{ Hash, Situation, MoveOrDrop, PositionHash }
 
-final class MasterDatabase extends MasterDatabasePacker {
+final class MasterDatabase {
 
   private val db = Util.wrapLog(
     "Loading master database...",
@@ -14,42 +15,48 @@ final class MasterDatabase extends MasterDatabasePacker {
       Kyoto.builder(Config.explorer.master.kyoto).buildAndOpen
     }
 
-  private def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))
+  def query(situation: Situation, maxMoves: Int, maxGames: Int): MasterQueryResult = {
+    val entry = probe(situation)
+    new MasterQueryResult(
+      entry.totalWhite,
+      entry.totalDraws,
+      entry.totalBlack,
+      entry.averageRating,
+      List.empty,
+      List.empty
+    )
+  }
 
-  private def probe(h: PositionHash): SubEntry = {
+  def probe(situation: Situation): MasterEntry = probe(MasterDatabase.hash(situation))
+
+  private def probe(h: PositionHash): MasterEntry = {
     Option(db.get(h)) match {
       case Some(bytes) => unpack(bytes)
-      case None        => SubEntry.empty
+      case None        => MasterEntry.empty
     }
   }
 
-  def query(situation: Situation, topGames: Int = 0): QueryResult = {
-    val entry = probe(situation)
-    new QueryResult(
-      entry.whiteWins,
-      entry.draws,
-      entry.blackWins,
-      entry.averageRating,
-      List.empty,
-      entry.gameRefs
-        .sortWith(_.averageRating > _.averageRating)
-        .take(math.min(topGames, MasterDatabasePacker.maxTopGames)))
+  private def unpack(b: Array[Byte]): MasterEntry = {
+    val in = new ByteArrayInputStream(b)
+    MasterEntry.read(in)
   }
 
-  def queryChildren(situation: Situation): Children =
-    Util.situationMovesOrDrops(situation).map { move =>
-      move -> query(move.fold(_.situationAfter, _.situationAfter))
-    }.toList
+  def merge(gameRef: GameRef, move: MoveOrDrop) = {
+    val hash = MasterDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
+    val uci = move.left.map(_.toUci).right.map(_.toUci)
 
-  def merge(gameRef: GameRef, hashes: Array[PositionHash]) = {
-    val freshRecord = pack(SubEntry.fromGameRef(gameRef))
-
-    db.accept(hashes, new WritableVisitor {
+    db.accept(hash, new WritableVisitor {
       def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
-        pack(unpack(value).withGameRef(gameRef))
+        val out = new ByteArrayOutputStream()
+        unpack(value).withGameRef(gameRef, uci).write(out)
+        out.toByteArray
       }
 
-      def emptyRecord(key: PositionHash): Array[Byte] = freshRecord
+      def emptyRecord(key: PositionHash): Array[Byte] = {
+        val out = new ByteArrayOutputStream()
+        MasterEntry.fromGameRef(gameRef, uci).write(out)
+        out.toByteArray
+      }
     })
   }
 

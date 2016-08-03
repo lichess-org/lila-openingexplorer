@@ -67,9 +67,12 @@ final class Importer(
         else if (gameRef.averageRating < masterMinRating)
           s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
         else scalaz.Success {
-          val hashes = collectHashes(replay, MasterDatabase.hash, Config.explorer.master.maxPlies)
           pgnDb.store(gameRef.gameId, parsed, replay)
-          masterDb.merge(gameRef, hashes)
+
+          replay.chronoMoves.take(Config.explorer.master.maxPlies).foreach {
+            move =>
+              masterDb.merge(gameRef, move)
+          }
         }
     }
   }
