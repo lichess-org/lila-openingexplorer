@@ -74,21 +74,6 @@ final class Importer(
     }
   }
 
-  def deleteMaster(gameId: String) = {
-    pgnDb.get(gameId) map { pgn =>
-      processMaster(pgn) flatMap {
-        case Processed(parsed, replay, newGameRef) =>
-          scalaz.Success {
-            val gameRef = newGameRef.copy(gameId = gameId)
-            val hashes = collectHashes(replay, MasterDatabase.hash, Config.explorer.master.maxPlies)
-            masterDb.subtract(gameRef, hashes)
-            pgnDb.delete(gameRef.gameId)
-          }
-      }
-      true
-    } getOrElse false
-  }
-
   private case class Processed(parsed: ParsedPgn, replay: Replay, gameRef: GameRef)
 
   private def processMaster(pgn: String): Valid[Processed] = for {

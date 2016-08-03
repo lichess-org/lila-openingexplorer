@@ -53,18 +53,6 @@ final class MasterDatabase extends MasterDatabasePacker {
     })
   }
 
-  def subtract(gameRef: GameRef, hashes: Array[PositionHash]) = {
-    db.accept(hashes, new WritableVisitor {
-      def record(key: PositionHash, value: Array[Byte]) = {
-        val subtracted = unpack(value).withoutExistingGameRef(gameRef)
-        if (subtracted.isEmpty) WritableVisitor.REMOVE else pack(subtracted)
-      }
-
-      // should not happen
-      def emptyRecord(key: PositionHash): Array[Byte] = WritableVisitor.NOP
-    })
-  }
-
   def uniquePositions = db.recordCount()
 
   def close = {
