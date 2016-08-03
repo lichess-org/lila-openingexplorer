@@ -4,7 +4,7 @@ version := "2.0"
 
 lazy val chess = project in file("chess")
 
-lazy val root = project in file(".") enablePlugins PlayScala dependsOn chess settings (
+lazy val root = project in file(".") enablePlugins(PlayScala, JavaAppPackaging) dependsOn chess settings (
   sources in doc in Compile := List(),
   publishArtifact in (Compile, packageDoc) := false,
   publishArtifact in (Compile, packageSrc) := false)
