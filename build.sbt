@@ -1,6 +1,6 @@
 name := """lila-openingexplorer"""
 
-version := "1.0"
+version := "2.0"
 
 lazy val chess = project in file("chess")
 
