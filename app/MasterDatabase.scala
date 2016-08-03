@@ -32,7 +32,7 @@ final class MasterDatabase {
           case _ => None
         }
       },
-      List.empty
+      entry.games.sortBy(-_.averageRating).take(maxGames)
     )
   }
 
