@@ -15,6 +15,7 @@ object JsonView {
       "draws" -> result.draws,
       "black" -> result.black,
       "averageRating" -> result.averageRating,
+      "moves" -> moveStats(result.moves),
       "topGames" -> result.topGames.flatMap(refToJson))
   }
 
@@ -24,6 +25,18 @@ object JsonView {
     baseEntry(entry, children, fen) ++ Json.obj(
       "recentGames" -> entry.recentGames.flatMap(refToJson),
       "topGames" -> entry.topGames.flatMap(refToJson))
+  }
+
+  def moveStats(moves: List[(MoveOrDrop, MoveStats)]) = JsArray {
+    moves.map {
+      case (move, stats) => Json.obj(
+        "uci" -> move.fold(_.toUci, _.toUci).uci,
+        "san" -> move.fold(chess.format.pgn.Dumper(_), chess.format.pgn.Dumper(_)),
+        "white" -> stats.white,
+        "draws" -> stats.draws,
+        "black" -> stats.black,
+        "averageRating" -> stats.averageRating)
+    }
   }
 
   def moveEntries(elems: Children) = JsArray {

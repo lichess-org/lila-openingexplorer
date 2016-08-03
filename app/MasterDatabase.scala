@@ -22,7 +22,16 @@ final class MasterDatabase {
       entry.totalDraws,
       entry.totalBlack,
       entry.averageRating,
-      List.empty,
+      entry.moves.toList.sortBy(-_._2.total).take(maxMoves).flatMap { case (uci, stats) =>
+        val move = uci.left.map( m => situation.move(m.orig, m.dest, m.promotion))
+                      .right.map( d => situation.drop(d.role, d.pos))
+
+        move match {
+          case Left(scalaz.Success(move)) => Some(Left(move) -> stats)
+          case Right(scalaz.Success(drop)) => Some(Right(drop) -> stats)
+          case _ => None
+        }
+      },
       List.empty
     )
   }
