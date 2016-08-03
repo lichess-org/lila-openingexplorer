@@ -3,7 +3,7 @@ package lila.openingexplorer
 import ornicar.scalalib.Validation
 import scala.util.matching.Regex
 import scala.util.Random
-import java.io.{ OutputStream, ByteArrayOutputStream, InputStream }
+import java.io.{ OutputStream, ByteArrayOutputStream, InputStream, ByteArrayInputStream }
 
 import chess.Color
 
@@ -59,8 +59,8 @@ object GameRef extends PackHelper with Validation {
     decodeGameId(v).mkString.reverse.padTo(8, base(0)).reverse
   }
 
-  def unpack(packed: Array[Byte]): GameRef = {
-    val metaXorRating = unpackUint16(packed)
+  def read(stream: InputStream): GameRef = {
+    val metaXorRating = readUint16(stream)
 
     val winner = (metaXorRating >> 12) & 0x3 match {
       case 2 => Some(Color.White)
@@ -73,16 +73,17 @@ object GameRef extends PackHelper with Validation {
     val averageRating = metaXorRating & 0xfff
 
     GameRef(
-      unpackGameId(unpackUint48(packed.drop(2))),
+      unpackGameId(readUint48(stream)),
       winner,
       speed,
       averageRating
     )
   }
 
-  def read(s: InputStream) = unpack(Array[Byte](
-    s.read().toByte, s.read().toByte, s.read().toByte, s.read().toByte,
-    s.read().toByte, s.read().toByte, s.read().toByte, s.read().toByte))
+  def unpack(b: Array[Byte]) = {
+    val in = new ByteArrayInputStream(b)
+    read(in)
+  }
 
   def fromPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
     val gameId = game.tag("LichessID") orElse {
