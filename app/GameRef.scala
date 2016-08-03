@@ -3,7 +3,7 @@ package lila.openingexplorer
 import ornicar.scalalib.Validation
 import scala.util.matching.Regex
 import scala.util.Random
-import java.io.{ OutputStream, InputStream }
+import java.io.{ OutputStream, ByteArrayOutputStream, InputStream }
 
 import chess.Color
 
@@ -13,7 +13,7 @@ case class GameRef(
     speed: SpeedGroup,
     averageRating: Int) extends PackHelper {
 
-  def pack: Array[Byte] = {
+  def write(stream: OutputStream) = {
     val packedGameId = gameId.zip(gameId.indices.reverse).map {
       case (c, i) =>
         GameRef.base.indexOf(c) * math.pow(GameRef.base.size, i).toLong
@@ -30,10 +30,15 @@ case class GameRef(
     // must be between 0 and 4095
     val packedRating = math.min((1 << 12) - 1, math.max(0, averageRating))
 
-    packUint16(packedWinner | packedSpeed | packedRating) ++ packUint48(packedGameId)
+    writeUint16(stream, packedWinner | packedSpeed | packedRating)
+    writeUint48(stream, packedGameId)
   }
 
-  def write(stream: OutputStream) = stream.write(pack)
+  def pack = {
+    val out = new ByteArrayOutputStream()
+    write(out)
+    out.toByteArray
+  }
 }
 
 object GameRef extends PackHelper with Validation {

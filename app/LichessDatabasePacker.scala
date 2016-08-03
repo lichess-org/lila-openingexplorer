@@ -1,23 +1,27 @@
 package lila.openingexplorer
 
-import java.io.{ ByteArrayOutputStream, ByteArrayInputStream }
+import java.io.{ OutputStream, ByteArrayOutputStream, ByteArrayInputStream }
 
 trait LichessDatabasePacker extends PackHelper {
 
   protected def pack(entry: Entry): Array[Byte] = {
-    if (entry.totalGames == 0)
-      Array.empty
+    val out = new ByteArrayOutputStream()
+
+    if (entry.totalGames == 0) { }
     else if (entry.totalGames == 1 && entry.allGameRefs.size == 1)
-      entry.allGameRefs.head.pack
+      entry.allGameRefs.head.write(out)
     else if (entry.totalGames <= LichessDatabasePacker.maxPackFormat1 &&
-             entry.totalGames == entry.allGameRefs.size)
+             entry.totalGames == entry.allGameRefs.size) {
       // all games explicitly known by ref
-      Array(1.toByte) ++ entry.allGameRefs.flatMap(_.pack)
-    else
-      packVariable(7, entry)
+      out.write(1)
+      entry.allGameRefs.foreach(_.write(out))
+    }
+    else packVariable(out, 7, entry)
+
+    out.toByteArray
   }
 
-  private def packVariable(meta: Int, entry: Entry): Array[Byte] = {
+  private def packVariable(out: OutputStream, meta: Int, entry: Entry) = {
     val exampleGames =
       entry.sub.values.flatMap(_.gameRefs.take(LichessDatabasePacker.maxRecentGames)) ++
       SpeedGroup.all.flatMap { speed =>
@@ -26,7 +30,6 @@ trait LichessDatabasePacker extends PackHelper {
           .take(LichessDatabasePacker.maxTopGames)
       }
 
-    val out = new ByteArrayOutputStream()
     out.write(meta)
 
     Entry.allGroups.foreach { g =>
@@ -38,8 +41,6 @@ trait LichessDatabasePacker extends PackHelper {
     }
 
     exampleGames.toList.distinct.foreach(_.write(out))
-
-    out.toByteArray()
   }
 
   protected def unpack(b: Array[Byte]): Entry = {

@@ -89,6 +89,20 @@ trait PackHelper {
     stream.read() << 8 | stream.read()
 
 
+  protected def writeUint48(stream: OutputStream, v: Long) = {
+    stream.write((0xff & (v >> 40)).toInt)
+    stream.write((0xff & (v >> 32)).toInt)
+    stream.write((0xff & (v >> 24)).toInt)
+    stream.write((0xff & (v >> 16)).toInt)
+    stream.write((0xff & (v >> 8)).toInt)
+    stream.write((0xff & v).toInt)
+  }
+
+  protected def readUint48(stream: InputStream): Long =
+    stream.read.toLong << 40 | stream.read.toLong << 32 |
+    stream.read.toLong << 24 | stream.read.toLong << 16 |
+    stream.read.toLong << 8 | stream.read.toLong
+
   protected def writeUci(stream: OutputStream, move: Uci.Move): Unit =
     writeUint16(stream,
       Pos.all.indexOf(move.orig) |

@@ -1,36 +1,38 @@
 package lila.openingexplorer
 
-import java.io.{ ByteArrayOutputStream, ByteArrayInputStream }
+import java.io.{ OutputStream, ByteArrayOutputStream, ByteArrayInputStream }
 
 trait MasterDatabasePacker extends PackHelper {
 
   protected def pack(entry: SubEntry): Array[Byte] = {
-    if (entry.totalGames == 0)
-      Array.empty
+    val out = new ByteArrayOutputStream()
+
+    if (entry.totalGames == 0) { }
     else if (entry.totalGames == 1 && entry.gameRefs.size == 1)
-      entry.gameRefs.head.pack
+      entry.gameRefs.head.write(out)
     else if (entry.totalGames <= MasterDatabasePacker.maxPackFormat1 &&
-             entry.gameRefs.size == entry.totalGames)
+             entry.gameRefs.size == entry.totalGames) {
       // all game refs are explicitly known
-      Array(1.toByte) ++ entry.gameRefs.flatMap(_.pack)
-    else
-      packVariable(7, entry)
+      out.write(1)
+      entry.gameRefs.foreach(_.write(out))
+    }
+    else packVariable(out, 7, entry)
+
+    out.toByteArray
   }
 
-  private def packVariable(meta: Int, entry: SubEntry) : Array[Byte] = {
+  private def packVariable(out: OutputStream, meta: Int, entry: SubEntry) = {
     val exampleGames =
       entry.gameRefs
         .sortWith(_.averageRating > _.averageRating)
         .take(MasterDatabasePacker.maxTopGames)
 
-    val out = new ByteArrayOutputStream()
     out.write(meta)
     writeUint(out, entry.whiteWins)
     writeUint(out, entry.draws)
     writeUint(out, entry.blackWins)
     writeUint(out, entry.averageRatingSum)
     exampleGames.foreach(_.write(out))
-    out.toByteArray()
   }
 
   protected def unpack(b: Array[Byte]): SubEntry = {
