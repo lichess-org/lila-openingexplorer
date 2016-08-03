@@ -5,7 +5,7 @@ import java.io.File
 import fm.last.commons.kyoto.factory.{ Compressor, PageComparator }
 import fm.last.commons.kyoto.KyotoDb
 
-final class GameInfoDatabase extends MasterDatabasePacker {
+final class GameInfoDatabase {
 
   private val db = Util.wrapLog(
     "Loading gameInfo database...",

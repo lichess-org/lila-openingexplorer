@@ -9,7 +9,7 @@ import chess.format.Forsyth
 import chess.format.pgn.{ ParsedPgn, Pgn, Tag, TagType, Dumper, Turn, Move }
 import chess.Replay
 
-final class PgnDatabase extends MasterDatabasePacker {
+final class PgnDatabase {
 
   private val db = Util.wrapLog(
     "Loading PGN database...",
