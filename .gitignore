@@ -3,5 +3,4 @@ target
 *.swp
 conf/application.conf
 
-util/gen
-util/stat
+util/convert
