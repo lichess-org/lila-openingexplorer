@@ -64,7 +64,6 @@ name | type | default | description
 
 ```javascript
 {
-  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   "white": 645088,
   "draws": 838971,
   "black": 462332,
