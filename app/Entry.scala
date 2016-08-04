@@ -54,7 +54,7 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
 
   def moves(groups: List[(RatingGroup, SpeedGroup)]): Map[Either[Uci.Move, Uci.Drop], MoveStats] = {
     implicit val merge: Semigroup[MoveStats] = Semigroup.instance((a, b) => a.add(b))
-    subEntries(groups).map(_.moves).reduceLeft(_ |+| _)
+    subEntries(groups).map(_.moves).foldLeft(Map.empty[Either[Uci.Move, Uci.Drop], MoveStats])(_ |+| _)
   }
 
   lazy val allGameRefs = gameRefs(Entry.allGroups)
