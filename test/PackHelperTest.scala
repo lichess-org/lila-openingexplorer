@@ -17,10 +17,6 @@ class PackHelperTest extends Specification with PackHelper {
   }
 
   "the pack helper" should {
-    "correctly pack 24bit integers" in {
-      unpackUint24(packUint24(12345)) mustEqual 12345
-    }
-
     "correctly pack moves" in {
       val move = Uci.Move(Pos.E2, Pos.E3)
       pipeMove(Left(move)) mustEqual Left(move)
