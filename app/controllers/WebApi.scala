@@ -86,9 +86,6 @@ class WebApi @Inject() (
     }
   }
 
-  private def curate(children: Children, max: Int) =
-    children.filterNot(_._2.isEmpty).sortBy(-_._2.totalGames).take(max)
-
   def getStats = Action { implicit req =>
     CORS {
       JsonResult {

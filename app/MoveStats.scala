@@ -11,6 +11,8 @@ case class MoveStats(
 
   def total = white + draws + black
 
+  def isEmpty = total == 0
+
   def averageRating: Int =
     if (total == 0) 0 else (averageRatingSum / total).toInt
 

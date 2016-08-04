@@ -70,10 +70,13 @@ final class LichessDatabase {
       entry.draws(groups),
       entry.blackWins(groups),
       entry.averageRating(groups),
-      entry.moves(groups).toList.sortBy(-_._2.total).take(request.maxMoves).flatMap {
-        case (uci, stats) =>
-          Util.moveFromUci(situation, uci).map(_ -> stats)
-      },
+      entry.moves(groups).toList
+        .filterNot(_._2.isEmpty)
+        .sortBy(-_._2.total)
+        .take(request.maxMoves)
+        .flatMap {
+          case (uci, stats) => Util.moveFromUci(situation, uci).map(_ -> stats)
+        },
       gameRefs.take(math.min(request.recentGames, numRecentGames)),
       topGames)
   }

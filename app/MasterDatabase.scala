@@ -22,10 +22,12 @@ final class MasterDatabase {
       entry.totalDraws,
       entry.totalBlack,
       entry.averageRating,
-      entry.moves.toList.sortBy(-_._2.total).take(maxMoves).flatMap {
-        case (uci, stats) =>
-          Util.moveFromUci(situation, uci).map(_ -> stats)
-      },
+      entry.moves.toList
+        .filterNot(_._2.isEmpty)
+        .sortBy(-_._2.total)
+        .take(maxMoves).flatMap {
+          case (uci, stats) => Util.moveFromUci(situation, uci).map(_ -> stats)
+        },
       List.empty,
       entry.gameRefs.sortBy(-_.averageRating).take(maxGames)
     )
