@@ -15,23 +15,18 @@ final class MasterDatabase {
       Kyoto.builder(Config.explorer.master.kyoto).buildAndOpen
     }
 
-  def query(situation: Situation, maxMoves: Int, maxGames: Int): MasterQueryResult = {
+  def query(situation: Situation, maxMoves: Int, maxGames: Int): QueryResult = {
     val entry = probe(situation)
-    new MasterQueryResult(
+    new QueryResult(
       entry.totalWhite,
       entry.totalDraws,
       entry.totalBlack,
       entry.averageRating,
-      entry.moves.toList.sortBy(-_._2.total).take(maxMoves).flatMap { case (uci, stats) =>
-        val move = uci.left.map( m => situation.move(m.orig, m.dest, m.promotion))
-                      .right.map( d => situation.drop(d.role, d.pos))
-
-        move match {
-          case Left(scalaz.Success(move)) => Some(Left(move) -> stats)
-          case Right(scalaz.Success(drop)) => Some(Right(drop) -> stats)
-          case _ => None
-        }
+      entry.moves.toList.sortBy(-_._2.total).take(maxMoves).flatMap {
+        case (uci, stats) =>
+          Util.moveFromUci(situation, uci).map(_ -> stats)
       },
+      List.empty,
       entry.gameRefs.sortBy(-_.averageRating).take(maxGames)
     )
   }

@@ -71,10 +71,13 @@ class WebApi @Inject() (
         data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
           case Some(situation) => JsonResult {
             cache.lichess(data) {
-              val request = LichessDatabase.Request(data.speedGroups, data.ratingGroups, data.topGamesOrDefault, data.recentGamesOrDefault)
+              val request = LichessDatabase.Request(
+                data.speedGroups, data.ratingGroups,
+                data.topGamesOrDefault, data.recentGamesOrDefault,
+                data.movesOrDefault)
+
               val entry = lichessDb.query(situation, request)
-              val children = curate(lichessDb.queryChildren(situation, request), data.movesOrDefault)
-              Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, children, data.fen)
+              Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry)
             }
           }
           case None => BadRequest("valid fen required")

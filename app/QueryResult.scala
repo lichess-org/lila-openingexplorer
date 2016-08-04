@@ -1,14 +1,15 @@
 package lila.openingexplorer
 
 case class QueryResult(
-    whiteWins: Long,
+    white: Long,
     draws: Long,
-    blackWins: Long,
+    black: Long,
     averageRating: Int,
+    moves: List[(chess.MoveOrDrop, MoveStats)],
     recentGames: List[GameRef],
     topGames: List[GameRef]) {
 
-  def totalGames: Long = whiteWins + draws + blackWins
+  def totalGames: Long = white + draws + black
 
   def isEmpty = totalGames == 0
 }

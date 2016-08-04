@@ -4,7 +4,21 @@ import scala.collection.mutable.WrappedArray
 
 import scalaz.Validation.FlatMap._
 
+import chess.{ Situation, MoveOrDrop }
+import chess.format.Uci
+
 object Util {
+
+  def moveFromUci(situation: Situation, uci: Either[Uci.Move, Uci.Drop]): Option[MoveOrDrop] = {
+    val move = uci.left.map(m => situation.move(m.orig, m.dest, m.promotion))
+                  .right.map(d => situation.drop(d.role, d.pos))
+
+    move match {
+      case Left(scalaz.Success(move)) => Some(Left(move))
+      case Right(scalaz.Success(drop)) => Some(Right(drop))
+      case _ => None
+    }
+  }
 
   def situationMoves(situation: chess.Situation): List[chess.Move] = {
     // deduplicate castling moves

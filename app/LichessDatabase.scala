@@ -70,15 +70,12 @@ final class LichessDatabase {
       entry.draws(groups),
       entry.blackWins(groups),
       entry.averageRating(groups),
+      entry.moves(groups).toList.sortBy(-_._2.total).take(request.maxMoves).flatMap {
+        case (uci, stats) =>
+          Util.moveFromUci(situation, uci).map(_ -> stats)
+      },
       gameRefs.take(math.min(request.recentGames, numRecentGames)),
       topGames)
-  }
-
-  def queryChildren(situation: Situation, request: Request): Children = {
-    val subRequest = request.withoutGames
-    Util.situationMovesOrDrops(situation).map { move =>
-      move -> query(move.fold(_.situationAfter, _.situationAfter), subRequest)
-    }.toList
   }
 
   private def unpack(b: Array[Byte]): Entry = {
@@ -133,10 +130,8 @@ object LichessDatabase {
       speeds: List[SpeedGroup],
       ratings: List[RatingGroup],
       topGames: Int,
-      recentGames: Int) {
-
-    def withoutGames = copy(topGames = 0, recentGames = 0)
-  }
+      recentGames: Int,
+      maxMoves: Int) { }
 
   val hash = new Hash(32) // 128 bit Zobrist hasher
 }
