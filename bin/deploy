@@ -37,7 +37,7 @@ echo "rsync complete"
 
 read -n 1 -p "Press [Enter] to continue."
 
-echo "Restart lichess-explorer"
+echo "Restart lichess-explorer2"
 ssh $REMOTE "chown -R lichess-explorer:lichess-explorer $REMOTE_DIR && systemctl restart lichess-explorer2"
 
 echo "Deploy complete"
