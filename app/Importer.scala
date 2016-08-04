@@ -41,10 +41,13 @@ final class Importer(
             case None => logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
             case Some(info) =>
               val variant = replay.setup.board.variant
-              val hashes = collectHashes(replay, LichessDatabase.hash, Config.explorer.lichess(variant).maxPlies)
               try {
                 gameInfoDb.store(gameRef.gameId, info)
-                lichessDb.merge(variant, gameRef, hashes)
+
+                replay.chronoMoves.take(Config.explorer.lichess(variant).maxPlies).foreach {
+                  move =>
+                    lichessDb.merge(variant, gameRef, move)
+                }
               } catch {
                 case e: Exception => logger.error(s"Can't merge game ${gameRef.gameId}: ${e.getMessage}")
               }
@@ -105,8 +108,4 @@ final class Importer(
     val res = f
     res -> (System.currentTimeMillis - start).toInt
   }
-
-  private def collectHashes(replay: Replay, hash: Hash, maxPlies: Int) = Util.distinctHashes({
-    replay.setup.situation :: replay.chronoMoves.take(maxPlies).map(_.fold(_.situationAfter, _.situationAfter))
-  }.map(hash.apply))
 }

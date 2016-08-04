@@ -32,22 +32,22 @@ final class MasterDatabase {
           case _ => None
         }
       },
-      entry.games.sortBy(-_.averageRating).take(maxGames)
+      entry.gameRefs.sortBy(-_.averageRating).take(maxGames)
     )
   }
 
-  def probe(situation: Situation): MasterEntry = probe(MasterDatabase.hash(situation))
+  def probe(situation: Situation): SubEntry = probe(MasterDatabase.hash(situation))
 
-  private def probe(h: PositionHash): MasterEntry = {
+  private def probe(h: PositionHash): SubEntry = {
     Option(db.get(h)) match {
       case Some(bytes) => unpack(bytes)
-      case None        => MasterEntry.empty
+      case None        => SubEntry.empty
     }
   }
 
-  private def unpack(b: Array[Byte]): MasterEntry = {
+  private def unpack(b: Array[Byte]): SubEntry = {
     val in = new ByteArrayInputStream(b)
-    MasterEntry.read(in)
+    SubEntry.read(in)
   }
 
   def merge(gameRef: GameRef, move: MoveOrDrop) = {
@@ -63,7 +63,7 @@ final class MasterDatabase {
 
       def emptyRecord(key: PositionHash): Array[Byte] = {
         val out = new ByteArrayOutputStream()
-        MasterEntry.fromGameRef(gameRef, uci).write(out)
+        SubEntry.fromGameRef(gameRef, uci).write(out)
         out.toByteArray
       }
     })

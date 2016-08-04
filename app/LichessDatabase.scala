@@ -1,13 +1,14 @@
 package lila.openingexplorer
 
 import java.io.File
+import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
 
 import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 
 import chess.variant.Variant
 import chess.{ Hash, PositionHash, Situation, MoveOrDrop }
 
-final class LichessDatabase extends LichessDatabasePacker {
+final class LichessDatabase {
 
   val variants = Variant.all.filter(chess.variant.FromPosition!=)
 
@@ -42,7 +43,7 @@ final class LichessDatabase extends LichessDatabasePacker {
     val potentialTopGames =
       entry.gameRefs(Entry.groups(RatingGroup.all, request.speeds))
         .sortWith(_.averageRating > _.averageRating)
-        .take(math.min(request.topGames, LichessDatabasePacker.maxTopGames))
+        .take(math.min(request.topGames, Entry.maxTopGames))
 
     val highestRatingGroup =
       potentialTopGames.headOption.map { bestGame =>
@@ -60,8 +61,8 @@ final class LichessDatabase extends LichessDatabasePacker {
 
     val numRecentGames =
       math.max(
-        LichessDatabasePacker.maxRecentGames,
-        gameRefs.size - request.speeds.size * LichessDatabasePacker.maxTopGames
+        Entry.maxRecentGames,
+        gameRefs.size - request.speeds.size * Entry.maxTopGames
       )
 
     new QueryResult(
@@ -80,15 +81,27 @@ final class LichessDatabase extends LichessDatabasePacker {
     }.toList
   }
 
-  def merge(variant: Variant, gameRef: GameRef, hashes: Array[PositionHash]) = dbs get variant foreach { db =>
-    val freshRecord = pack(Entry.fromGameRef(gameRef))
+  private def unpack(b: Array[Byte]): Entry = {
+    val in = new ByteArrayInputStream(b)
+    Entry.read(in)
+  }
 
-    db.accept(hashes, new WritableVisitor {
+  def merge(variant: Variant, gameRef: GameRef, move: MoveOrDrop) = dbs get variant foreach { db =>
+    val hash = LichessDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
+    val uci = move.left.map(_.toUci).right.map(_.toUci)
+
+    db.accept(hash, new WritableVisitor {
       def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
-        pack(unpack(value).withGameRef(gameRef))
+        val out = new ByteArrayOutputStream()
+        unpack(value).withGameRef(gameRef, uci).write(out)
+        out.toByteArray
       }
 
-      def emptyRecord(key: PositionHash): Array[Byte] = freshRecord
+      def emptyRecord(key: PositionHash): Array[Byte] = {
+        val out = new ByteArrayOutputStream()
+        Entry.fromGameRef(gameRef, uci).write(out)
+        out.toByteArray
+      }
     })
   }
 

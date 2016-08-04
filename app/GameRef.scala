@@ -13,6 +13,9 @@ case class GameRef(
     speed: SpeedGroup,
     averageRating: Int) extends PackHelper {
 
+  def group: (RatingGroup, SpeedGroup) =
+    (RatingGroup.find(averageRating), speed)
+
   def write(stream: OutputStream) = {
     val packedGameId = gameId.zip(gameId.indices.reverse).map {
       case (c, i) =>

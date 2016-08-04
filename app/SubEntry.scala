@@ -5,7 +5,7 @@ import java.io.{ OutputStream, InputStream, ByteArrayInputStream }
 
 case class SubEntry(
     moves: Map[Either[Uci.Move, Uci.Drop], MoveStats],
-    games: List[GameRef]) extends PackHelper {
+    gameRefs: List[GameRef]) extends PackHelper {
 
   lazy val totalWhite = moves.values.map(_.white).sum
   lazy val totalDraws = moves.values.map(_.draws).sum
@@ -23,18 +23,22 @@ case class SubEntry(
   def withGameRef(game: GameRef, move: Either[Uci.Move, Uci.Drop]) =
     new SubEntry(
       moves + (move -> moves.getOrElse(move, MoveStats.empty).withGameRef(game)),
-      game :: games)
+      game :: gameRefs)
 
-  def withExistingGameRef(game: GameRef) = copy(games = game :: games)
+  def withExistingGameRef(game: GameRef) = copy(gameRefs = game :: gameRefs)
 
-  def write(out: OutputStream) = {
+  def writeStats(out: OutputStream) = {
     writeUint(out, moves.size)
     moves.foreach { case (move, stats) =>
       writeUci(out, move)
       stats.write(out)
     }
+  }
 
-    games.sortWith(_.averageRating > _.averageRating)
+  def write(out: OutputStream) = {
+    writeStats(out)
+
+    gameRefs.sortWith(_.averageRating > _.averageRating)
       .take(SubEntry.maxTopGames)
       .foreach(_.write(out))
   }
@@ -49,19 +53,27 @@ object SubEntry extends PackHelper {
   def fromGameRef(game: GameRef, move: Either[Uci.Move, Uci.Drop]) =
     empty.withGameRef(game, move)
 
-  def read(in: InputStream) = {
+  def fromExistingGameRef(game: GameRef) =
+    empty.withExistingGameRef(game)
+
+  def readStats(in: InputStream, gameRefs: List[GameRef] = List.empty): SubEntry = {
     var remainingMoves = readUint(in)
     val moves = scala.collection.mutable.Map.empty[Either[Uci.Move, Uci.Drop], MoveStats]
     while (remainingMoves > 0) {
       moves += (readUci(in) -> MoveStats.read(in))
       remainingMoves -= 1;
     }
+    new SubEntry(moves.toMap, gameRefs)
+  }
 
-    val games = scala.collection.mutable.ListBuffer.empty[GameRef]
+  def read(in: InputStream) = {
+    val subEntry = readStats(in)
+
+    val gameRefs = scala.collection.mutable.ListBuffer.empty[GameRef]
     while (in.available > 0) {
-      games += GameRef.read(in)
+      gameRefs += GameRef.read(in)
     }
 
-    new SubEntry(moves.toMap, games.toList)
+    subEntry.copy(gameRefs = gameRefs.toList)
   }
 }

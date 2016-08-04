@@ -1,6 +1,10 @@
 package lila.openingexplorer
 
-case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
+import java.io.{ InputStream, OutputStream }
+
+import chess.format.Uci
+
+case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelper {
 
   def subEntry(ratingGroup: RatingGroup, speedGroup: SpeedGroup): SubEntry =
     sub.getOrElse((ratingGroup, speedGroup), SubEntry.empty)
@@ -10,11 +14,9 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
 
   def totalGames = sub.values.map(_.totalGames).sum
 
-  def maxPerWinnerAndGroup = sub.values.map(_.maxPerWinner).max
-
-  def withGameRef(game: GameRef): Entry = {
+  def withGameRef(game: GameRef, move: Either[Uci.Move, Uci.Drop]): Entry = {
     val ratingGroup = RatingGroup.find(game.averageRating)
-    copy(sub = sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withGameRef(game)))
+    copy(sub = sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withGameRef(game, move)))
   }
 
   def withExistingGameRef(game: GameRef): Entry = {
@@ -25,19 +27,19 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
   def gameRefs(groups: List[(RatingGroup, SpeedGroup)]): List[GameRef] =
     subEntries(groups)
       .map(_.gameRefs)
-      .flatMap(_.zipWithIndex).sortBy(_._2).map(_._1) // interleave
+      .flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)  // interleave
 
   def whiteWins(groups: List[(RatingGroup, SpeedGroup)]): Long =
-    subEntries(groups).map(_.whiteWins).sum
+    subEntries(groups).map(_.totalWhite).sum
 
   def draws(groups: List[(RatingGroup, SpeedGroup)]): Long =
-    subEntries(groups).map(_.draws).sum
+    subEntries(groups).map(_.totalDraws).sum
 
   def blackWins(groups: List[(RatingGroup, SpeedGroup)]): Long =
-    subEntries(groups).map(_.blackWins).sum
+    subEntries(groups).map(_.totalBlack).sum
 
   def averageRatingSum(groups: List[(RatingGroup, SpeedGroup)]): Long =
-    subEntries(groups).map(_.averageRatingSum).sum
+    subEntries(groups).map(_.totalAverageRatingSum).sum
 
   def numGames(groups: List[(RatingGroup, SpeedGroup)]): Long =
     subEntries(groups).map(_.totalGames).sum
@@ -52,13 +54,63 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) {
   def totalDraws = draws(Entry.allGroups)
   def totalBlackWins = blackWins(Entry.allGroups)
   def totalAverageRatingSum = averageRatingSum(Entry.allGroups)
+
+  def write(out: OutputStream) = {
+    val topGameRefs = SpeedGroup.all.flatMap { speed =>
+      gameRefs(Entry.groups(speed))
+        .sortWith(_.averageRating > _.averageRating)
+        .take(Entry.maxTopGames)
+    }
+
+    sub.foreach { case (group, subEntry) =>
+      val toBeStored =
+        (subEntry.gameRefs.take(Entry.maxRecentGames) ::: topGameRefs.filter(_.group == group))
+          .distinct
+
+      if (toBeStored.size > 0) {
+        writeUint(out, toBeStored.size)
+        toBeStored.foreach(_.write(out))
+        subEntry.writeStats(out)
+      }
+    }
+  }
 }
 
-object Entry {
+object Entry extends PackHelper {
+
+  val maxTopGames = 4
+
+  val maxRecentGames = 2
+
+  def read(in: InputStream): Entry = {
+    val subEntries = scala.collection.mutable.Map.empty[(RatingGroup, SpeedGroup), SubEntry]
+
+    while (in.available > 0) {
+      var remainingRefs = readUint(in)
+      if (remainingRefs > 0) {
+        // the first game ref is used to select the group
+        val gameRef = GameRef.read(in)
+        remainingRefs -= 1;
+
+        val gameRefs = scala.collection.mutable.ListBuffer.empty[GameRef]
+        gameRefs += gameRef
+
+        while (remainingRefs > 0) {
+          gameRefs += GameRef.read(in)
+          remainingRefs -= 1
+        }
+
+        subEntries += (gameRef.group -> SubEntry.readStats(in, gameRefs.toList))
+      }
+    }
+
+    Entry(subEntries.toMap)
+  }
 
   def empty = Entry(Map.empty)
 
-  def fromGameRef(game: GameRef) = Entry.empty.withGameRef(game)
+  def fromGameRef(game: GameRef, move: Either[Uci.Move, Uci.Drop]) =
+    Entry.empty.withGameRef(game, move)
 
   def groups(
     ratings: List[RatingGroup],
