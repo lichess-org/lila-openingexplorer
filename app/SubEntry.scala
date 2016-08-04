@@ -1,7 +1,7 @@
 package lila.openingexplorer
 
 import chess.format.Uci
-import java.io.{ OutputStream, InputStream, ByteArrayInputStream }
+import java.io.{ OutputStream, InputStream }
 
 case class SubEntry(
     moves: Map[Either[Uci.Move, Uci.Drop], MoveStats],
