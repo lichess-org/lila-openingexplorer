@@ -30,6 +30,27 @@ class EntryTest extends Specification {
     "show an average rating 0 if empty" in {
       Entry.empty.averageRating(Entry.allGroups) mustEqual 0
     }
+
+    "aggregate moves" in {
+      val e4 = Left(Uci.Move(Pos.E2, Pos.E4))
+      val d4 = Left(Uci.Move(Pos.D2, Pos.D4))
+
+      val s1 = new SubEntry(
+        Map(e4 -> MoveStats(3, 3, 3, 800), d4 -> MoveStats(1, 1, 1, 100)),
+        List.empty)
+
+      val s2 = new SubEntry(Map(e4 -> MoveStats(7, 7, 2, 1200)), List.empty)
+
+      val entry = Entry(Map(
+        (RatingGroup.Group1600, SpeedGroup.Blitz) -> s1,
+        (RatingGroup.Group1800, SpeedGroup.Classical) -> s2))
+
+      val total = Map(
+        e4 -> MoveStats(10, 10, 5, 2000),
+        d4 -> MoveStats(1, 1, 1, 100))
+
+      entry.moves(Entry.allGroups) mustEqual total
+    }
   }
 
   private def pipe(entry: Entry): Entry = {

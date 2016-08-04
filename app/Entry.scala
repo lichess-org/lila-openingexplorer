@@ -2,6 +2,9 @@ package lila.openingexplorer
 
 import java.io.{ InputStream, OutputStream }
 
+import scalaz._
+import Scalaz._
+
 import chess.format.Uci
 
 case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelper {
@@ -49,8 +52,10 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
     if (games == 0) 0 else (averageRatingSum(groups) / games).toInt
   }
 
-  def moves(groups: List[(RatingGroup, SpeedGroup)]): Map[Either[Uci.Move, Uci.Drop], MoveStats] =
-    Map.empty  // TODO
+  def moves(groups: List[(RatingGroup, SpeedGroup)]): Map[Either[Uci.Move, Uci.Drop], MoveStats] = {
+    implicit val merge: Semigroup[MoveStats] = Semigroup.instance((a, b) => a.add(b))
+    subEntries(groups).map(_.moves).reduceLeft(_ |+| _)
+  }
 
   lazy val allGameRefs = gameRefs(Entry.allGroups)
   def totalWhiteWins = whiteWins(Entry.allGroups)

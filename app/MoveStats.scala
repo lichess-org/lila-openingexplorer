@@ -1,7 +1,8 @@
 package lila.openingexplorer
 
-import chess.Color
 import java.io.{ OutputStream, InputStream }
+
+import chess.Color
 
 case class MoveStats(
     white: Long,
@@ -28,6 +29,13 @@ case class MoveStats(
         copy(draws = draws + 1, averageRatingSum = avgRatingSum)
     }
   }
+
+  def add(other: MoveStats) =
+    new MoveStats(
+      white + other.white,
+      draws + other.draws,
+      black + other.black,
+      averageRatingSum + other.averageRatingSum)
 
   def write(out: OutputStream) = {
     writeUint(out, white)
