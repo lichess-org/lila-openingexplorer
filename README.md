@@ -89,7 +89,7 @@ name | type | default | description
   ],
   "topGames": [  // higher ratings first
     {
-      "id": "JzjKnFKm",
+      "id": "IpY1ThET",
       "winner": "white",
       "white": {
         "name": "Aronian, L.",
@@ -104,13 +104,14 @@ name | type | default | description
     // ...
   ],
   "recentGames": []  // roughly ordered by date, newer games first
+                     // (only in lichess database)
 }
 ```
 
 ### `GET /master/pgn/{id}` fetch one master game by ID
 
 ```
-> curl https://expl.lichess.org/master/pgn/6UKt001Q
+> curl https://expl.lichess.org/master/pgn/aAbqI4ey
 ```
 
 ```
