@@ -13,8 +13,15 @@ object GameInfo {
 
   private val YearRegex = s".*(\\d{4}).*".r
 
-  def parse(pgn: String): Option[GameInfo] =
+  def parse(pgn: String): Option[GameInfo] = try {
     Parser.TagParser(pgn).toOption flatMap parse
+  }
+  catch {
+    case e: StackOverflowError =>
+      println(pgn)
+      println(s"### StackOverflowError ### in GameInfo.parse")
+      None
+  }
 
   def parse(tags: List[Tag]): Option[GameInfo] = {
     def find(name: String): Option[String] = tags.find(_.name.name == name).map(_.value)
