@@ -14,7 +14,7 @@ object GameInfo {
   private val YearRegex = s".*(\\d{4}).*".r
 
   def parse(pgn: String): Option[GameInfo] = try {
-    Parser.TagParser(pgn).toOption flatMap parse
+    Parser.TagParser.fromFullPgn(pgn).toOption flatMap parse
   }
   catch {
     case e: StackOverflowError =>
