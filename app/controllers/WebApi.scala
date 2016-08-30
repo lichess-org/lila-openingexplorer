@@ -57,6 +57,13 @@ class WebApi @Inject() (
     }
   }
 
+  def deleteMaster(gameId: String) = Action { implicit req =>
+    if (importer.deleteMaster(gameId))
+      Status(204)
+    else
+      NotFound("game not found")
+  }
+
   def getMasterPgn(gameId: String) = Action { implicit req =>
     pgnDb.get(gameId) match {
       case Some(pgn) => Ok(pgn)

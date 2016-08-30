@@ -47,22 +47,37 @@ final class MasterDatabase {
     SubEntry.read(in)
   }
 
+  private def pack(entry: SubEntry): Array[Byte] = {
+    val out = new ByteArrayOutputStream()
+    entry.write(out)
+    out.toByteArray
+  }
+
   def merge(gameRef: GameRef, move: MoveOrDrop) = {
     val hash = MasterDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
     val uci = move.left.map(_.toUci).right.map(_.toUci)
 
     db.accept(hash, new WritableVisitor {
+      def record(key: PositionHash, value: Array[Byte]): Array[Byte] =
+        pack(unpack(value).withGameRef(gameRef, uci))
+
+      def emptyRecord(key: PositionHash): Array[Byte] =
+        pack(SubEntry.fromGameRef(gameRef, uci))
+    })
+  }
+
+  def subtract(gameRef: GameRef, move: MoveOrDrop) = {
+    val hash = MasterDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
+    val uci = move.left.map(_.toUci).right.map(_.toUci)
+
+    db.accept(hash, new WritableVisitor {
       def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
-        val out = new ByteArrayOutputStream()
-        unpack(value).withGameRef(gameRef, uci).write(out)
-        out.toByteArray
+        val subtracted = unpack(value).withoutExistingGameRef(gameRef, uci)
+        if (subtracted.isEmpty) WritableVisitor.REMOVE else pack(subtracted)
       }
 
-      def emptyRecord(key: PositionHash): Array[Byte] = {
-        val out = new ByteArrayOutputStream()
-        SubEntry.fromGameRef(gameRef, uci).write(out)
-        out.toByteArray
-      }
+      // should not happen
+      def emptyRecord(key: PositionHash): Array[Byte] = WritableVisitor.NOP
     })
   }
 

@@ -73,11 +73,26 @@ final class Importer(
           pgnDb.store(gameRef.gameId, parsed, replay)
 
           replay.chronoMoves.take(Config.explorer.master.maxPlies).foreach {
-            move =>
-              masterDb.merge(gameRef, move)
+            move => masterDb.merge(gameRef, move)
           }
         }
     }
+  }
+
+  def deleteMaster(gameId: String) = {
+    pgnDb.get(gameId) map { pgn =>
+      processMaster(pgn) flatMap {
+        case Processed(parsed, replay, newGameRef) =>
+          scalaz.Success {
+            val gameRef = newGameRef.copy(gameId = gameId)
+            replay.chronoMoves.take(Config.explorer.master.maxPlies).foreach {
+              move => masterDb.subtract(gameRef, move)
+            }
+            pgnDb.delete(gameRef.gameId)
+          }
+      }
+      true
+    } getOrElse false
   }
 
   private case class Processed(parsed: ParsedPgn, replay: Replay, gameRef: GameRef)

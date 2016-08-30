@@ -27,6 +27,17 @@ case class SubEntry(
 
   def withExistingGameRef(game: GameRef) = copy(gameRefs = game :: gameRefs)
 
+  def withoutExistingGameRef(game: GameRef, move: Either[Uci.Move, Uci.Drop]) = {
+    val stats =
+      moves.get(move)
+        .map(_.withoutExistingGameRef(game: GameRef))
+        .getOrElse(MoveStats.empty)
+
+    new SubEntry(
+      if (stats.total > 0) moves + (move -> stats) else moves - move,
+      gameRefs.filterNot(_.gameId == game.gameId))
+  }
+
   def writeStats(out: OutputStream) = {
     writeUint(out, moves.size)
     moves.foreach { case (move, stats) =>

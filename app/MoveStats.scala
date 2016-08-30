@@ -30,6 +30,19 @@ case class MoveStats(
     }
   }
 
+  def withoutExistingGameRef(game: GameRef) = {
+    val avgRatingSum = averageRatingSum - game.averageRating
+
+    game.winner match {
+      case Some(Color.White) =>
+        copy(white = white - 1, averageRatingSum = avgRatingSum)
+      case Some(Color.Black) =>
+        copy(black = black - 1, averageRatingSum = avgRatingSum)
+      case None =>
+        copy(draws = draws - 1, averageRatingSum = avgRatingSum)
+    }
+  }
+
   def add(other: MoveStats) =
     new MoveStats(
       white + other.white,
