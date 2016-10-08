@@ -174,3 +174,9 @@ name | type | default | description
   }
 }
 ```
+
+License
+-------
+
+lila-openingexplorer is licensed under the AGPLv3+. See LICENSE.txt for the
+full license text.
