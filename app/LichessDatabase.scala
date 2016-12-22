@@ -136,5 +136,5 @@ object LichessDatabase {
       recentGames: Int,
       maxMoves: Int) { }
 
-  val hash = new Hash(32) // 128 bit Zobrist hasher
+  val hash = new Hash(16) // 128 bit Zobrist hasher
 }
