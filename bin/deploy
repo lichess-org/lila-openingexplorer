@@ -1,7 +1,7 @@
 #!/bin/sh
 
-REMOTE="root@homer.lichess.org"
-REMOTE_DIR="/home/lichess-explorer2"
+REMOTE="root@pluto.lichess.org"
+REMOTE_DIR="/home/lichess-explorer"
 
 echo "Deploy to server $REMOTE:$REMOTE_DIR"
 
@@ -37,7 +37,7 @@ echo "rsync complete"
 
 read -n 1 -p "Press [Enter] to continue."
 
-echo "Restart lichess-explorer2"
-ssh $REMOTE "chown -R lichess-explorer:lichess-explorer $REMOTE_DIR && systemctl restart lichess-explorer2"
+echo "Restart lichess-explorer"
+ssh $REMOTE "chown -R lichess-explorer:lichess-explorer $REMOTE_DIR && systemctl restart lichess-explorer"
 
 echo "Deploy complete"
