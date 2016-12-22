@@ -14,7 +14,7 @@ scalaVersion := "2.11.8"
 scalacOptions ++= Seq("-unchecked", "-language:_")
 
 libraryDependencies ++= Seq(
-  "com.github.ornicar" %% "scalalib" % "5.5",
+  "com.github.ornicar" %% "scalalib" % "5.7",
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
   "com.github.kxbmap" %% "configs" % "0.3.0",
   cache
