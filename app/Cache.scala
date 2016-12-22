@@ -10,17 +10,17 @@ final class Cache(cache: CacheApi) {
   private val config = Config.explorer.cache
   private val statConfig = Config.explorer.statCache
 
-  def master(fen: String)(computation: => String): String =
-    fenMoveNumber(fen).fold(computation) { moveNumber =>
+  def master(data: Forms.master.Data)(computation: => String): String =
+    fenMoveNumber(data.fen).fold(computation) { moveNumber =>
       if (moveNumber > config.maxMoves) computation
-      else cache.getOrElse(s"master:$fen", config.ttl)(computation)
+      else cache.getOrElse(s"master:${data.fen}:${data.topGamesOrDefault}", config.ttl)(computation)
     }
 
   def lichess(data: Forms.lichess.Data)(computation: => String): String =
     fenMoveNumber(data.fen).fold(computation) { moveNumber =>
       if (moveNumber > config.maxMoves) computation
       if (!data.fullHouse) computation
-      else cache.getOrElse(s"${data.actualVariant.key}:${data.fen}", config.ttl)(computation)
+      else cache.getOrElse(s"${data.actualVariant.key}:${data.fen}:${data.topGamesOrDefault}", config.ttl)(computation)
     }
 
   def stat(computation: => String): String =

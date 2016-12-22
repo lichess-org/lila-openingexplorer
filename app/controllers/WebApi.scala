@@ -46,7 +46,7 @@ class WebApi @Inject() (
         err => BadRequest(err.errorsAsJson),
         data => (Forsyth << data.fen) match {
           case Some(situation) => JsonResult {
-            cache.master(data.fen) {
+            cache.master(data) {
               val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
               Json stringify JsonView.masterEntry(pgnDb.get)(result)
             }
