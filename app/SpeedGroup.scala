@@ -23,7 +23,7 @@ object SpeedGroup {
   }
 
   def apply(limit: Int, increment: Int): SpeedGroup =
-    SpeedGroup(chess.Speed(chess.Clock.Config(limit, increment)))
+    SpeedGroup(chess.Speed(chess.Clock(limit, increment)))
 
   private val timeControlRegex = """(\d+)\+(\d+)""".r
 
