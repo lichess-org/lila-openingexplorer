@@ -38,7 +38,7 @@ Create configuration file.
 Run server
 ----------
 
-    sbt run -Djava.library.path=/usr/local/lib/
+    LD_LIBRARY_PATH=/usr/local/lib sbt run
 
 Index master games
 ------------------
