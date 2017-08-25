@@ -5,7 +5,8 @@ import java.io.{ OutputStream, InputStream }
 
 case class SubEntry(
     moves: Map[Either[Uci.Move, Uci.Drop], MoveStats],
-    gameRefs: List[GameRef]) extends PackHelper {
+    gameRefs: List[GameRef]
+) extends PackHelper {
 
   lazy val totalWhite = moves.values.map(_.white).sum
   lazy val totalDraws = moves.values.map(_.draws).sum
@@ -23,7 +24,8 @@ case class SubEntry(
   def withGameRef(game: GameRef, move: Either[Uci.Move, Uci.Drop]) =
     new SubEntry(
       moves + (move -> moves.getOrElse(move, MoveStats.empty).withGameRef(game)),
-      game :: gameRefs)
+      game :: gameRefs
+    )
 
   def withExistingGameRef(game: GameRef) = copy(gameRefs = game :: gameRefs)
 
@@ -35,14 +37,16 @@ case class SubEntry(
 
     new SubEntry(
       if (stats.total > 0) moves + (move -> stats) else moves - move,
-      gameRefs.filterNot(_.gameId == game.gameId))
+      gameRefs.filterNot(_.gameId == game.gameId)
+    )
   }
 
   def writeStats(out: OutputStream) = {
     writeUint(out, moves.size)
-    moves.foreach { case (move, stats) =>
-      writeUci(out, move)
-      stats.write(out)
+    moves.foreach {
+      case (move, stats) =>
+        writeUci(out, move)
+        stats.write(out)
     }
   }
 

@@ -3,7 +3,8 @@ package lila.openingexplorer
 sealed abstract class SpeedGroup(
     val id: Int,
     val name: String,
-    val range: Range) {
+    val range: Range
+) {
 }
 
 object SpeedGroup {
@@ -17,8 +18,8 @@ object SpeedGroup {
   val byId = all map { v => (v.id, v) } toMap
 
   def apply(speed: chess.Speed) = speed match {
-    case chess.Speed.Bullet                                 => Bullet
-    case chess.Speed.Blitz                                  => Blitz
+    case chess.Speed.Bullet | chess.Speed.UltraBullet => Bullet
+    case chess.Speed.Blitz => Blitz
     case chess.Speed.Classical | chess.Speed.Correspondence => Classical
   }
 

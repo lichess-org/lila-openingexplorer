@@ -11,7 +11,7 @@ object Util {
 
   def moveFromUci(situation: Situation, uci: Either[Uci.Move, Uci.Drop]): Option[MoveOrDrop] = {
     val move = uci.left.map(m => situation.move(m.orig, m.dest, m.promotion))
-                  .right.map(d => situation.drop(d.role, d.pos))
+      .right.map(d => situation.drop(d.role, d.pos))
 
     move match {
       case Left(scalaz.Success(move)) => Some(Left(move))

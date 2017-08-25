@@ -13,7 +13,8 @@ final class PgnDatabase {
 
   private val db = Util.wrapLog(
     "Loading PGN database...",
-    "PGN database loaded!") {
+    "PGN database loaded!"
+  ) {
       Kyoto.builder(Config.explorer.pgn.kyoto)
         .compressor(Compressor.LZMA)
         .pageComparator(PageComparator.LEXICAL)
@@ -36,19 +37,20 @@ final class PgnDatabase {
     val pgnMoves = replay.chronoMoves.foldLeft(replay.setup) {
       case (game, moveOrDrop) => moveOrDrop.fold(game.apply, game.applyDrop)
     }.pgnMoves
-    val moves = if (fenSituation.exists(_.situation.color.black)) ".." :: pgnMoves else pgnMoves
+    val moves = if (fenSituation.exists(_.situation.color.black)) ".." +: pgnMoves else pgnMoves
     val initialTurn = fenSituation.map(_.fullMoveNumber) getOrElse 1
     val pgn = Pgn(tags, turns(moves, initialTurn))
 
     db.set(gameId, pgn.toString)
   }
 
-  private def turns(moves: List[String], from: Int): List[Turn] =
+  private def turns(moves: Vector[String], from: Int): List[Turn] =
     (moves grouped 2).zipWithIndex.toList map {
       case (moves, index) => Turn(
         number = index + from,
         white = moves.headOption filter (".." !=) map { Move(_) },
-        black = moves lift 1 map { Move(_) })
+        black = moves lift 1 map { Move(_) }
+      )
     } filterNot (_.isEmpty)
 
   def delete(gameId: String) = db.remove(gameId)

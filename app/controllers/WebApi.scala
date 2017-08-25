@@ -18,27 +18,15 @@ import chess.format.Forsyth
 
 import lila.openingexplorer._
 
-@Singleton
 class WebApi @Inject() (
-    val cacheApi: CacheApi,
-    val lifecycle: ApplicationLifecycle) extends Controller with Validation {
-
-  val masterDb = new MasterDatabase()
-  val lichessDb = new LichessDatabase()
-  val pgnDb = new PgnDatabase()
-  val gameInfoDb = new GameInfoDatabase()
-
-  val importer = new Importer(masterDb, lichessDb, pgnDb, gameInfoDb)
-  val cache = new Cache(cacheApi)
-
-  lifecycle.addStopHook { () =>
-    Future.successful {
-      masterDb.close
-      lichessDb.closeAll
-      pgnDb.close
-      gameInfoDb.close
-    }
-  }
+    cc: ControllerComponents,
+    masterDb: MasterDatabase,
+    lichessDb: LichessDatabase,
+    pgnDb: PgnDatabase,
+    gameInfoDb: GameInfoDatabase,
+    importer: Importer,
+    cache: Cache
+) extends AbstractController(cc) with Validation with play.api.i18n.I18nSupport {
 
   def getMaster = Action { implicit req =>
     CORS {
@@ -67,7 +55,7 @@ class WebApi @Inject() (
   def getMasterPgn(gameId: String) = Action { implicit req =>
     pgnDb.get(gameId) match {
       case Some(pgn) => Ok(pgn)
-      case None      => NotFound("game not found")
+      case None => NotFound("game not found")
     }
   }
 
@@ -81,7 +69,8 @@ class WebApi @Inject() (
               val request = LichessDatabase.Request(
                 data.speedGroups, data.ratingGroups,
                 data.topGamesOrDefault, data.recentGamesOrDefault,
-                data.movesOrDefault)
+                data.movesOrDefault
+              )
 
               val entry = lichessDb.query(situation, request)
               Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry)
@@ -117,8 +106,8 @@ class WebApi @Inject() (
 
   def putMaster = Action(parse.tolerantText) { implicit req =>
     importer.master(req.body) match {
-      case (Success(_), ms)      => Ok(s"$ms ms")
-      case (Failure(errors), ms) => BadRequest(errors.list.mkString)
+      case (Success(_), ms) => Ok(s"$ms ms")
+      case (Failure(errors), ms) => BadRequest(errors.list.toList.mkString)
     }
   }
 
@@ -135,6 +124,6 @@ class WebApi @Inject() (
   def JsonResult(json: String)(implicit req: RequestHeader) =
     req.queryString.get("callback").flatMap(_.headOption) match {
       case Some(callback) => Ok(s"$callback($json)").as("application/javascript; charset=utf-8")
-      case None           => Ok(json).as("application/json; charset=utf-8")
+      case None => Ok(json).as("application/json; charset=utf-8")
     }
 }

@@ -3,9 +3,10 @@ package lila.openingexplorer
 import chess.format.pgn.{ Parser, Tag }
 
 case class GameInfo(
-  white: GameInfo.Player,
-  black: GameInfo.Player,
-  year: Option[Int])
+    white: GameInfo.Player,
+    black: GameInfo.Player,
+    year: Option[Int]
+)
 
 object GameInfo {
 
@@ -15,8 +16,7 @@ object GameInfo {
 
   def parse(pgn: String): Option[GameInfo] = try {
     Parser.TagParser.fromFullPgn(pgn).toOption flatMap parse
-  }
-  catch {
+  } catch {
     case e: StackOverflowError =>
       println(pgn)
       println(s"### StackOverflowError ### in GameInfo.parse")
@@ -32,11 +32,12 @@ object GameInfo {
       blackRating <- find("BlackElo") flatMap parseIntOption
       year = find("Date") flatMap {
         case YearRegex(y) => parseIntOption(y)
-        case _            => None
+        case _ => None
       }
     } yield GameInfo(
       white = Player(whiteName, whiteRating),
       black = Player(blackName, blackRating),
-      year = year)
+      year = year
+    )
   }
 }

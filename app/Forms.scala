@@ -39,7 +39,8 @@ object Forms {
         speeds: List[String],
         ratings: List[Int],
         topGames: Option[Int],
-        recentGames: Option[Int]) {
+        recentGames: Option[Int]
+    ) {
 
       def ratingGroups = RatingGroup.all.filter { x =>
         ratings contains x.range.min

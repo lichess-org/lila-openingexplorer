@@ -11,7 +11,8 @@ case class GameRef(
     gameId: String,
     winner: Option[Color],
     speed: SpeedGroup,
-    averageRating: Int) extends PackHelper {
+    averageRating: Int
+) extends PackHelper {
 
   def group: (RatingGroup, SpeedGroup) =
     (RatingGroup.find(averageRating), speed)
@@ -27,7 +28,7 @@ case class GameRef(
     val packedWinner = winner match {
       case Some(Color.White) => 2 << 12
       case Some(Color.Black) => 1 << 12
-      case None              => 0
+      case None => 0
     }
 
     // must be between 0 and 4095
@@ -96,7 +97,7 @@ object GameRef extends PackHelper with Validation {
     val winner = game.tag("Result") match {
       case Some("1-0") => Some(Color.White)
       case Some("0-1") => Some(Color.Black)
-      case _           => None
+      case _ => None
     }
 
     val speed = SpeedGroup.fromTimeControl(game.tag("TimeControl").getOrElse("-"))

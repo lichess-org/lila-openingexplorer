@@ -11,7 +11,8 @@ final class MasterDatabase {
 
   private val db = Util.wrapLog(
     "Loading master database...",
-    "Master database loaded!") {
+    "Master database loaded!"
+  ) {
       Kyoto.builder(Config.explorer.master.kyoto).buildAndOpen
     }
 
@@ -38,7 +39,7 @@ final class MasterDatabase {
   private def probe(h: PositionHash): SubEntry = {
     Option(db.get(h)) match {
       case Some(bytes) => unpack(bytes)
-      case None        => SubEntry.empty
+      case None => SubEntry.empty
     }
   }
 

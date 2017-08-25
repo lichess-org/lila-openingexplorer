@@ -30,7 +30,7 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
   def gameRefs(groups: List[(RatingGroup, SpeedGroup)]): List[GameRef] =
     subEntries(groups)
       .map(_.gameRefs)
-      .flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)  // interleave
+      .flatMap(_.zipWithIndex).sortBy(_._2).map(_._1) // interleave
 
   def whiteWins(groups: List[(RatingGroup, SpeedGroup)]): Long =
     subEntries(groups).map(_.totalWhite).sum
@@ -70,16 +70,17 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
         .take(Entry.maxTopGames)
     }
 
-    sub.foreach { case (group, subEntry) =>
-      val toBeStored =
-        (subEntry.gameRefs.take(Entry.maxRecentGames) ::: topGameRefs.filter(_.group == group))
-          .distinct
+    sub.foreach {
+      case (group, subEntry) =>
+        val toBeStored =
+          (subEntry.gameRefs.take(Entry.maxRecentGames) ::: topGameRefs.filter(_.group == group))
+            .distinct
 
-      if (toBeStored.size > 0) {
-        writeUint(out, toBeStored.size)
-        toBeStored.foreach(_.write(out))
-        subEntry.writeStats(out)
-      }
+        if (toBeStored.size > 0) {
+          writeUint(out, toBeStored.size)
+          toBeStored.foreach(_.write(out))
+          subEntry.writeStats(out)
+        }
     }
   }
 }
@@ -122,7 +123,8 @@ object Entry extends PackHelper {
 
   def groups(
     ratings: List[RatingGroup],
-    speeds: List[SpeedGroup]): List[(RatingGroup, SpeedGroup)] = {
+    speeds: List[SpeedGroup]
+  ): List[(RatingGroup, SpeedGroup)] = {
     // cross product
     for {
       ratingGroup <- ratings

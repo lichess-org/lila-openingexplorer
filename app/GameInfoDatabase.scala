@@ -9,7 +9,8 @@ final class GameInfoDatabase {
 
   private val db = Util.wrapLog(
     "Loading gameInfo database...",
-    "GameInfo database loaded!") {
+    "GameInfo database loaded!"
+  ) {
       Kyoto.builder(Config.explorer.gameInfo.kyoto)
         .compressor(Compressor.LZMA)
         .pageComparator(PageComparator.LEXICAL)
@@ -49,7 +50,8 @@ object GameInfoDatabase {
     } yield GameInfo(
       white = GameInfo.Player(wn, wr),
       black = GameInfo.Player(bn, br),
-      year = year)
+      year = year
+    )
     case _ => None
   }
 }
