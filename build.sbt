@@ -20,7 +20,8 @@ libraryDependencies ++= Seq(
   "com.github.ornicar" %% "scalalib" % "6.4",
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
   "com.github.kxbmap" %% "configs" % "0.4.4",
-  ehcache
+  ehcache,
+  specs2 % Test
 )
 
 resolvers += "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
