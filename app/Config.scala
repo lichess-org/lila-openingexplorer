@@ -1,7 +1,7 @@
 package lila.openingexplorer
 
-import configs.syntax._
 import com.typesafe.config.ConfigFactory
+import configs.syntax._
 
 import scala.concurrent.duration._
 
@@ -17,16 +17,11 @@ object Config {
       pgn: Pgn,
       gameInfo: GameInfo,
       corsHeader: Boolean,
-      cache: Cache,
-      statCache: StatCache
+      cache: Cache
   )
 
   case class Cache(
       maxMoves: Int,
-      ttl: FiniteDuration
-  )
-
-  case class StatCache(
       ttl: FiniteDuration
   )
 

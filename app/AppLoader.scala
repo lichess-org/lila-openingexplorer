@@ -1,6 +1,5 @@
 import play.api._
 import play.api.routing.Router
-import play.api.cache.SyncCacheApi
 
 import lila.openingexplorer._
 
@@ -24,7 +23,6 @@ class AppComponents(context: ApplicationLoader.Context)
   val gameInfoDb = new GameInfoDatabase()
 
   val importer = new Importer(masterDb, lichessDb, pgnDb, gameInfoDb)
-  val appCache = new Cache(injector.instanceOf[SyncCacheApi])
 
   context.lifecycle.addStopHook { () =>
     scala.concurrent.Future.successful {
@@ -41,8 +39,7 @@ class AppComponents(context: ApplicationLoader.Context)
     lichessDb,
     pgnDb,
     gameInfoDb,
-    importer,
-    appCache
+    importer
   )
 
   lazy val router: Router = new _root_.router.Routes(httpErrorHandler, homeController)

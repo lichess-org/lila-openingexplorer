@@ -3,8 +3,9 @@ name := """lila-openingexplorer"""
 version := "2.1"
 
 lazy val root = (project in file("."))
-  .enablePlugins(PlayScala, PlayNettyServer, JavaAppPackaging)
-  .disablePlugins(PlayAkkaHttpServer)
+  .enablePlugins(PlayScala, JavaAppPackaging)
+  // .enablePlugins(PlayScala, PlayNettyServer, JavaAppPackaging)
+  // .disablePlugins(PlayAkkaHttpServer)
   .disablePlugins(PlayFilters)
 
 sources in doc in Compile := List()
@@ -16,11 +17,11 @@ scalaVersion := "2.12.3"
 scalacOptions ++= Seq("-unchecked", "-language:_")
 
 libraryDependencies ++= Seq(
-  "org.lichess" %% "scalachess" % "6.6",
+  "org.lichess" %% "scalachess" % "6.8",
   "com.github.ornicar" %% "scalalib" % "6.4",
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
   "com.github.kxbmap" %% "configs" % "0.4.4",
-  ehcache,
+  "com.github.blemale" %% "scaffeine" % "2.2.0" % "compile",
   specs2 % Test
 )
 
