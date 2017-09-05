@@ -14,7 +14,8 @@ final class Importer(
     masterDb: MasterDatabase,
     lichessDb: LichessDatabase,
     pgnDb: PgnDatabase,
-    gameInfoDb: GameInfoDatabase) extends Validation with scalaz.syntax.ToValidationOps {
+    gameInfoDb: GameInfoDatabase
+) extends Validation with scalaz.syntax.ToValidationOps {
 
   private val lichessSeparator = "\n\n\n"
 
@@ -28,7 +29,7 @@ final class Importer(
       processLichess(pgn) match {
         case scalaz.Success(processed) => Some(processed)
         case scalaz.Failure(errors) =>
-          logger.warn(errors.list mkString ", ")
+          logger.warn(errors.list.toList mkString ", ")
           None
       }
     }

@@ -1,16 +1,15 @@
 package controllers
 
+import com.github.blemale.scaffeine.{ LoadingCache, Scaffeine }
 import ornicar.scalalib.Validation
-import scala.concurrent.Future
 import scalaz.{ Success, Failure }
 
 import javax.inject.{ Inject, Singleton }
 
 import play.api._
-import play.api.cache.CacheApi
 import play.api.i18n.Messages.Implicits._
 import play.api.inject.ApplicationLifecycle
-import play.api.libs.json.Json
+import play.api.libs.json._
 import play.api.mvc._
 import play.api.Play.current
 
@@ -18,27 +17,27 @@ import chess.format.Forsyth
 
 import lila.openingexplorer._
 
-@Singleton
 class WebApi @Inject() (
-    val cacheApi: CacheApi,
-    val lifecycle: ApplicationLifecycle) extends Controller with Validation {
+    cc: ControllerComponents,
+    masterDb: MasterDatabase,
+    lichessDb: LichessDatabase,
+    pgnDb: PgnDatabase,
+    gameInfoDb: GameInfoDatabase,
+    importer: Importer
+) extends AbstractController(cc) with Validation with play.api.i18n.I18nSupport {
 
-  val masterDb = new MasterDatabase()
-  val lichessDb = new LichessDatabase()
-  val pgnDb = new PgnDatabase()
-  val gameInfoDb = new GameInfoDatabase()
+  private val cacheConfig = Config.explorer.cache
 
-  val importer = new Importer(masterDb, lichessDb, pgnDb, gameInfoDb)
-  val cache = new Cache(cacheApi)
+  private val masterCache: LoadingCache[Forms.master.Data, String] = Scaffeine()
+    .expireAfterAccess(cacheConfig.ttl)
+    .maximumSize(10000)
+    .build(fetchMaster)
 
-  lifecycle.addStopHook { () =>
-    Future.successful {
-      masterDb.close
-      lichessDb.closeAll
-      pgnDb.close
-      gameInfoDb.close
+  private def fetchMaster(data: Forms.master.Data): String =
+    (Forsyth << data.fen).fold("") { situation =>
+      val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
+      Json stringify JsonView.masterEntry(pgnDb.get)(result)
     }
-  }
 
   def getMaster = Action { implicit req =>
     CORS {
@@ -46,10 +45,10 @@ class WebApi @Inject() (
         err => BadRequest(err.errorsAsJson),
         data => (Forsyth << data.fen) match {
           case Some(situation) => JsonResult {
-            cache.master(data) {
-              val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
-              Json stringify JsonView.masterEntry(pgnDb.get)(result)
-            }
+            fenMoveNumber(data.fen).fold(fetchMaster _) { moveNumber =>
+              if (moveNumber > cacheConfig.maxMoves) fetchMaster _
+              else masterCache.get _
+            }(data)
           }
           case None => BadRequest("valid fen required")
         }
@@ -67,9 +66,26 @@ class WebApi @Inject() (
   def getMasterPgn(gameId: String) = Action { implicit req =>
     pgnDb.get(gameId) match {
       case Some(pgn) => Ok(pgn)
-      case None      => NotFound("game not found")
+      case None => NotFound("game not found")
     }
   }
+
+  private val lichessCache: LoadingCache[Forms.lichess.Data, String] = Scaffeine()
+    .expireAfterAccess(cacheConfig.ttl)
+    .maximumSize(10000)
+    .build(fetchLichess)
+
+  private def fetchLichess(data: Forms.lichess.Data): String =
+    (Forsyth << data.fen).fold("") { situation =>
+      val request = LichessDatabase.Request(
+        data.speedGroups, data.ratingGroups,
+        data.topGamesOrDefault, data.recentGamesOrDefault,
+        data.movesOrDefault
+      )
+
+      val entry = lichessDb.query(situation, request)
+      Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry)
+    }
 
   def getLichess = Action { implicit req =>
     CORS {
@@ -77,15 +93,10 @@ class WebApi @Inject() (
         err => BadRequest(err.errorsAsJson),
         data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
           case Some(situation) => JsonResult {
-            cache.lichess(data) {
-              val request = LichessDatabase.Request(
-                data.speedGroups, data.ratingGroups,
-                data.topGamesOrDefault, data.recentGamesOrDefault,
-                data.movesOrDefault)
-
-              val entry = lichessDb.query(situation, request)
-              Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry)
-            }
+            fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
+              if (moveNumber > cacheConfig.maxMoves || !data.fullHouse) fetchLichess _
+              lichessCache.get _
+            }(data)
           }
           case None => BadRequest("valid fen required")
         }
@@ -96,29 +107,27 @@ class WebApi @Inject() (
   def getStats = Action { implicit req =>
     CORS {
       JsonResult {
-        cache.stat {
-          Json stringify Json.obj(
-            "master" -> Json.obj(
-              "games" -> pgnDb.count,
-              "uniquePositions" -> masterDb.uniquePositions
-            ),
-            "lichess" -> Json.toJson(lichessDb.variants.map({
-              case variant =>
-                variant.key -> Json.obj(
-                  "games" -> lichessDb.totalGames(variant),
-                  "uniquePositions" -> lichessDb.uniquePositions(variant)
-                )
-            }).toMap)
-          )
-        }
+        Json stringify Json.obj(
+          "master" -> Json.obj(
+            "games" -> pgnDb.count,
+            "uniquePositions" -> masterDb.uniquePositions
+          ),
+          "lichess" -> Json.toJson(lichessDb.variants.map({
+            case variant =>
+              variant.key -> Json.obj(
+                "games" -> lichessDb.totalGames(variant),
+                "uniquePositions" -> lichessDb.uniquePositions(variant)
+              )
+          }).toMap)
+        )
       }
     }
   }
 
   def putMaster = Action(parse.tolerantText) { implicit req =>
     importer.master(req.body) match {
-      case (Success(_), ms)      => Ok(s"$ms ms")
-      case (Failure(errors), ms) => BadRequest(errors.list.mkString)
+      case (Success(_), ms) => Ok(s"$ms ms")
+      case (Failure(errors), ms) => BadRequest(errors.list.toList.mkString)
     }
   }
 
@@ -135,6 +144,8 @@ class WebApi @Inject() (
   def JsonResult(json: String)(implicit req: RequestHeader) =
     req.queryString.get("callback").flatMap(_.headOption) match {
       case Some(callback) => Ok(s"$callback($json)").as("application/javascript; charset=utf-8")
-      case None           => Ok(json).as("application/json; charset=utf-8")
+      case None => Ok(json).as("application/json; charset=utf-8")
     }
+
+  private def fenMoveNumber(fen: String) = fen split ' ' lift 5 flatMap parseIntOption
 }

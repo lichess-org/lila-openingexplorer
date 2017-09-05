@@ -1,6 +1,6 @@
 package lila.openingexplorer
 
-sealed abstract class RatingGroup(val range: Range) { }
+sealed abstract class RatingGroup(val range: Range) {}
 
 object RatingGroup {
 

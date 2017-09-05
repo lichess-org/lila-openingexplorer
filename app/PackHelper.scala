@@ -31,7 +31,6 @@ trait PackHelper {
     value
   }
 
-
   protected def writeUint16(stream: OutputStream, v: Int) = {
     stream.write(0xff & (v >> 8))
     stream.write(0xff & v)
@@ -39,7 +38,6 @@ trait PackHelper {
 
   protected def readUint16(stream: InputStream): Int =
     stream.read() << 8 | stream.read()
-
 
   protected def writeUint48(stream: OutputStream, v: Long) = {
     stream.write((0xff & (v >> 40)).toInt)
@@ -52,15 +50,16 @@ trait PackHelper {
 
   protected def readUint48(stream: InputStream): Long =
     stream.read.toLong << 40 | stream.read.toLong << 32 |
-    stream.read.toLong << 24 | stream.read.toLong << 16 |
-    stream.read.toLong << 8 | stream.read.toLong
-
+      stream.read.toLong << 24 | stream.read.toLong << 16 |
+      stream.read.toLong << 8 | stream.read.toLong
 
   protected def writeUci(stream: OutputStream, move: Uci.Move): Unit =
-    writeUint16(stream,
+    writeUint16(
+      stream,
       Pos.all.indexOf(move.orig) |
-      Pos.all.indexOf(move.dest) << 6 |
-      move.promotion.fold(0)(r => (Role.allPromotable.indexOf(r)) + 1) << 12)
+        Pos.all.indexOf(move.dest) << 6 |
+        move.promotion.fold(0)(r => (Role.allPromotable.indexOf(r)) + 1) << 12
+    )
 
   protected def writeUci(stream: OutputStream, drop: Uci.Drop): Unit = {
     val dest = Pos.all.indexOf(drop.pos)

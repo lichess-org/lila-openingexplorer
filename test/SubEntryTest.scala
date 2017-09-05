@@ -9,7 +9,7 @@ import chess.format.Uci
 
 class SubEntryTest extends Specification {
 
-  private def pipe(entry: SubEntry): SubEntry  = {
+  private def pipe(entry: SubEntry): SubEntry = {
     val out = new ByteArrayOutputStream()
     entry.write(out)
 

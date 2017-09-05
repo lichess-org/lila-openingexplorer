@@ -8,7 +8,8 @@ case class MoveStats(
     white: Long,
     draws: Long,
     black: Long,
-    averageRatingSum: Long) extends PackHelper {
+    averageRatingSum: Long
+) extends PackHelper {
 
   def total = white + draws + black
 
@@ -48,7 +49,8 @@ case class MoveStats(
       white + other.white,
       draws + other.draws,
       black + other.black,
-      averageRatingSum + other.averageRatingSum)
+      averageRatingSum + other.averageRatingSum
+    )
 
   def write(out: OutputStream) = {
     writeUint(out, white)

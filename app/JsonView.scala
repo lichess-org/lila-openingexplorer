@@ -10,7 +10,8 @@ object JsonView {
     def refToJson(ref: GameRef) =
       fetchPgn(ref.gameId) flatMap GameInfo.parse map richGameRef(ref)
     baseEntry(entry) ++ Json.obj(
-      "topGames" -> entry.topGames.flatMap(refToJson))
+      "topGames" -> entry.topGames.flatMap(refToJson)
+    )
   }
 
   def lichessEntry(fetchInfo: String => Option[GameInfo])(entry: QueryResult) = {
@@ -18,7 +19,8 @@ object JsonView {
       fetchInfo(ref.gameId) map richGameRef(ref)
     baseEntry(entry) ++ Json.obj(
       "recentGames" -> entry.recentGames.flatMap(refToJson),
-      "topGames" -> entry.topGames.flatMap(refToJson))
+      "topGames" -> entry.topGames.flatMap(refToJson)
+    )
   }
 
   def moveStats(moves: List[(MoveOrDrop, MoveStats)]) = JsArray {
@@ -29,7 +31,8 @@ object JsonView {
         "white" -> stats.white,
         "draws" -> stats.draws,
         "black" -> stats.black,
-        "averageRating" -> stats.averageRating)
+        "averageRating" -> stats.averageRating
+      )
     }
   }
 
@@ -38,18 +41,22 @@ object JsonView {
     "draws" -> entry.draws,
     "black" -> entry.black,
     "moves" -> moveStats(entry.moves),
-    "averageRating" -> entry.averageRating)
+    "averageRating" -> entry.averageRating
+  )
 
   private def gameRef(ref: GameRef) = Json.obj(
     "id" -> ref.gameId,
-    "winner" -> ref.winner.fold("draw")(_.fold("white", "black")))
+    "winner" -> ref.winner.fold("draw")(_.fold("white", "black"))
+  )
 
   private def richGameRef(ref: GameRef)(info: GameInfo) = gameRef(ref) ++ Json.obj(
     "white" -> player(info.white),
     "black" -> player(info.black),
-    "year" -> info.year)
+    "year" -> info.year
+  )
 
   private def player(p: GameInfo.Player) = Json.obj(
     "name" -> p.name,
-    "rating" -> p.rating)
+    "rating" -> p.rating
+  )
 }

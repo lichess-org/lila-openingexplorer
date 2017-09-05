@@ -15,7 +15,8 @@ final class LichessDatabase {
   private val dbs: Map[Variant, KyotoDb] = variants.map({
     case variant => variant -> Util.wrapLog(
       s"Loading ${variant.name} database...",
-      s"${variant.name} database loaded!") {
+      s"${variant.name} database loaded!"
+    ) {
         val config = Config.explorer.lichess(variant)
         val dbFile = new File(config.kyoto.file.replace("(variant)", variant.key))
         dbFile.createNewFile
@@ -31,7 +32,7 @@ final class LichessDatabase {
   private def probe(variant: Variant, h: PositionHash): Entry = {
     dbs.get(variant).flatMap(db => Option(db.get(h))) match {
       case Some(bytes) => unpack(bytes)
-      case None        => Entry.empty
+      case None => Entry.empty
     }
   }
 
@@ -78,7 +79,8 @@ final class LichessDatabase {
           case (uci, stats) => Util.moveFromUci(situation, uci).map(_ -> stats)
         },
       gameRefs.take(math.min(request.recentGames, numRecentGames)),
-      topGames)
+      topGames
+    )
   }
 
   private def unpack(b: Array[Byte]): Entry = {
@@ -134,7 +136,8 @@ object LichessDatabase {
       ratings: List[RatingGroup],
       topGames: Int,
       recentGames: Int,
-      maxMoves: Int) { }
+      maxMoves: Int
+  ) {}
 
   val hash = new Hash(16) // 128 bit Zobrist hasher
 }

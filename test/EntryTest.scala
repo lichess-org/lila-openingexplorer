@@ -37,17 +37,20 @@ class EntryTest extends Specification {
 
       val s1 = new SubEntry(
         Map(e4 -> MoveStats(3, 3, 3, 800), d4 -> MoveStats(1, 1, 1, 100)),
-        List.empty)
+        List.empty
+      )
 
       val s2 = new SubEntry(Map(e4 -> MoveStats(7, 7, 2, 1200)), List.empty)
 
       val entry = Entry(Map(
         (RatingGroup.Group1600, SpeedGroup.Blitz) -> s1,
-        (RatingGroup.Group1800, SpeedGroup.Classical) -> s2))
+        (RatingGroup.Group1800, SpeedGroup.Classical) -> s2
+      ))
 
       val total = Map(
         e4 -> MoveStats(10, 10, 5, 2000),
-        d4 -> MoveStats(1, 1, 1, 100))
+        d4 -> MoveStats(1, 1, 1, 100)
+      )
 
       entry.moves(Entry.allGroups) mustEqual total
     }
@@ -126,10 +129,12 @@ class EntryTest extends Specification {
       val low9 = GameRef("low00009", Some(Color.Black), SpeedGroup.Classical, 2509)
 
       val subEntry =
-        new SubEntry(List(
+        new SubEntry(
+          List(
             move -> MoveStats(123456789L, 234567890L, 345678901L, 864197252500L)
           ).toMap,
-          List(low1, low2, low3, low4, low5, low6, low7, topGame, low8, low9))
+          List(low1, low2, low3, low4, low5, low6, low7, topGame, low8, low9)
+        )
 
       val entry = new Entry(Map((RatingGroup.Group2500, SpeedGroup.Classical) -> subEntry))
       val restored = pipe(entry)

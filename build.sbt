@@ -1,29 +1,46 @@
 name := """lila-openingexplorer"""
 
-version := "2.0"
+version := "2.1"
 
-lazy val chess = project in file("chess")
+lazy val root = (project in file("."))
+  .enablePlugins(PlayScala, JavaAppPackaging)
+  // .enablePlugins(PlayScala, PlayNettyServer, JavaAppPackaging)
+  // .disablePlugins(PlayAkkaHttpServer)
+  .disablePlugins(PlayFilters)
 
-lazy val root = project in file(".") enablePlugins(PlayScala, JavaAppPackaging) dependsOn chess settings (
-  sources in doc in Compile := List(),
-  publishArtifact in (Compile, packageDoc) := false,
-  publishArtifact in (Compile, packageSrc) := false)
+sources in doc in Compile := List()
+publishArtifact in (Compile, packageDoc) := false
+publishArtifact in (Compile, packageSrc) := false
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.12.3"
 
 scalacOptions ++= Seq("-unchecked", "-language:_")
 
 libraryDependencies ++= Seq(
-  "com.github.ornicar" %% "scalalib" % "5.7",
+  "org.lichess" %% "scalachess" % "6.8",
+  "com.github.ornicar" %% "scalalib" % "6.4",
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
-  "com.github.kxbmap" %% "configs" % "0.3.0",
-  cache
+  "com.github.kxbmap" %% "configs" % "0.4.4",
+  "com.github.blemale" %% "scaffeine" % "2.2.0" % "compile",
+  specs2 % Test
 )
 
 resolvers += "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
+resolvers += "lila-maven" at "https://raw.githubusercontent.com/ornicar/lila-maven/master"
 
 testOptions in Test := Seq(Tests.Argument(TestFrameworks.Specs2, "console"))
 
 // Play provides two styles of routers, one expects its actions to be injected,
 // the other, legacy style, accesses its actions statically.
 routesGenerator := InjectedRoutesGenerator
+
+import com.typesafe.sbt.SbtScalariform.autoImport.scalariformFormat
+import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+import scalariform.formatter.preferences._
+
+Seq(
+  ScalariformKeys.preferences := ScalariformKeys.preferences.value
+    .setPreference(DanglingCloseParenthesis, Force)
+    .setPreference(DoubleIndentConstructorArguments, true),
+  excludeFilter in scalariformFormat := "*Routes*"
+)

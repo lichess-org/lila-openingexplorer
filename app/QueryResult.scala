@@ -7,7 +7,8 @@ case class QueryResult(
     averageRating: Int,
     moves: List[(chess.MoveOrDrop, MoveStats)],
     recentGames: List[GameRef],
-    topGames: List[GameRef]) {
+    topGames: List[GameRef]
+) {
 
   def totalGames: Long = white + draws + black
 

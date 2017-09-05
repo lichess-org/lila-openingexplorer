@@ -6,7 +6,7 @@ import chess.Color
 
 class GameInfoTest extends Specification {
 
-      val pgn = """
+  val pgn = """
 [Event "Moscow Tal Memorial Blitz"]
 [Site "Moscow"]
 [Date "2008.08.29"]
@@ -26,7 +26,8 @@ class GameInfoTest extends Specification {
       GameInfo.parse(pgn) must_== Some(GameInfo(
         white = GameInfo.Player("Morozevich, Alexander", 2788),
         black = GameInfo.Player("Karjakin, Sergey", 2727),
-        year = Some(2008)))
+        year = Some(2008)
+      ))
     }
   }
   "pack" in {
