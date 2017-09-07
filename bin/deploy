@@ -11,9 +11,6 @@ if [ $? != 0 ]; then
   exit 1
 fi
 
-# include java JNA
-# sed -i 's/^declare\s-r\sapp_classpath=".*/declare -r app_classpath="$lib_dir\/..\/conf:$lib_dir\/*:\/usr\/share\/java\/jna.jar"/' target/universal/stage/bin/lila-search
-
 RSYNC_OPTIONS=" \
   --archive \
   --no-o --no-g \
