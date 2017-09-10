@@ -17,4 +17,14 @@ package object openingexplorer {
       case e: NumberFormatException => None
     }
   }
+
+  implicit final class ornicarAddKcombinator[A](any: A) {
+    def kCombinator(sideEffect: A ⇒ Unit): A = {
+      sideEffect(any)
+      any
+    }
+    def ~(sideEffect: A ⇒ Unit): A = kCombinator(sideEffect)
+    def pp: A = kCombinator(println)
+    def pp(msg: String): A = kCombinator(a ⇒ println(s"[$msg] $a"))
+  }
 }

@@ -75,8 +75,11 @@ class WebApi @Inject() (
     .maximumSize(10000)
     .build(fetchLichess)
 
+  private def situationOf(data: Forms.lichess.Data) =
+    (Forsyth << data.fen) map (_ withVariant data.actualVariant)
+
   private def fetchLichess(data: Forms.lichess.Data): String =
-    (Forsyth << data.fen).fold("") { situation =>
+    situationOf(data).fold("") { situation =>
       val request = LichessDatabase.Request(
         data.speedGroups, data.ratingGroups,
         data.topGamesOrDefault, data.recentGamesOrDefault,
@@ -91,7 +94,7 @@ class WebApi @Inject() (
     CORS {
       Forms.lichess.form.bindFromRequest.fold(
         err => BadRequest(err.errorsAsJson),
-        data => (Forsyth << data.fen) map (_ withVariant data.actualVariant) match {
+        data => situationOf(data) match {
           case Some(situation) => JsonResult {
             fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
               if (moveNumber > cacheConfig.maxMoves || !data.fullHouse) fetchLichess _
