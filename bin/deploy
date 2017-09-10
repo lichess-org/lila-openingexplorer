@@ -1,6 +1,6 @@
 #!/bin/sh
 
-REMOTE="root@pluto.lichess.org"
+REMOTE="root@drake.lichess.org"
 REMOTE_DIR="/home/lichess-explorer"
 
 echo "Deploy to server $REMOTE:$REMOTE_DIR"
@@ -10,9 +10,6 @@ if [ $? != 0 ]; then
   echo "Deploy canceled"
   exit 1
 fi
-
-# include java JNA
-# sed -i 's/^declare\s-r\sapp_classpath=".*/declare -r app_classpath="$lib_dir\/..\/conf:$lib_dir\/*:\/usr\/share\/java\/jna.jar"/' target/universal/stage/bin/lila-search
 
 RSYNC_OPTIONS=" \
   --archive \
