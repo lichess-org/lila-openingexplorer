@@ -13,8 +13,6 @@ scala:
 jdk:
   - oraclejdk8
 
-install: ./bin/build-deps.sh
-
 before_cache:
   - find $HOME/.sbt -name "*.lock" | tee /dev/stderr | xargs rm
   - find $HOME/.ivy2 -name "ivydata-*.properties" | tee /dev/stderr | xargs rm

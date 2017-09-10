@@ -32,7 +32,8 @@ echo "$rsync_command"
 $rsync_command
 echo "rsync complete"
 
-read -n 1 -p "Press [Enter] to continue."
+echo "Press [Enter] to continue."
+read
 
 echo "Restart lichess-explorer"
 ssh $REMOTE "chown -R lichess-explorer:lichess-explorer $REMOTE_DIR && systemctl restart lichess-explorer"

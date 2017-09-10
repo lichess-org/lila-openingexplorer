@@ -6,6 +6,9 @@
 
 include "base"
 
+# Configure a secret key for production usage
+# play.http.secret.key = "secret"
+
 # Send header Access-Control-Allow-Origin "*"
 # explorer.corsHeader = true
 
