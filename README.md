@@ -11,14 +11,19 @@ You already have this, if you are running a local lila instance.
 
 Install Kyoto cabinet headers and utilities.
 
+    # Debian:
     sudo apt-get install libkyotocabinet-dev kyotocabinet-utils
+
+    # Arch:
+    sudo pacman -S kyotocabinet
+    sudo patch -d/ -p0 < kcdbext.h.patch
 
 Setup the `$JAVA_HOME` environment variable.
 
-    # on Debian:
+    # Debian:
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
-    # or, on ArchLinux:
+    # Arch:
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk
 
 Download and unpack [Kyotocabinet Java package](http://fallabs.com/kyotocabinet/javapkg/).
