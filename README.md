@@ -102,7 +102,8 @@ name | type | default | description
         "name": "Carlsen, M.",
         "rating": 2872
       },
-      "year": 2014
+      "year": 2014,
+      "speed": "classical"
     },
     // ...
   ],

@@ -46,7 +46,8 @@ object JsonView {
 
   private def gameRef(ref: GameRef) = Json.obj(
     "id" -> ref.gameId,
-    "winner" -> ref.winner.fold("draw")(_.fold("white", "black"))
+    "winner" -> ref.winner.fold("draw")(_.fold("white", "black")),
+    "speed" -> ref.speed.name,
   )
 
   private def richGameRef(ref: GameRef)(info: GameInfo) = gameRef(ref) ++ Json.obj(
