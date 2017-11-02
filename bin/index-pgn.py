@@ -43,19 +43,22 @@ def has_10_moves(pgn, _re=re.compile(r"10\.([a-h]|N|B|R|Q|K|\s)")):
 
 t = time.time()
 
-def send(buf):
+def send(game_no, buf):
     global t
 
     res = requests.put("http://localhost:9000/import/" + endpoint, data=buf)
 
     new_t = time.time()
 
-    print("HTTP %d: server: %s, wallclock: %.01f ms" % (res.status_code, res.text, (new_t - t) * 1000))
+    print("game: %d http %d: elapsed: %.01f ms" % (game_no, res.status_code, (new_t - t) * 1000))
     if res.status_code != 200:
         print(buf)
-        print(res.text)
+        try:
+            print(res.text)
+        except:
+            print("--> decode error!")
 
     t = new_t
 
-for buf in (pgn for pgn in split_pgn(f) if has_rating(pgn) and has_10_moves(pgn)):
-    send(buf)
+for game_no, buf in enumerate(pgn for pgn in split_pgn(f) if has_rating(pgn) and has_10_moves(pgn)):
+    send(game_no, buf)
