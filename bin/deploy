@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 REMOTE="root@drake.lichess.org"
 REMOTE_DIR="/home/lichess-explorer"
