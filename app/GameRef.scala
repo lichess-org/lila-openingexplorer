@@ -97,8 +97,6 @@ object GameRef extends PackHelper with Validation {
 
     val winner = game.tags.resultColor.flatten
 
-    val speed = game.tags.clockConfig map SpeedGroup.apply
-
     val averageRating: Option[Int] = {
       val ratings = chess.Color.all.flatMap { c =>
         game.tags(s"${c}Elo").flatMap(parseIntOption)
@@ -108,7 +106,7 @@ object GameRef extends PackHelper with Validation {
 
     for {
       rating <- averageRating.toValid("No rating")
-      speed <- game.tags.clockConfig.map(SpeedGroup.apply).toValid("Invalid clock")
+      speed <- SpeedGroup.fromPgn(game.tags).toValid("Invalid clock")
     } yield new GameRef(gameId, winner, speed, rating)
   }
 }
