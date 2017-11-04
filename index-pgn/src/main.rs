@@ -9,6 +9,7 @@ extern crate reqwest;
 
 use std::env;
 use std::mem;
+use std::cmp::min;
 use std::fs::File;
 use std::option::NoneError;
 use std::io::Read;
@@ -19,7 +20,7 @@ use pgn_reader::{Visitor, Skip, Reader, San};
 use btoi::ParseIntegerError;
 use rand::{random, Closed01};
 
-const BATCH_SIZE: usize = 50;
+const BATCH_SIZE: usize = 1;
 
 const MAX_PLIES: usize = 50;
 
@@ -107,10 +108,13 @@ impl Indexer {
 
     fn send(&mut self) {
         if self.batch_size > 0 {
+            self.batch_size = 0;
+
             let mut res = reqwest::Client::new()
                 .put("http://localhost:9000/import/lichess")
                 .body(mem::replace(&mut self.batch, Vec::new()))
                 .send().expect("send batch");
+
 
             let mut answer = String::new();
             res.read_to_string(&mut answer).expect("decode response");
@@ -141,6 +145,9 @@ impl<'pgn> Visitor<'pgn> for Indexer {
             self.black_elo = if value == b"?" { 0 } else { btoi::btoi(value).expect("BlackElo") };
         } else if key == b"TimeControl" {
             self.time_control = TimeControl::from_bytes(value).expect("TimeControl");
+        } else if key == b"Variant" {
+            assert_eq!(value, b"Standard");
+            return; // we add this unconditionally later
         }
 
         let (key, value) = if key == b"Site" {
@@ -157,6 +164,7 @@ impl<'pgn> Visitor<'pgn> for Indexer {
     }
 
     fn end_headers(&mut self) -> Skip {
+        self.current_game.extend(b"[Variant \"Standard\"]\n");
         self.current_game.push(b'\n');
 
         let rating = (self.white_elo + self.black_elo) / 2;
@@ -177,8 +185,9 @@ impl<'pgn> Visitor<'pgn> for Indexer {
         };
 
         let Closed01(rnd) = random::<Closed01<f64>>();
-        self.skip = probability < rnd;
+        let accept = min(self.white_elo, self.black_elo) >= 1500 && probability >= rnd;
 
+        self.skip = !accept;
         Skip(self.skip)
     }
 
@@ -199,7 +208,7 @@ impl<'pgn> Visitor<'pgn> for Indexer {
 
     fn end_game(&mut self, _game: &'pgn [u8]) {
         if !self.skip && self.plies > 8 {
-            if self.batch_size > BATCH_SIZE {
+            if self.batch_size >= BATCH_SIZE {
                 self.send();
             }
 
