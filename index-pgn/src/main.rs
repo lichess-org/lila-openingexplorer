@@ -11,6 +11,7 @@ use std::env;
 use std::mem;
 use std::fs::File;
 use std::option::NoneError;
+use std::io::Read;
 
 use memmap::Mmap;
 use madvise::{AccessPattern, AdviseMemory};
@@ -106,12 +107,15 @@ impl Indexer {
 
     fn send(&mut self) {
         if self.batch_size > 0 {
-            let res = reqwest::Client::new()
+            let mut res = reqwest::Client::new()
                 .put("http://localhost:9000/import/lichess")
                 .body(mem::replace(&mut self.batch, Vec::new()))
                 .send().expect("send batch");
 
-            println!("{:?}", res);
+            let mut answer = String::new();
+            res.read_to_string(&mut answer).expect("decode response");
+            println!("{}", answer);
+            assert!(res.status().is_success());
         }
     }
 }
@@ -200,7 +204,7 @@ impl<'pgn> Visitor<'pgn> for Indexer {
             }
 
             if self.batch_size > 0 {
-                self.batch.extend(b"\n\n\n");
+                self.batch.extend(b"\n\n");
             }
 
             self.batch.extend(&self.current_game);
