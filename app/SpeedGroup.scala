@@ -24,5 +24,11 @@ object SpeedGroup {
     case chess.Speed.Blitz => Blitz
     case chess.Speed.Classical | chess.Speed.Correspondence => Classical
   }
-  def apply(clock: Clock.Config): SpeedGroup = SpeedGroup(chess.Speed(clock))
+
+  def fromPgn(tags: chess.format.pgn.Tags) = tags.clockConfig.map { clock =>
+    apply(chess.Speed(clock))
+  } orElse {
+    if (tags("TimeControl") == "-") Some(Classical) // correspondence
+    else None
+  }
 }
