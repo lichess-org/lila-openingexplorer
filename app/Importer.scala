@@ -6,7 +6,7 @@ import scala.concurrent.Future
 import scalaz.Validation.FlatMap._
 
 import chess.format.Forsyth
-import chess.format.pgn.{ Parser, Reader, ParsedPgn, InitialPosition, San }
+import chess.format.pgn.{ Parser, Reader, ParsedPgn, InitialPosition, Sans }
 import chess.variant.Variant
 import chess.{ Hash, PositionHash, Replay }
 
@@ -100,21 +100,24 @@ final class Importer(
 
   private def processMaster(pgn: String): Valid[Processed] = for {
     parsed <- Parser.full(pgn)
-    replay <- Reader.fullWithSans(parsed, identity[List[San]] _)
+    replay <- Reader.fullWithSans(parsed, identity[Sans] _).valid
     gameRef <- GameRef.fromPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
 
   private def processLichess(pgn: String): Valid[Processed] = for {
     parsed <- parseFastPgn(pgn)
-    variant = Parser.getVariantFromTags(parsed.tags)
-    replay <- Reader.fullWithSans(parsed, (moves: List[San]) => moves.take(Config.explorer.lichess(variant).maxPlies))
+    variant <- parsed.tags.variant toValid "Invalid variant"
+    replay <- Reader.fullWithSans(parsed, (moves: Sans) => Sans {
+      moves.value.take(Config.explorer.lichess(variant).maxPlies)
+    }).valid
     gameRef <- GameRef.fromPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
 
   private def parseFastPgn(pgn: String): Valid[ParsedPgn] = pgn.split("\n\n") match {
     case Array(tagStr, moveStr) => for {
       tags ← Parser.TagParser(tagStr)
-      moves <- Parser.moves(moveStr, Parser.getVariantFromTags(tags))
+      variant <- tags.variant toValid "Invalid variant"
+      moves <- Parser.moves(moveStr, variant)
     } yield ParsedPgn(InitialPosition(List.empty), tags, moves)
     case _ => s"Invalid fast pgn $pgn".failureNel
   }

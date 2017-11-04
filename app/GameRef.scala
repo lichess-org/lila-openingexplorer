@@ -1,9 +1,10 @@
 package lila.openingexplorer
 
-import ornicar.scalalib.Validation
 import scala.util.matching.Regex
 import scala.util.Random
 import java.io.{ OutputStream, ByteArrayOutputStream, InputStream, ByteArrayInputStream }
+import ornicar.scalalib.Validation
+import scalaz.Validation.FlatMap._
 
 import chess.Color
 
@@ -90,27 +91,24 @@ object GameRef extends PackHelper with Validation {
   }
 
   def fromPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
-    val gameId = game.tag("LichessID") orElse {
-      game.tag("FICSGamesDBGameNo") flatMap parseLongOption map unpackGameId
+    val gameId = game.tags("LichessID") orElse {
+      game.tags("FICSGamesDBGameNo") flatMap parseLongOption map unpackGameId
     } getOrElse Random.alphanumeric.take(8).mkString
 
-    val winner = game.tag("Result") match {
-      case Some("1-0") => Some(Color.White)
-      case Some("0-1") => Some(Color.Black)
-      case _ => None
-    }
+    val winner = game.tags.resultColor.flatten
 
-    val speed = SpeedGroup.fromTimeControl(game.tag("TimeControl").getOrElse("-"))
+    val speed = game.tags.clockConfig map SpeedGroup.apply
 
     val averageRating: Option[Int] = {
       val ratings = chess.Color.all.flatMap { c =>
-        game.tag(s"${c}Elo").flatMap(parseIntOption)
+        game.tags(s"${c}Elo").flatMap(parseIntOption)
       }
       if (ratings.nonEmpty) Some(ratings.sum / ratings.size) else None
     }
 
-    averageRating.fold[Either[String, GameRef]](Left("No rating")) { rating =>
-      Right(new GameRef(gameId, winner, speed, rating))
-    }
+    for {
+      rating <- averageRating.toValid("No rating")
+      speed <- game.tags.clockConfig.map(SpeedGroup.apply).toValid("Invalid clock")
+    } yield new GameRef(gameId, winner, speed, rating)
   }
 }
