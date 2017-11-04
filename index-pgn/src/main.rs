@@ -79,8 +79,10 @@ struct Indexer {
     black_elo: i16,
     time_control: TimeControl,
     skip: bool,
+
     current_game: Vec<u8>,
     plies: usize,
+
     batch: Vec<u8>,
     batch_size: usize,
 }
@@ -92,8 +94,10 @@ impl Indexer {
             black_elo: 0,
             time_control: TimeControl::Correspondence,
             skip: true,
+
             current_game: Vec::new(),
             plies: 0,
+
             batch: Vec::new(),
             batch_size: 0,
         }
@@ -113,12 +117,15 @@ impl Indexer {
 impl<'pgn> Visitor<'pgn> for Indexer {
     type Result = ();
 
+    fn begin_game(&mut self) {
+        self.current_game.clear();
+        self.plies = 0;
+    }
+
     fn begin_headers(&mut self) {
         self.white_elo = 0;
         self.black_elo = 0;
         self.time_control = TimeControl::Correspondence;
-        self.current_game.clear();
-        self.plies = 0;
     }
 
     fn header(&mut self, key: &'pgn [u8], value: &'pgn [u8]) {
@@ -165,6 +172,7 @@ impl<'pgn> Visitor<'pgn> for Indexer {
 
         let Closed01(rnd) = random::<Closed01<f64>>();
         self.skip = probability < rnd;
+
         Skip(self.skip)
     }
 
@@ -184,7 +192,7 @@ impl<'pgn> Visitor<'pgn> for Indexer {
     }
 
     fn end_game(&mut self, _game: &'pgn [u8]) {
-        if !self.skip {
+        if !self.skip && self.plies > 8 {
             if self.batch_size > BATCH_SIZE {
                 self.send();
             }
