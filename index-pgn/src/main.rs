@@ -78,6 +78,8 @@ impl TimeControl {
 }
 
 struct Indexer {
+    context: String,
+
     white_elo: i16,
     black_elo: i16,
     time_control: TimeControl,
@@ -91,8 +93,10 @@ struct Indexer {
 }
 
 impl Indexer {
-    fn new() -> Indexer {
+    fn new(context: &str) -> Indexer {
         Indexer {
+            context: context.into(),
+
             white_elo: 0,
             black_elo: 0,
             time_control: TimeControl::Correspondence,
@@ -118,7 +122,7 @@ impl Indexer {
 
             let mut answer = String::new();
             res.read_to_string(&mut answer).expect("decode response");
-            println!("{}", answer);
+            println!("{}: {}", self.context, answer);
             assert!(res.status().is_success());
         }
     }
@@ -229,7 +233,7 @@ fn main() {
         let pgn = unsafe { Mmap::map(&file).expect("mmap") };
         pgn.advise_memory_access(AccessPattern::Sequential).expect("madvise");
 
-        let mut indexer = Indexer::new();
+        let mut indexer = Indexer::new(&arg);
         Reader::new(&mut indexer, &pgn[..]).read_all();
         indexer.send(); // send last
     }
