@@ -1,6 +1,6 @@
 package lila.openingexplorer
 
-import chess.format.pgn.{ Parser, Tag }
+import chess.format.pgn.{ Parser, Tags }
 
 case class GameInfo(
     white: GameInfo.Player,
@@ -23,14 +23,13 @@ object GameInfo {
       None
   }
 
-  def parse(tags: List[Tag]): Option[GameInfo] = {
-    def find(name: String): Option[String] = tags.find(_.name.name == name).map(_.value)
+  def parse(tags: Tags): Option[GameInfo] = {
     for {
-      whiteName <- find("White")
-      whiteRating <- find("WhiteElo") flatMap parseIntOption
-      blackName <- find("Black")
-      blackRating <- find("BlackElo") flatMap parseIntOption
-      year = find("Date") flatMap {
+      whiteName <- tags("White")
+      whiteRating <- tags("WhiteElo") flatMap parseIntOption
+      blackName <- tags("Black")
+      blackRating <- tags("BlackElo") flatMap parseIntOption
+      year = tags.anyDate flatMap {
         case YearRegex(y) => parseIntOption(y)
         case _ => None
       }

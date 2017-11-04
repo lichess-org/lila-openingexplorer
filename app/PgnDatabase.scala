@@ -6,7 +6,7 @@ import fm.last.commons.kyoto.factory.{ Mode, Compressor, PageComparator }
 import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 
 import chess.format.Forsyth
-import chess.format.pgn.{ ParsedPgn, Pgn, Tag, TagType, Dumper, Turn, Move }
+import chess.format.pgn.{ ParsedPgn, Pgn, Tag, Tags, TagType, Dumper, Turn, Move }
 import chess.Replay
 
 final class PgnDatabase {
@@ -28,7 +28,7 @@ final class PgnDatabase {
 
   def store(gameId: String, parsed: ParsedPgn, replay: Replay) = {
 
-    val tags = parsed.tags.filter { tag =>
+    val tags = parsed.tags.value.filter { tag =>
       relevantTags contains tag.name
     }
     val fenSituation = tags find (_.name == Tag.FEN) flatMap {
@@ -39,7 +39,7 @@ final class PgnDatabase {
     }.pgnMoves
     val moves = if (fenSituation.exists(_.situation.color.black)) ".." +: pgnMoves else pgnMoves
     val initialTurn = fenSituation.map(_.fullMoveNumber) getOrElse 1
-    val pgn = Pgn(tags, turns(moves, initialTurn))
+    val pgn = Pgn(Tags(tags), turns(moves, initialTurn))
 
     db.set(gameId, pgn.toString)
   }
