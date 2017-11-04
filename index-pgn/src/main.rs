@@ -20,7 +20,7 @@ use pgn_reader::{Visitor, Skip, Reader, San};
 use btoi::ParseIntegerError;
 use rand::{random, Closed01};
 
-const BATCH_SIZE: usize = 1;
+const BATCH_SIZE: usize = 50;
 
 const MAX_PLIES: usize = 50;
 
@@ -213,7 +213,7 @@ impl<'pgn> Visitor<'pgn> for Indexer {
             }
 
             if self.batch_size > 0 {
-                self.batch.extend(b"\n\n");
+                self.batch.extend(b"\n\n\n");
             }
 
             self.batch.extend(&self.current_game);
