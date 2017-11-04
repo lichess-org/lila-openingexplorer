@@ -5,9 +5,10 @@ extern crate memmap;
 extern crate madvise;
 extern crate btoi;
 extern crate rand;
+extern crate reqwest;
 
 use std::env;
-use std::str;
+use std::mem;
 use std::fs::File;
 use std::option::NoneError;
 
@@ -105,11 +106,12 @@ impl Indexer {
 
     fn send(&mut self) {
         if self.batch_size > 0 {
-            // TODO: Send
-            println!("{}", str::from_utf8(&self.batch).expect("utf8"));
+            let res = reqwest::Client::new()
+                .put("http://localhost:9000/import/lichess")
+                .body(mem::replace(&mut self.batch, Vec::new()))
+                .send().expect("send batch");
 
-            self.batch_size = 0;
-            self.batch.clear();
+            println!("{:?}", res);
         }
     }
 }
