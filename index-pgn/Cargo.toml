@@ -4,7 +4,7 @@ version = "0.0.0"
 publish = false
 
 [dependencies]
-pgn-reader = { path = "/home/niklas/Projekte/rust-pgn-reader" }
+pgn-reader = "0.3"
 memmap = "0.6"
 madvise = "0.1"
 btoi = "0.1"
