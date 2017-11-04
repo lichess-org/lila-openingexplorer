@@ -17,6 +17,10 @@ use pgn_reader::{Visitor, Skip, Reader, San};
 use btoi::ParseIntegerError;
 use rand::{random, Closed01};
 
+const BATCH_SIZE: usize = 50;
+
+const MAX_PLIES: usize = 50;
+
 #[derive(Debug)]
 enum TimeControl {
     UltraBullet,
@@ -75,6 +79,10 @@ struct Indexer {
     black_elo: i16,
     time_control: TimeControl,
     skip: bool,
+    current_game: Vec<u8>,
+    plies: usize,
+    batch: Vec<u8>,
+    batch_size: usize,
 }
 
 impl Indexer {
@@ -84,6 +92,20 @@ impl Indexer {
             black_elo: 0,
             time_control: TimeControl::Correspondence,
             skip: true,
+            current_game: Vec::new(),
+            plies: 0,
+            batch: Vec::new(),
+            batch_size: 0,
+        }
+    }
+
+    fn send(&mut self) {
+        if self.batch_size > 0 {
+            // TODO: Send
+            println!("{}", str::from_utf8(&self.batch).expect("utf8"));
+
+            self.batch_size = 0;
+            self.batch.clear();
         }
     }
 }
@@ -95,6 +117,8 @@ impl<'pgn> Visitor<'pgn> for Indexer {
         self.white_elo = 0;
         self.black_elo = 0;
         self.time_control = TimeControl::Correspondence;
+        self.current_game.clear();
+        self.plies = 0;
     }
 
     fn header(&mut self, key: &'pgn [u8], value: &'pgn [u8]) {
@@ -105,9 +129,23 @@ impl<'pgn> Visitor<'pgn> for Indexer {
         } else if key == b"TimeControl" {
             self.time_control = TimeControl::from_bytes(value).expect("TimeControl");
         }
+
+        let (key, value) = if key == b"Site" {
+            (&b"LichessID"[..], value.rsplitn(2, |ch| *ch == b'/').next().expect("Site"))
+        } else {
+            (key, value)
+        };
+
+        self.current_game.push(b'[');
+        self.current_game.extend(key);
+        self.current_game.extend(b" \"");
+        self.current_game.extend(value);
+        self.current_game.extend(b"\"]\n");
     }
 
     fn end_headers(&mut self) -> Skip {
+        self.current_game.push(b'\n');
+
         let rating = (self.white_elo + self.black_elo) / 2;
 
         let probability = match self.time_control {
@@ -130,14 +168,34 @@ impl<'pgn> Visitor<'pgn> for Indexer {
         Skip(self.skip)
     }
 
-    fn san(&mut self, _san: San) { }
+    fn san(&mut self, san: San) {
+        if self.plies < MAX_PLIES {
+            if self.plies > 0 {
+                self.current_game.push(b' ');
+            }
+
+            self.current_game.extend(san.to_string().as_bytes());
+            self.plies += 1;
+        }
+    }
 
     fn begin_variation(&mut self) -> Skip {
         Skip(true) // stay in the mainline
     }
 
-    fn end_game(&mut self, game: &'pgn [u8]) {
-        println!("{}", str::from_utf8(game).expect("utf8"));
+    fn end_game(&mut self, _game: &'pgn [u8]) {
+        if !self.skip {
+            if self.batch_size > BATCH_SIZE {
+                self.send();
+            }
+
+            if self.batch_size > 0 {
+                self.batch.extend(b"\n\n\n");
+            }
+
+            self.batch.extend(&self.current_game);
+            self.batch_size += 1;
+        }
     }
 }
 
@@ -150,5 +208,6 @@ fn main() {
 
         let mut indexer = Indexer::new();
         Reader::new(&mut indexer, &pgn[..]).read_all();
+        indexer.send(); // send last
     }
 }
