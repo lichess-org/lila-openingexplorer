@@ -99,9 +99,9 @@ impl<'pgn> Visitor<'pgn> for Indexer {
 
     fn header(&mut self, key: &'pgn [u8], value: &'pgn [u8]) {
         if key == b"WhiteElo" {
-            self.white_elo = btoi::btoi(value).expect("WhiteElo");
+            self.white_elo = if value == b"?" { 0 } else { btoi::btoi(value).expect("WhiteElo") };
         } else if key == b"BlackElo" {
-            self.black_elo = btoi::btoi(value).expect("BlackElo");
+            self.black_elo = if value == b"?" { 0 } else { btoi::btoi(value).expect("BlackElo") };
         } else if key == b"TimeControl" {
             self.time_control = TimeControl::from_bytes(value).expect("TimeControl");
         }
