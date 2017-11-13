@@ -43,11 +43,13 @@ final class Importer(
             case Some(info) =>
               val variant = replay.setup.board.variant
               try {
-                gameInfoDb.store(gameRef.gameId, info)
-
-                replay.chronoMoves.take(Config.explorer.lichess(variant).maxPlies).foreach {
-                  move =>
-                    lichessDb.merge(variant, gameRef, move)
+                if (gameInfoDb.store(gameRef.gameId, info)) {
+                  replay.chronoMoves.take(Config.explorer.lichess(variant).maxPlies).foreach {
+                    move =>
+                      lichessDb.merge(variant, gameRef, move)
+                  }
+                } else {
+                  logger.warn(s"Duplicate lichess game ${gameRef.gameId}")
                 }
               } catch {
                 case e: Exception => logger.error(s"Can't merge game ${gameRef.gameId}: ${e.getMessage}")
@@ -70,11 +72,15 @@ final class Importer(
           s"Invalid initial position ${Forsyth >> replay.setup.situation}".failureNel
         else if (gameRef.averageRating < masterMinRating)
           s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
-        else scalaz.Success {
-          pgnDb.store(gameRef.gameId, parsed, replay)
-
-          replay.chronoMoves.take(Config.explorer.master.maxPlies).foreach {
-            move => masterDb.merge(gameRef, move)
+        else {
+          if (pgnDb.store(gameRef.gameId, parsed, replay)) {
+            scalaz.Success {
+              replay.chronoMoves.take(Config.explorer.master.maxPlies).foreach {
+                move => masterDb.merge(gameRef, move)
+              }
+            }
+          } else {
+            s"Duplicate master game ${gameRef.gameId}".failureNel
           }
         }
     }

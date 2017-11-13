@@ -26,7 +26,7 @@ final class PgnDatabase {
 
   def get(gameId: String): Option[String] = Option(db.get(gameId))
 
-  def store(gameId: String, parsed: ParsedPgn, replay: Replay) = {
+  def store(gameId: String, parsed: ParsedPgn, replay: Replay): Boolean = {
 
     val tags = parsed.tags.value.filter { tag =>
       relevantTags contains tag.name
@@ -41,7 +41,7 @@ final class PgnDatabase {
     val initialTurn = fenSituation.map(_.fullMoveNumber) getOrElse 1
     val pgn = Pgn(Tags(tags), turns(moves, initialTurn))
 
-    db.set(gameId, pgn.toString)
+    db.putIfAbsent(gameId, pgn.toString)
   }
 
   private def turns(moves: Vector[String], from: Int): List[Turn] =

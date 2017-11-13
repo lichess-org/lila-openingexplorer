@@ -22,8 +22,8 @@ final class GameInfoDatabase {
 
   def contains(gameId: String): Boolean = db.exists(gameId)
 
-  def store(gameId: String, info: GameInfo) =
-    db.set(gameId, GameInfoDatabase pack info)
+  def store(gameId: String, info: GameInfo): Boolean =
+    db.putIfAbsent(gameId, GameInfoDatabase pack info)
 
   def count = db.recordCount()
 
