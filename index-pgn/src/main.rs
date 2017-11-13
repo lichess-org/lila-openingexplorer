@@ -177,7 +177,6 @@ impl<'pgn> Visitor<'pgn> for Indexer {
 
         let probability = if self.standard {
             self.current_game.extend(b"[Variant \"Standard\"]\n");
-            self.current_game.push(b'\n');
 
             match self.time_control {
                 TimeControl::Correspondence => 1.0,
@@ -196,6 +195,8 @@ impl<'pgn> Visitor<'pgn> for Indexer {
         } else {
             1.0 // variant game
         };
+
+        self.current_game.push(b'\n');
 
         let Closed01(rnd) = random::<Closed01<f64>>();
         let accept = min(self.white_elo, self.black_elo) >= 1500 && probability >= rnd;
