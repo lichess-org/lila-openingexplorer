@@ -87,6 +87,7 @@ struct Indexer {
 
     current_game: Vec<u8>,
     plies: usize,
+    standard: bool,
 
     batch: Vec<u8>,
     batch_size: usize,
@@ -104,6 +105,7 @@ impl Indexer {
 
             current_game: Vec::new(),
             plies: 0,
+            standard: true,
 
             batch: Vec::new(),
             batch_size: 0,
@@ -140,6 +142,7 @@ impl<'pgn> Visitor<'pgn> for Indexer {
         self.white_elo = 0;
         self.black_elo = 0;
         self.time_control = TimeControl::Correspondence;
+        self.standard = true;
     }
 
     fn header(&mut self, key: &'pgn [u8], value: &'pgn [u8]) {
@@ -150,8 +153,10 @@ impl<'pgn> Visitor<'pgn> for Indexer {
         } else if key == b"TimeControl" {
             self.time_control = TimeControl::from_bytes(value).expect("TimeControl");
         } else if key == b"Variant" {
-            assert_eq!(value, b"Standard");
-            return; // we add this unconditionally later
+            self.standard = value == b"Standard";
+            if self.standard {
+                return; // we add this unconditionally later
+            }
         }
 
         let (key, value) = if key == b"Site" {
@@ -168,24 +173,28 @@ impl<'pgn> Visitor<'pgn> for Indexer {
     }
 
     fn end_headers(&mut self) -> Skip {
-        self.current_game.extend(b"[Variant \"Standard\"]\n");
-        self.current_game.push(b'\n');
-
         let rating = (self.white_elo + self.black_elo) / 2;
 
-        let probability = match self.time_control {
-            TimeControl::Correspondence => 1.0,
-            TimeControl::Classical if rating >= 2000 => 1.0,
-            TimeControl::Classical if rating >= 1800 => 2.0 / 5.0,
-            TimeControl::Classical => 1.0 / 8.0,
-            TimeControl::Blitz if rating >= 2000 => 1.0,
-            TimeControl::Blitz if rating >= 1800 => 1.0 / 4.0,
-            TimeControl::Blitz => 1.0 / 15.0,
-            TimeControl::Bullet if rating >= 2300 => 1.0,
-            TimeControl::Bullet if rating >= 2200 => 4.0 / 5.0,
-            TimeControl::Bullet if rating >= 2000 => 1.0 / 4.0,
-            TimeControl::Bullet if rating >= 1800 => 1.0 / 7.0,
-            _ => 1.0 / 20.0,
+        let probability = if self.standard {
+            self.current_game.extend(b"[Variant \"Standard\"]\n");
+            self.current_game.push(b'\n');
+
+            match self.time_control {
+                TimeControl::Correspondence => 1.0,
+                TimeControl::Classical if rating >= 2000 => 1.0,
+                TimeControl::Classical if rating >= 1800 => 2.0 / 5.0,
+                TimeControl::Classical => 1.0 / 8.0,
+                TimeControl::Blitz if rating >= 2000 => 1.0,
+                TimeControl::Blitz if rating >= 1800 => 1.0 / 4.0,
+                TimeControl::Blitz => 1.0 / 15.0,
+                TimeControl::Bullet if rating >= 2300 => 1.0,
+                TimeControl::Bullet if rating >= 2200 => 4.0 / 5.0,
+                TimeControl::Bullet if rating >= 2000 => 1.0 / 4.0,
+                TimeControl::Bullet if rating >= 1800 => 1.0 / 7.0,
+                _ => 1.0 / 20.0,
+            }
+        } else {
+            1.0 // variant game
         };
 
         let Closed01(rnd) = random::<Closed01<f64>>();
