@@ -90,23 +90,32 @@ object GameRef extends PackHelper with Validation {
     read(in)
   }
 
-  def fromPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
+  private def averageRating(tags: chess.format.pgn.Tags): Option[Int] = {
+    val ratings = chess.Color.all.flatMap { c =>
+      tags(s"${c}Elo").flatMap(parseIntOption)
+    }
+    if (ratings.nonEmpty) Some(ratings.sum / ratings.size) else None
+  }
+
+  def fromLichessPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
+    for {
+      gameId <- game.tags("LichessID").toValid("No LichessID header")
+      winner <- game.tags.resultColor.toValid("No result")
+      rating <- averageRating(game.tags).toValid("No rating")
+      speed <- SpeedGroup.fromPgn(game.tags).toValid("Invalid clock")
+    } yield new GameRef(gameId, winner, speed, rating)
+  }
+
+  def fromMasterPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
     val gameId = game.tags("LichessID") orElse {
       game.tags("FICSGamesDBGameNo") flatMap parseLongOption map unpackGameId
     } getOrElse Random.alphanumeric.take(8).mkString
 
-    val winner = game.tags.resultColor.flatten
-
-    val averageRating: Option[Int] = {
-      val ratings = chess.Color.all.flatMap { c =>
-        game.tags(s"${c}Elo").flatMap(parseIntOption)
-      }
-      if (ratings.nonEmpty) Some(ratings.sum / ratings.size) else None
-    }
+    val speed = SpeedGroup.fromPgn(game.tags).getOrElse(SpeedGroup.Classical)
 
     for {
-      rating <- averageRating.toValid("No rating")
-      speed <- SpeedGroup.fromPgn(game.tags).toValid("Invalid clock")
+      winner <- game.tags.resultColor.toValid("No result")
+      rating <- averageRating(game.tags).toValid("No rating")
     } yield new GameRef(gameId, winner, speed, rating)
   }
 }

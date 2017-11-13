@@ -26,8 +26,8 @@ object SpeedGroup {
   }
 
   def fromPgn(tags: chess.format.pgn.Tags) = tags("TimeControl") match {
-    case None => Some(Classical) // master game import
     case Some("-") => Some(Classical) // correspondence
     case Some(timeControl) => Clock.readPgnConfig(timeControl).map(clock => apply(chess.Speed(clock)))
+    case None => None
   }
 }

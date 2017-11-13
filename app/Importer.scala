@@ -107,7 +107,7 @@ final class Importer(
   private def processMaster(pgn: String): Valid[Processed] = for {
     parsed <- Parser.full(pgn)
     replay <- Reader.fullWithSans(parsed, identity[Sans] _).valid
-    gameRef <- GameRef.fromPgn(parsed)
+    gameRef <- GameRef.fromMasterPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
 
   private def processLichess(pgn: String): Valid[Processed] = for {
@@ -116,7 +116,7 @@ final class Importer(
     replay <- Reader.fullWithSans(parsed, (moves: Sans) => Sans {
       moves.value.take(Config.explorer.lichess(variant).maxPlies)
     }).valid
-    gameRef <- GameRef.fromPgn(parsed)
+    gameRef <- GameRef.fromLichessPgn(parsed)
   } yield Processed(parsed, replay, gameRef)
 
   private def parseFastPgn(pgn: String): Valid[ParsedPgn] = pgn.split("\n\n") match {
