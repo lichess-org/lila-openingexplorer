@@ -30,7 +30,7 @@ final class MasterDatabase {
           case (uci, stats) => Util.moveFromUci(situation, uci).map(_ -> stats)
         },
       List.empty,
-      entry.gameRefs.sortBy(-_.averageRating).take(maxGames)
+      entry.gameRefs.distinct.sortBy(-_.averageRating).take(maxGames)
     )
   }
 

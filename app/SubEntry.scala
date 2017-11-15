@@ -54,6 +54,7 @@ case class SubEntry(
     writeStats(out)
 
     gameRefs.sortWith(_.averageRating > _.averageRating)
+      .distinct
       .take(SubEntry.maxTopGames)
       .foreach(_.write(out))
   }
