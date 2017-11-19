@@ -33,33 +33,29 @@ final class Importer(
           None
       }
     }
-    if (processed.exists { p => gameInfoDb.contains(p.gameRef.gameId) })
-      logger.info(s"found a dup, skipping batch")
-    else {
-      processed foreach {
-        case Processed(parsed, replay, gameRef) =>
-          GameInfo parse parsed.tags match {
-            case None => logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
-            case Some(info) =>
-              val variant = replay.setup.board.variant
-              try {
-                if (gameInfoDb.store(gameRef.gameId, info)) {
-                  replay.chronoMoves.take(Config.explorer.lichess(variant).maxPlies).foreach {
-                    move =>
-                      lichessDb.merge(variant, gameRef, move)
-                  }
-                } else {
-                  logger.warn(s"Duplicate lichess game ${gameRef.gameId}")
+    processed foreach {
+      case Processed(parsed, replay, gameRef) =>
+        GameInfo parse parsed.tags match {
+          case None => logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
+          case Some(info) =>
+            val variant = replay.setup.board.variant
+            try {
+              if (gameInfoDb.store(gameRef.gameId, info)) {
+                replay.chronoMoves.take(Config.explorer.lichess(variant).maxPlies).foreach {
+                  move =>
+                    lichessDb.merge(variant, gameRef, move)
                 }
-              } catch {
-                case e: Exception => logger.error(s"Can't merge game ${gameRef.gameId}: ${e.getMessage}")
+              } else {
+                logger.warn(s"Duplicate lichess game ${gameRef.gameId}")
               }
-          }
-      }
-      val nb = processed.size
-      nbImported = nbImported + nb
-      logger.info(s"Imported $nb lichess games; total $nbImported")
+            } catch {
+              case e: Exception => logger.error(s"Can't merge game ${gameRef.gameId}: ${e.getMessage}")
+            }
+        }
     }
+    val nb = processed.size
+    nbImported = nbImported + nb
+    logger.info(s"Imported $nb lichess games; total $nbImported")
   }
 
   private val masterInitBoard = chess.Board.init(chess.variant.Standard)
