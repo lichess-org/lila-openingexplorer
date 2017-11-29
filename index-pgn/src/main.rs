@@ -120,7 +120,7 @@ impl Indexer {
             self.batch_size = 0;
 
             let mut res = reqwest::Client::new()
-                .put("http://localhost:9000/import/lichess")
+                .put("http://localhost:9001/import/lichess")
                 .body(mem::replace(&mut self.batch, Vec::new()))
                 .send().expect("send batch");
 
