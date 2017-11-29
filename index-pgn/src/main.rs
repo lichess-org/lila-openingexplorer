@@ -61,7 +61,7 @@ impl TimeControl {
             TimeControl::Blitz
         } else if total < 1500 {
             TimeControl::Rapid
-        } else if total < 21600 {
+        } else if total < 21_600 {
             TimeControl::Classical
         } else {
             TimeControl::Correspondence
@@ -123,7 +123,6 @@ impl Indexer {
                 .put("http://localhost:9000/import/lichess")
                 .body(mem::replace(&mut self.batch, Vec::new()))
                 .send().expect("send batch");
-
 
             let mut answer = String::new();
             res.read_to_string(&mut answer).expect("decode response");
