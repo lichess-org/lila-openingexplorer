@@ -135,14 +135,14 @@ name | type | default | description
 ### `GET /lichess` query lichess opening database
 
 ```
-> curl https://expl.lichess.org/lichess?variant=standard&speeds[]=blitz&speeds[]=classical&ratings[]=2200&ratings[]=2500&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
+> curl https://expl.lichess.org/lichess?variant=standard&speeds[]=blitz&speeds[]=rapid&speeds[]=classical&ratings[]=2200&ratings[]=2500&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
 ```
 
 name | type | default | description
 --- | --- | --- | ---
 **fen** | string | required | FEN of the position to look up
 **variant** | string | required | one of `standard`, `antichess`, `chess960`, `horde`, `racingKings`, `threeCheck`, `atomic`, `crazyhouse` or `kingOfTheHill`
-**speeds[]** | list | none | `bullet`, `blitz` and/or `classical`
+**speeds[]** | list | none | `bullet`, `blitz`, `rapid`, and/or `classical`
 **ratings[]** | list | none | rating groups ranging from their value to the next higher group: `1600`, `1800`, `2000`, `2200` and `2500` to unlimited
 **moves** | int | 12 | number of most common moves to display
 **topGames** | int | 4 | number of top games to display. maximum is 4

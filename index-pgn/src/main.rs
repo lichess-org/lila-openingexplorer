@@ -29,6 +29,7 @@ enum TimeControl {
     UltraBullet,
     Bullet,
     Blitz,
+    Rapid,
     Classical,
     Correspondence,
 }
@@ -58,6 +59,8 @@ impl TimeControl {
             TimeControl::Bullet
         } else if total < 480 {
             TimeControl::Blitz
+        } else if total < 1500 {
+            TimeControl::Rapid
         } else if total < 21600 {
             TimeControl::Classical
         } else {
@@ -179,10 +182,10 @@ impl<'pgn> Visitor<'pgn> for Indexer {
             self.current_game.extend(b"[Variant \"Standard\"]\n");
 
             match self.time_control {
-                TimeControl::Correspondence => 1.0,
-                TimeControl::Classical if rating >= 2000 => 1.0,
-                TimeControl::Classical if rating >= 1800 => 2.0 / 5.0,
-                TimeControl::Classical => 1.0 / 8.0,
+                TimeControl::Correspondence | TimeControl::Classical => 1.0,
+                TimeControl::Rapid if rating >= 2000 => 1.0,
+                TimeControl::Rapid if rating >= 1800 => 2.0 / 5.0,
+                TimeControl::Rapid => 1.0 / 8.0,
                 TimeControl::Blitz if rating >= 2000 => 1.0,
                 TimeControl::Blitz if rating >= 1800 => 1.0 / 4.0,
                 TimeControl::Blitz => 1.0 / 15.0,

@@ -11,17 +11,19 @@ sealed abstract class SpeedGroup(
 
 object SpeedGroup {
 
-  case object Bullet extends SpeedGroup(1, "bullet", 0 to 179)
-  case object Blitz extends SpeedGroup(2, "blitz", 180 to 479)
-  case object Classical extends SpeedGroup(3, "classical", 480 to Int.MaxValue)
+  case object Bullet extends SpeedGroup(0, "bullet", 0 to 179)
+  case object Blitz extends SpeedGroup(1, "blitz", 180 to 479)
+  case object Rapid extends SpeedGroup(2, "rapid", 480 to 1499)
+  case object Classical extends SpeedGroup(3, "classical", 1500 to Int.MaxValue)
 
-  val all = List(Bullet, Blitz, Classical)
+  val all = List(Bullet, Blitz, Rapid, Classical)
 
   val byId = all map { v => (v.id, v) } toMap
 
   def apply(speed: chess.Speed) = speed match {
     case chess.Speed.Bullet | chess.Speed.UltraBullet => Bullet
     case chess.Speed.Blitz => Blitz
+    case chess.Speed.Rapid => Rapid
     case chess.Speed.Classical | chess.Speed.Correspondence => Classical
   }
 
