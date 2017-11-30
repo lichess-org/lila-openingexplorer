@@ -25,7 +25,7 @@ final class Importer(
 
   def lichess(text: String): (Unit, Int) = Time {
     val pgns = text.split(lichessSeparator)
-    val processed = pgns flatMap { pgn =>
+    val processed = pgns.par flatMap { pgn =>
       processLichess(pgn) match {
         case scalaz.Success(processed) => Some(processed)
         case scalaz.Failure(errors) =>
