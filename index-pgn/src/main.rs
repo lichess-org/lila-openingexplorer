@@ -83,7 +83,7 @@ impl TimeControl {
 
 struct Indexer<'pgn> {
     filename: String,
-    date: &'pgn str,
+    date: &'pgn [u8],
 
     white_elo: i16,
     black_elo: i16,
@@ -102,7 +102,7 @@ impl<'pgn> Indexer<'pgn> {
     fn new(filename: &str) -> Indexer {
         Indexer {
             filename: filename.into(),
-            date: "0000-00-00",
+            date: b"0000.00.00",
 
             white_elo: 0,
             black_elo: 0,
@@ -129,7 +129,7 @@ impl<'pgn> Indexer<'pgn> {
 
             let mut answer = String::new();
             res.read_to_string(&mut answer).expect("decode response");
-            println!("{} d: {} t: {}", self.filename, self.date, answer);
+            println!("{} d: {} t: {}", self.filename, str::from_utf8(self.date).expect("date is valid utf8"), answer);
             assert!(res.status().is_success());
         }
     }
@@ -163,7 +163,7 @@ impl<'pgn> Visitor<'pgn> for Indexer<'pgn> {
                 return; // we add this unconditionally later
             }
         } else if key == b"Date" || key == b"UTCDate" {
-            self.date = str::from_utf8(value).expect("date is valid utf-8");
+            self.date = value;
         }
 
         let (key, value) = if key == b"Site" {
