@@ -195,7 +195,7 @@ impl<'pgn> Visitor<'pgn> for Indexer {
                 _ => 1.0 / 20.0,
             }
         } else {
-            1.0 // variant game
+            if rating >= 1600 { 1.0 } else { 0.5 } // variant games
         };
 
         self.current_game.push(b'\n');
