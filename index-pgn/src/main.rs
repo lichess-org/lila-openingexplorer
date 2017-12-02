@@ -9,6 +9,7 @@ extern crate reqwest;
 
 use std::env;
 use std::mem;
+use std::str;
 use std::cmp::min;
 use std::fs::File;
 use std::option::NoneError;
@@ -80,8 +81,9 @@ impl TimeControl {
     }
 }
 
-struct Indexer {
-    context: String,
+struct Indexer<'pgn> {
+    filename: String,
+    date: &'pgn str,
 
     white_elo: i16,
     black_elo: i16,
@@ -96,10 +98,11 @@ struct Indexer {
     batch_size: usize,
 }
 
-impl Indexer {
-    fn new(context: &str) -> Indexer {
+impl<'pgn> Indexer<'pgn> {
+    fn new(filename: &str) -> Indexer {
         Indexer {
-            context: context.into(),
+            filename: filename.into(),
+            date: "0000-00-00",
 
             white_elo: 0,
             black_elo: 0,
@@ -126,13 +129,13 @@ impl Indexer {
 
             let mut answer = String::new();
             res.read_to_string(&mut answer).expect("decode response");
-            println!("{}: {}", self.context, answer);
+            println!("{} d: {} t: {}", self.filename, self.date, answer);
             assert!(res.status().is_success());
         }
     }
 }
 
-impl<'pgn> Visitor<'pgn> for Indexer {
+impl<'pgn> Visitor<'pgn> for Indexer<'pgn> {
     type Result = ();
 
     fn begin_game(&mut self) {
@@ -159,6 +162,8 @@ impl<'pgn> Visitor<'pgn> for Indexer {
             if self.standard {
                 return; // we add this unconditionally later
             }
+        } else if key == b"Date" || key == b"UTCDate" {
+            self.date = str::from_utf8(value).expect("date is valid utf-8");
         }
 
         let (key, value) = if key == b"Site" {
