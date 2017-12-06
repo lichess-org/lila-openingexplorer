@@ -43,10 +43,17 @@ Run server
 
     LD_LIBRARY_PATH=/usr/local/lib sbt run
 
-Index master games
-------------------
+Index from command line
+-----------------------
 
-    python3 bin/index-pgn.py master <games.pgn>
+### Lichess games
+
+    cd index-pgn
+    cargo run --release -- <games.pgn>
+
+### Master games
+
+Not currently implemented.
 
 HTTP API
 --------
