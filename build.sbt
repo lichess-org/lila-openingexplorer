@@ -17,7 +17,7 @@ scalaVersion := "2.12.4"
 scalacOptions ++= Seq("-unchecked", "-language:_")
 
 libraryDependencies ++= Seq(
-  "org.lichess" %% "scalachess" % "8.0",
+  "org.lichess" %% "scalachess" % "8.2",
   "com.github.ornicar" %% "scalalib" % "6.5",
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
   "com.github.kxbmap" %% "configs" % "0.4.4",

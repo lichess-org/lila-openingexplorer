@@ -12,8 +12,6 @@ object GameInfo {
 
   case class Player(name: String, rating: Int)
 
-  private val YearRegex = s".*(\\d{4}).*".r
-
   def parse(pgn: String): Option[GameInfo] = try {
     Parser.TagParser.fromFullPgn(pgn).toOption flatMap parse
   } catch {
@@ -29,10 +27,7 @@ object GameInfo {
       whiteRating <- tags("WhiteElo") flatMap parseIntOption
       blackName <- tags("Black")
       blackRating <- tags("BlackElo") flatMap parseIntOption
-      year = tags.anyDate flatMap {
-        case YearRegex(y) => parseIntOption(y)
-        case _ => None
-      }
+      year = tags.year
     } yield GameInfo(
       white = Player(whiteName, whiteRating),
       black = Player(blackName, blackRating),
