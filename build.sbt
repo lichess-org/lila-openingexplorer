@@ -16,6 +16,9 @@ scalaVersion := "2.12.4"
 
 scalacOptions ++= Seq("-unchecked", "-language:_")
 
+// https://groups.google.com/d/msg/specs2-users/7rvENck2Nzw/N6F-Q5EGv0oJ
+testOptions in Test += Tests.Setup(() => System.setProperty("java.vm.vendor", "Sun"))
+
 libraryDependencies ++= Seq(
   "org.lichess" %% "scalachess" % "8.2",
   "com.github.ornicar" %% "scalalib" % "6.5",
