@@ -24,6 +24,7 @@ RSYNC_OPTIONS=" \
   --exclude conf/application.conf \
   --exclude index-pgn/target \
   --exclude data \
+  --exclude local \
   --exclude '.git/'"
 
 stage="target/universal/stage"
