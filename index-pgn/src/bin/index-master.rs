@@ -1,0 +1,45 @@
+extern crate pgn_reader;
+extern crate memmap;
+extern crate madvise;
+extern crate reqwest;
+
+use std::env;
+use std::fs::File;
+use std::io::Read;
+
+use memmap::Mmap;
+use madvise::{AccessPattern, AdviseMemory};
+use pgn_reader::{Visitor, Skip, Reader};
+
+struct Indexer;
+
+impl<'pgn> Visitor<'pgn> for Indexer {
+    type Result = ();
+
+    fn end_headers(&mut self) -> Skip {
+        Skip(true)
+    }
+
+    fn end_game(&mut self, game: &'pgn [u8]) {
+        let mut res = reqwest::Client::new()
+            .put("http://localhost:9000/import/master")
+            .body(game.to_owned())
+            .send().expect("send game");
+
+        let mut answer = String::new();
+        res.read_to_string(&mut answer).expect("decode response");
+        println!("-> {}", answer);
+        assert!(res.status().is_success());
+    }
+}
+
+fn main() {
+    for arg in env::args().skip(1) {
+        eprintln!("% indexing master games from {} ...", arg);
+        let file = File::open(&arg).expect("fopen");
+        let pgn = unsafe { Mmap::map(&file).expect("mmap") };
+        pgn.advise_memory_access(AccessPattern::Sequential).expect("madvise");
+
+        Reader::new(&mut Indexer, &pgn[..]).read_all();
+    }
+}

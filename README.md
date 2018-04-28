@@ -49,11 +49,12 @@ Index from command line
 ### Lichess games
 
     cd index-pgn
-    cargo run --release -- <games.pgn>
+    cargo run --release --bin index-lichess -- <games.pgn>
 
 ### Master games
 
-Not currently implemented.
+    cd index-pgn
+    cargo run --release --bin index-master -- <games.pgn>
 
 HTTP API
 --------
