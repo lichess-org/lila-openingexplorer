@@ -4,11 +4,11 @@ version = "0.0.0"
 publish = false
 
 [dependencies]
-pgn-reader = "0.3"
+pgn-reader = "0.5"
 memmap = "0.6"
 madvise = "0.1"
-btoi = "0.1"
-rand = "0.3"
+btoi = "0.3"
+rand = "0.4"
 reqwest = "0.8"
 
 [[bin]]
