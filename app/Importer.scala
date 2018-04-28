@@ -63,22 +63,24 @@ final class Importer(
 
   def master(pgn: String): (Valid[Unit], Int) = Time {
     processMaster(pgn) flatMap {
-      case Processed(parsed, replay, gameRef) =>
+      case Processed(parsed, replay, gameRef) => {
+        val moves = replay.chronoMoves.take(Config.explorer.master.maxPlies)
         if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
-          s"Invalid initial position ${Forsyth >> replay.setup.situation}".failureNel
+          s"Invalid initial position: ${Forsyth >> replay.setup.situation}".failureNel
         else if (gameRef.averageRating < masterMinRating)
-          s"Average rating ${gameRef.averageRating} < $masterMinRating".failureNel
-        else {
-          if (pgnDb.store(gameRef.gameId, parsed, replay)) {
-            scalaz.Success {
-              replay.chronoMoves.take(Config.explorer.master.maxPlies).foreach {
-                move => masterDb.merge(gameRef, move)
-              }
+          s"Skipping average rating: ${gameRef.averageRating} < $masterMinRating".failureNel
+        else if (masterDb.exists(moves.last.fold(_.situationBefore, _.situationBefore)))
+          s"Likely duplicate: ${parsed.tags("White")} vs. ${parsed.tags("Black")} (${parsed.tags("Date")})".failureNel
+        else if (pgnDb.store(gameRef.gameId, parsed, replay)) {
+          scalaz.Success {
+            moves.foreach {
+              move => masterDb.merge(gameRef, move)
             }
-          } else {
-            s"Duplicate master game ${gameRef.gameId}".failureNel
           }
+        } else {
+          s"Duplicate master game id: ${gameRef.gameId}".failureNel
         }
+      }
     }
   }
 
