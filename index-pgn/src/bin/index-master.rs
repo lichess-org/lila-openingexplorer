@@ -29,7 +29,6 @@ impl<'pgn> Visitor<'pgn> for Indexer {
         let mut answer = String::new();
         res.read_to_string(&mut answer).expect("decode response");
         println!("-> {}", answer);
-        assert!(res.status().is_success());
     }
 }
 
