@@ -10,3 +10,7 @@ madvise = "0.1"
 btoi = "0.1"
 rand = "0.3"
 reqwest = "0.8"
+
+[[bin]]
+name = "index-lichess"
+path = "src/lichess.rs"
