@@ -144,11 +144,7 @@ class WebApi @Inject() (
     if (Config.explorer.corsHeader) res.withHeaders("Access-Control-Allow-Origin" -> "*")
     else res
 
-  def JsonResult(json: String)(implicit req: RequestHeader) =
-    req.queryString.get("callback").flatMap(_.headOption) match {
-      case Some(callback) => Ok(s"$callback($json)").as("application/javascript; charset=utf-8")
-      case None => Ok(json).as("application/json; charset=utf-8")
-    }
+  def JsonResult(json: String) = Ok(json).as("application/json; charset=utf-8")
 
   private def fenMoveNumber(fen: String) = fen split ' ' lift 5 flatMap parseIntOption
 }

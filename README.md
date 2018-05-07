@@ -59,7 +59,7 @@ Index from command line
 HTTP API
 --------
 
-CORS enabled for all domains. Provide `callback` parameter to use JSONP.
+CORS enabled for all domains.
 
 ### `GET /master` query opening database with master games
 
