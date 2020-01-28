@@ -49,21 +49,22 @@ Index from command line
 ### Lichess games
 
     cd index-pgn
-    cargo run --release -- <games.pgn>
+    cargo run --release --bin index-lichess -- <games.pgn>
 
 ### Master games
 
-Not currently implemented.
+    cd index-pgn
+    cargo run --release --bin index-master -- <games.pgn>
 
 HTTP API
 --------
 
-CORS enabled for all domains. Provide `callback` parameter to use JSONP.
+CORS enabled for all domains.
 
 ### `GET /master` query opening database with master games
 
 ```
-> curl https://expl.lichess.org/master?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
+> curl https://explorer.lichess.ovh/master?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
 ```
 
 name | type | default | description
@@ -122,7 +123,7 @@ name | type | default | description
 ### `GET /master/pgn/{id}` fetch one master game by ID
 
 ```
-> curl https://expl.lichess.org/master/pgn/aAbqI4ey
+> curl https://explorer.lichess.ovh/master/pgn/aAbqI4ey
 ```
 
 ```
@@ -142,7 +143,7 @@ name | type | default | description
 ### `GET /lichess` query lichess opening database
 
 ```
-> curl https://expl.lichess.org/lichess?variant=standard&speeds[]=blitz&speeds[]=rapid&speeds[]=classical&ratings[]=2200&ratings[]=2500&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
+> curl https://explorer.lichess.ovh/lichess?variant=standard&speeds[]=blitz&speeds[]=rapid&speeds[]=classical&ratings[]=2200&ratings[]=2500&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201
 ```
 
 name | type | default | description
@@ -159,7 +160,7 @@ name | type | default | description
 ### `GET /stats` get database stats
 
 ```
-> curl https://expl.lichess.org/stats
+> curl https://explorer.lichess.ovh/stats
 ```
 
 ```javascript

@@ -245,7 +245,7 @@ impl<'pgn> Visitor<'pgn> for Indexer<'pgn> {
 
 fn main() {
     for arg in env::args().skip(1) {
-        eprintln!("% indexing {} ...", arg);
+        eprintln!("% indexing lichess games from {} ...", arg);
         let file = File::open(&arg).expect("fopen");
         let pgn = unsafe { Mmap::map(&file).expect("mmap") };
         pgn.advise_memory_access(AccessPattern::Sequential).expect("madvise");

@@ -59,6 +59,8 @@ final class MasterDatabase @Inject() (
     out.toByteArray
   }
 
+  def exists(situation: Situation): Boolean = db.exists(MasterDatabase.hash(situation))
+
   def merge(gameRef: GameRef, move: MoveOrDrop) = {
     val hash = MasterDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
     val uci  = move.left.map(_.toUci).map(_.toUci)
