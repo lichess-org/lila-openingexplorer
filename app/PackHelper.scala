@@ -1,10 +1,8 @@
 package lila.openingexplorer
 
-import java.io.{ OutputStream, InputStream }
+import java.io.{ InputStream, OutputStream }
 import chess.format.Uci
-import chess.Pos
-import chess.Role
-import chess.{ Pawn, Knight, Bishop, Rook, Queen, King }
+import chess.{ Pos, Role }
 
 trait PackHelper {
 
@@ -19,8 +17,8 @@ trait PackHelper {
 
   protected def readUint(stream: InputStream): Long = {
     var value: Long = 0
-    var i: Int = 0
-    var byte: Int = 0
+    var i: Int      = 0
+    var byte: Int   = 0
 
     do {
       byte = stream.read()
@@ -70,7 +68,7 @@ trait PackHelper {
     move.fold(writeUci(stream, _), writeUci(stream, _))
 
   protected def readUci(stream: InputStream): Either[Uci.Move, Uci.Drop] = {
-    val enc = readUint16(stream)
+    val enc  = readUint16(stream)
     val orig = Pos.all(enc & 63)
     val dest = Pos.all((enc >> 6) & 63)
     if (orig == dest) {

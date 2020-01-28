@@ -1,15 +1,20 @@
 package lila.openingexplorer
 
-import com.typesafe.config.ConfigFactory
-import configs.syntax._
-
+import io.methvin.play.autoconfig._
+import play.api._
+import javax.inject.{ Inject, Singleton }
 import scala.concurrent.duration._
 
 import chess.variant._
 
-object Config {
+@Singleton
+final class Config @Inject() (conf: Configuration) {
 
-  val explorer: Explorer = ConfigFactory.load.get[Explorer]("explorer").value
+  import Config._
+
+  lazy val explorer = conf.get[Explorer]("explorer")
+}
+object Config {
 
   case class Explorer(
       master: Domain,
@@ -19,20 +24,25 @@ object Config {
       corsHeader: Boolean,
       cache: Cache
   )
+  implicit val explorerLoader: ConfigLoader[Explorer] = AutoConfig.loader
 
   case class Cache(
       maxMoves: Int,
       ttl: FiniteDuration
   )
+  implicit val cacheLoader: ConfigLoader[Cache] = AutoConfig.loader
 
   case class Domain(
       maxPlies: Int,
       kyoto: Kyoto
   )
+  implicit val domainLoader: ConfigLoader[Domain] = AutoConfig.loader
 
   case class Pgn(kyoto: Kyoto)
+  implicit val pgnLoader: ConfigLoader[Pgn] = AutoConfig.loader
 
   case class GameInfo(kyoto: Kyoto)
+  implicit val gameInfoLoader: ConfigLoader[GameInfo] = AutoConfig.loader
 
   case class Kyoto(
       file: String,
@@ -40,6 +50,7 @@ object Config {
       defragUnitSize: Int,
       memoryMapSize: Long
   )
+  implicit val kyotoLoader: ConfigLoader[Kyoto] = AutoConfig.loader
 
   case class Lichess(
       standard: Domain,
@@ -54,15 +65,16 @@ object Config {
   ) {
 
     def apply(variant: Variant): Domain = variant match {
-      case Standard => standard
-      case Chess960 => chess960
+      case Standard      => standard
+      case Chess960      => chess960
       case KingOfTheHill => kingOfTheHill
-      case ThreeCheck => threeCheck
-      case Antichess => antichess
-      case Atomic => atomic
-      case Horde => horde
-      case RacingKings => racingKings
-      case Crazyhouse => crazyhouse
+      case ThreeCheck    => threeCheck
+      case Antichess     => antichess
+      case Atomic        => atomic
+      case Horde         => horde
+      case RacingKings   => racingKings
+      case Crazyhouse    => crazyhouse
     }
   }
+  implicit val lichessLoader: ConfigLoader[Lichess] = AutoConfig.loader
 }

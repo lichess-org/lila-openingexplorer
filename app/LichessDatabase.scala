@@ -1,28 +1,36 @@
 package lila.openingexplorer
 
+import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
 import java.io.File
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
-
-import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
+import javax.inject.{ Inject, Singleton }
+import akka.actor.CoordinatedShutdown
 
 import chess.variant.Variant
-import chess.{ Hash, PositionHash, Situation, MoveOrDrop }
+import chess.{ Hash, MoveOrDrop, PositionHash, Situation }
 
-final class LichessDatabase {
+@Singleton
+final class LichessDatabase @Inject() (
+    config: Config,
+    shutdown: CoordinatedShutdown
+)(implicit ec: scala.concurrent.ExecutionContext) {
 
-  val variants = Variant.all.filter(chess.variant.FromPosition!=)
+  val variants = Variant.all.filter(chess.variant.FromPosition.!=)
 
-  private val dbs: Map[Variant, KyotoDb] = variants.map({
-    case variant => variant -> Util.wrapLog(
-      s"Loading ${variant.name} database...",
-      s"${variant.name} database loaded!"
-    ) {
-        val config = Config.explorer.lichess(variant)
-        val dbFile = new File(config.kyoto.file.replace("(variant)", variant.key))
-        dbFile.createNewFile
-        Kyoto.builder(dbFile, config.kyoto).buildAndOpen
-      }
-  }).toMap
+  private val dbs: Map[Variant, KyotoDb] = variants
+    .map({
+      case variant =>
+        variant -> Util.wrapLog(
+          s"Loading ${variant.name} database...",
+          s"${variant.name} database loaded!"
+        ) {
+          val conf   = config.explorer.lichess(variant)
+          val dbFile = new File(conf.kyoto.file.replace("(variant)", variant.key))
+          dbFile.createNewFile
+          Kyoto.builder(dbFile, conf.kyoto).buildAndOpen
+        }
+    })
+    .toMap
 
   import LichessDatabase.Request
 
@@ -32,17 +40,18 @@ final class LichessDatabase {
   private def probe(variant: Variant, h: PositionHash): Entry = {
     dbs.get(variant).flatMap(db => Option(db.get(h))) match {
       case Some(bytes) => unpack(bytes)
-      case None => Entry.empty
+      case None        => Entry.empty
     }
   }
 
   def query(situation: Situation, request: Request): QueryResult = {
-    val entry = probe(situation)
-    val groups = Entry.groups(request.ratings, request.speeds)
+    val entry    = probe(situation)
+    val groups   = Entry.groups(request.ratings, request.speeds)
     val gameRefs = entry.gameRefs(groups)
 
     val potentialTopGames =
-      entry.gameRefs(Entry.groups(RatingGroup.all, request.speeds))
+      entry
+        .gameRefs(Entry.groups(RatingGroup.all, request.speeds))
         .sortWith(_.averageRating > _.averageRating)
         .take(math.min(request.topGames, Entry.maxTopGames))
 
@@ -56,8 +65,7 @@ final class LichessDatabase {
       if (highestRatingGroup.fold(false) { request.ratings.contains _ })
         potentialTopGames.filter { game =>
           request.ratings.contains(RatingGroup.find(game.averageRating))
-        }
-      else
+        } else
         List.empty
 
     val numRecentGames =
@@ -71,7 +79,9 @@ final class LichessDatabase {
       entry.draws(groups),
       entry.blackWins(groups),
       entry.averageRating(groups),
-      entry.moves(groups).toList
+      entry
+        .moves(groups)
+        .toList
         .filterNot(_._2.isEmpty)
         .sortBy(-_._2.total)
         .take(request.maxMoves)
@@ -90,21 +100,24 @@ final class LichessDatabase {
 
   def merge(variant: Variant, gameRef: GameRef, move: MoveOrDrop) = dbs get variant foreach { db =>
     val hash = LichessDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
-    val uci = move.left.map(_.toUci).right.map(_.toUci)
+    val uci  = move.left.map(_.toUci).map(_.toUci)
 
-    db.accept(hash, new WritableVisitor {
-      def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
-        val out = new ByteArrayOutputStream()
-        unpack(value).withGameRef(gameRef, uci).write(out)
-        out.toByteArray
-      }
+    db.accept(
+      hash,
+      new WritableVisitor {
+        def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
+          val out = new ByteArrayOutputStream()
+          unpack(value).withGameRef(gameRef, uci).write(out)
+          out.toByteArray
+        }
 
-      def emptyRecord(key: PositionHash): Array[Byte] = {
-        val out = new ByteArrayOutputStream()
-        Entry.fromGameRef(gameRef, uci).write(out)
-        out.toByteArray
+        def emptyRecord(key: PositionHash): Array[Byte] = {
+          val out = new ByteArrayOutputStream()
+          Entry.fromGameRef(gameRef, uci).write(out)
+          out.toByteArray
+        }
       }
-    })
+    )
   }
 
   def uniquePositions(variant: Variant): Long =
@@ -122,9 +135,12 @@ final class LichessDatabase {
       games
   }
 
-  def closeAll = {
-    dbs.values.foreach { db =>
-      db.close()
+  shutdown.addTask(CoordinatedShutdown.PhaseServiceStop, "close master db") { () =>
+    scala.concurrent.Future {
+      dbs.values.foreach { db =>
+        db.close()
+      }
+      akka.Done
     }
   }
 }

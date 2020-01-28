@@ -1,8 +1,7 @@
 package lila.openingexplorer
 
-import scala.util.matching.Regex
 import scala.util.Random
-import java.io.{ OutputStream, ByteArrayOutputStream, InputStream, ByteArrayInputStream }
+import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream }
 import ornicar.scalalib.Validation
 import scalaz.Validation.FlatMap._
 
@@ -19,17 +18,20 @@ case class GameRef(
     (RatingGroup.find(averageRating), speed)
 
   def write(stream: OutputStream) = {
-    val packedGameId = gameId.zip(gameId.indices.reverse).map {
-      case (c, i) =>
-        GameRef.base.indexOf(c) * math.pow(GameRef.base.size, i).toLong
-    } sum
+    val packedGameId = gameId
+      .zip(gameId.indices.reverse)
+      .map {
+        case (c, i) =>
+          GameRef.base.indexOf(c) * math.pow(GameRef.base.size, i).toLong
+      }
+      .sum
 
     val packedSpeed = speed.id << 14
 
     val packedWinner = winner match {
       case Some(Color.White) => 2 << 12
       case Some(Color.Black) => 1 << 12
-      case None => 0
+      case None              => 0
     }
 
     // must be between 0 and 4095
@@ -92,7 +94,7 @@ object GameRef extends PackHelper with Validation {
 
   private def averageRating(tags: chess.format.pgn.Tags): Option[Int] = {
     val ratings = chess.Color.all.flatMap { c =>
-      tags(s"${c}Elo").flatMap(parseIntOption)
+      tags(s"${c}Elo").flatMap(_.toIntOption)
     }
     if (ratings.nonEmpty) Some(ratings.sum / ratings.size) else None
   }
@@ -102,13 +104,13 @@ object GameRef extends PackHelper with Validation {
       gameId <- game.tags("LichessID").toValid("No LichessID header")
       winner <- game.tags.resultColor.toValid("No result")
       rating <- averageRating(game.tags).toValid("No rating")
-      speed <- SpeedGroup.fromPgn(game.tags).toValid("Invalid clock")
+      speed  <- SpeedGroup.fromPgn(game.tags).toValid("Invalid clock")
     } yield new GameRef(gameId, winner, speed, rating)
   }
 
   def fromMasterPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
     val gameId = game.tags("LichessID") orElse {
-      game.tags("FICSGamesDBGameNo") flatMap parseLongOption map unpackGameId
+      game.tags("FICSGamesDBGameNo") flatMap (_.toLongOption) map unpackGameId
     } getOrElse Random.alphanumeric.take(8).mkString
 
     val speed = SpeedGroup.fromPgn(game.tags).getOrElse(SpeedGroup.Classical)

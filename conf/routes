@@ -1,6 +1,3 @@
-# GET /:category controllers.WebApi.get(category)
-# PUT / controllers.WebApi.put()
-
 GET /master controllers.WebApi.getMaster
 GET /master/pgn/:gameId controllers.WebApi.getMasterPgn(gameId: String)
 GET /lichess controllers.WebApi.getLichess

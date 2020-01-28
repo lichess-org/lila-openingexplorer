@@ -2,31 +2,31 @@ package controllers
 
 import com.github.blemale.scaffeine.{ LoadingCache, Scaffeine }
 import ornicar.scalalib.Validation
-import scalaz.{ Success, Failure }
+import scalaz.{ Failure, Success }
 
 import javax.inject.{ Inject, Singleton }
 
-import play.api._
-import play.api.i18n.Messages.Implicits._
-import play.api.inject.ApplicationLifecycle
 import play.api.libs.json._
 import play.api.mvc._
-import play.api.Play.current
 
 import chess.format.Forsyth
 
 import lila.openingexplorer._
 
+@Singleton
 class WebApi @Inject() (
     cc: ControllerComponents,
+    config: Config,
     masterDb: MasterDatabase,
     lichessDb: LichessDatabase,
     pgnDb: PgnDatabase,
     gameInfoDb: GameInfoDatabase,
     importer: Importer
-) extends AbstractController(cc) with Validation with play.api.i18n.I18nSupport {
+) extends AbstractController(cc)
+    with Validation
+    with play.api.i18n.I18nSupport {
 
-  private val cacheConfig = Config.explorer.cache
+  private val cacheConfig = config.explorer.cache
 
   private val masterCache: LoadingCache[Forms.master.Data, String] = Scaffeine()
     .expireAfterAccess(cacheConfig.ttl)
@@ -43,30 +43,32 @@ class WebApi @Inject() (
     CORS {
       Forms.master.form.bindFromRequest.fold(
         err => BadRequest(err.errorsAsJson),
-        data => (Forsyth << data.fen) match {
-          case Some(situation) => JsonResult {
-            fenMoveNumber(data.fen).fold(fetchMaster _) { moveNumber =>
-              if (moveNumber > cacheConfig.maxMoves) fetchMaster _
-              else masterCache.get _
-            }(data)
+        data =>
+          (Forsyth << data.fen) match {
+            case Some(situation) =>
+              JsonResult {
+                fenMoveNumber(data.fen).fold(fetchMaster _) { moveNumber =>
+                  if (moveNumber > cacheConfig.maxMoves) fetchMaster _
+                  else masterCache.get _
+                }(data)
+              }
+            case None => BadRequest("valid fen required")
           }
-          case None => BadRequest("valid fen required")
-        }
       )
     }
   }
 
-  def deleteMaster(gameId: String) = Action { implicit req =>
+  def deleteMaster(gameId: String) = Action {
     if (importer.deleteMaster(gameId))
       Status(204)
     else
       NotFound("game not found")
   }
 
-  def getMasterPgn(gameId: String) = Action { implicit req =>
+  def getMasterPgn(gameId: String) = Action {
     pgnDb.get(gameId) match {
       case Some(pgn) => Ok(pgn)
-      case None => NotFound("game not found")
+      case None      => NotFound("game not found")
     }
   }
 
@@ -81,8 +83,10 @@ class WebApi @Inject() (
   private def fetchLichess(data: Forms.lichess.Data): String =
     situationOf(data).fold("") { situation =>
       val request = LichessDatabase.Request(
-        data.speedGroups, data.ratingGroups,
-        data.topGamesOrDefault, data.recentGamesOrDefault,
+        data.speedGroups,
+        data.ratingGroups,
+        data.topGamesOrDefault,
+        data.recentGamesOrDefault,
         data.movesOrDefault
       )
 
@@ -94,15 +98,17 @@ class WebApi @Inject() (
     CORS {
       Forms.lichess.form.bindFromRequest.fold(
         err => BadRequest(err.errorsAsJson),
-        data => situationOf(data) match {
-          case Some(situation) => JsonResult {
-            fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
-              if (moveNumber > cacheConfig.maxMoves || !data.fullHouse) fetchLichess _
-              lichessCache.get _
-            }(data)
+        data =>
+          situationOf(data) match {
+            case Some(situation) =>
+              JsonResult {
+                fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
+                  if (moveNumber > cacheConfig.maxMoves || !data.fullHouse) fetchLichess _
+                  lichessCache.get _
+                }(data)
+              }
+            case None => BadRequest("valid fen required")
           }
-          case None => BadRequest("valid fen required")
-        }
       )
     }
   }
@@ -112,16 +118,20 @@ class WebApi @Inject() (
       JsonResult {
         Json stringify Json.obj(
           "master" -> Json.obj(
-            "games" -> pgnDb.count,
+            "games"           -> pgnDb.count,
             "uniquePositions" -> masterDb.uniquePositions
           ),
-          "lichess" -> Json.toJson(lichessDb.variants.map({
-            case variant =>
-              variant.key -> Json.obj(
-                "games" -> lichessDb.totalGames(variant),
-                "uniquePositions" -> lichessDb.uniquePositions(variant)
-              )
-          }).toMap)
+          "lichess" -> Json.toJson(
+            lichessDb.variants
+              .map({
+                case variant =>
+                  variant.key -> Json.obj(
+                    "games"           -> lichessDb.totalGames(variant),
+                    "uniquePositions" -> lichessDb.uniquePositions(variant)
+                  )
+              })
+              .toMap
+          )
         )
       }
     }
@@ -129,7 +139,7 @@ class WebApi @Inject() (
 
   def putMaster = Action(parse.tolerantText) { implicit req =>
     importer.master(req.body) match {
-      case (Success(_), ms) => Ok(s"$ms ms")
+      case (Success(_), ms)      => Ok(s"$ms ms")
       case (Failure(errors), ms) => BadRequest(errors.list.toList.mkString)
     }
   }
@@ -141,14 +151,14 @@ class WebApi @Inject() (
   }
 
   def CORS(res: Result) =
-    if (Config.explorer.corsHeader) res.withHeaders("Access-Control-Allow-Origin" -> "*")
+    if (config.explorer.corsHeader) res.withHeaders("Access-Control-Allow-Origin" -> "*")
     else res
 
   def JsonResult(json: String)(implicit req: RequestHeader) =
     req.queryString.get("callback").flatMap(_.headOption) match {
       case Some(callback) => Ok(s"$callback($json)").as("application/javascript; charset=utf-8")
-      case None => Ok(json).as("application/json; charset=utf-8")
+      case None           => Ok(json).as("application/json; charset=utf-8")
     }
 
-  private def fenMoveNumber(fen: String) = fen split ' ' lift 5 flatMap parseIntOption
+  private def fenMoveNumber(fen: String) = fen split ' ' lift 5 flatMap (_.toIntOption)
 }

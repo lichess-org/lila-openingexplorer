@@ -33,10 +33,15 @@ libraryDependencies ++= Seq(
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
   "com.github.blemale" %% "scaffeine" % "3.1.0" % "compile",
   "io.methvin.play"       %% "autoconfig-macros"              % "0.3.2" % "provided",
+  "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0",
+  guice,
   specs2 % Test
 )
 
 resolvers += "lila-maven" at "https://raw.githubusercontent.com/ornicar/lila-maven/master"
+
+import play.sbt.routes.RoutesKeys
+RoutesKeys.routesImport := Seq.empty
 
 testOptions in Test := Seq(Tests.Argument(TestFrameworks.Specs2, "console"))
 
