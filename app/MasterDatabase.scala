@@ -1,20 +1,24 @@
 package lila.openingexplorer
 
-import java.io.File
+import fm.last.commons.kyoto.WritableVisitor
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
+import javax.inject.{ Inject, Singleton }
+import akka.actor.CoordinatedShutdown
 
-import fm.last.commons.kyoto.{ KyotoDb, WritableVisitor }
+import chess.{ Hash, MoveOrDrop, PositionHash, Situation }
 
-import chess.{ Hash, Situation, MoveOrDrop, PositionHash }
-
-final class MasterDatabase {
+@Singleton
+final class MasterDatabase @Inject() (
+    config: Config,
+    shutdown: CoordinatedShutdown
+)(implicit ec: scala.concurrent.ExecutionContext) {
 
   private val db = Util.wrapLog(
     "Loading master database...",
     "Master database loaded!"
   ) {
-      Kyoto.builder(Config.explorer.master.kyoto).buildAndOpen
-    }
+    Kyoto.builder(config.explorer.master.kyoto).buildAndOpen
+  }
 
   def query(situation: Situation, maxMoves: Int, maxGames: Int): QueryResult = {
     val entry = probe(situation)
@@ -26,7 +30,8 @@ final class MasterDatabase {
       entry.moves.toList
         .filterNot(_._2.isEmpty)
         .sortBy(-_._2.total)
-        .take(maxMoves).flatMap {
+        .take(maxMoves)
+        .flatMap {
           case (uci, stats) => Util.moveFromUci(situation, uci).map(_ -> stats)
         },
       List.empty,
@@ -39,7 +44,7 @@ final class MasterDatabase {
   private def probe(h: PositionHash): SubEntry = {
     Option(db.get(h)) match {
       case Some(bytes) => unpack(bytes)
-      case None => SubEntry.empty
+      case None        => SubEntry.empty
     }
   }
 
@@ -58,36 +63,45 @@ final class MasterDatabase {
 
   def merge(gameRef: GameRef, move: MoveOrDrop) = {
     val hash = MasterDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
-    val uci = move.left.map(_.toUci).right.map(_.toUci)
+    val uci  = move.left.map(_.toUci).map(_.toUci)
 
-    db.accept(hash, new WritableVisitor {
-      def record(key: PositionHash, value: Array[Byte]): Array[Byte] =
-        pack(unpack(value).withGameRef(gameRef, uci))
+    db.accept(
+      hash,
+      new WritableVisitor {
+        def record(key: PositionHash, value: Array[Byte]): Array[Byte] =
+          pack(unpack(value).withGameRef(gameRef, uci))
 
-      def emptyRecord(key: PositionHash): Array[Byte] =
-        pack(SubEntry.fromGameRef(gameRef, uci))
-    })
+        def emptyRecord(key: PositionHash): Array[Byte] =
+          pack(SubEntry.fromGameRef(gameRef, uci))
+      }
+    )
   }
 
   def subtract(gameRef: GameRef, move: MoveOrDrop) = {
     val hash = MasterDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
-    val uci = move.left.map(_.toUci).right.map(_.toUci)
+    val uci  = move.left.map(_.toUci).map(_.toUci)
 
-    db.accept(hash, new WritableVisitor {
-      def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
-        val subtracted = unpack(value).withoutExistingGameRef(gameRef, uci)
-        if (subtracted.isEmpty) WritableVisitor.REMOVE else pack(subtracted)
+    db.accept(
+      hash,
+      new WritableVisitor {
+        def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
+          val subtracted = unpack(value).withoutExistingGameRef(gameRef, uci)
+          if (subtracted.isEmpty) WritableVisitor.REMOVE else pack(subtracted)
+        }
+
+        // should not happen
+        def emptyRecord(key: PositionHash): Array[Byte] = WritableVisitor.NOP
       }
-
-      // should not happen
-      def emptyRecord(key: PositionHash): Array[Byte] = WritableVisitor.NOP
-    })
+    )
   }
 
   def uniquePositions = db.recordCount()
 
-  def close = {
-    db.close()
+  shutdown.addTask(CoordinatedShutdown.PhaseServiceStop, "close master db") { () =>
+    scala.concurrent.Future {
+      db.close()
+      akka.Done
+    }
   }
 }
 

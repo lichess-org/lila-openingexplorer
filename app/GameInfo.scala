@@ -12,21 +12,22 @@ object GameInfo {
 
   case class Player(name: String, rating: Int)
 
-  def parse(pgn: String): Option[GameInfo] = try {
-    Parser.TagParser.fromFullPgn(pgn).toOption flatMap parse
-  } catch {
-    case e: StackOverflowError =>
-      println(pgn)
-      println(s"### StackOverflowError ### in GameInfo.parse")
-      None
-  }
+  def parse(pgn: String): Option[GameInfo] =
+    try {
+      Parser.TagParser.fromFullPgn(pgn).toOption flatMap parse
+    } catch {
+      case e: StackOverflowError =>
+        println(pgn)
+        println(s"### StackOverflowError ### in GameInfo.parse")
+        None
+    }
 
   def parse(tags: Tags): Option[GameInfo] = {
     for {
-      whiteName <- tags("White")
-      whiteRating <- tags("WhiteElo") flatMap parseIntOption
-      blackName <- tags("Black")
-      blackRating <- tags("BlackElo") flatMap parseIntOption
+      whiteName   <- tags("White")
+      whiteRating <- tags("WhiteElo").flatMap(_.toIntOption)
+      blackName   <- tags("Black")
+      blackRating <- tags("BlackElo").flatMap(_.toIntOption)
       year = tags.year
     } yield GameInfo(
       white = Player(whiteName, whiteRating),

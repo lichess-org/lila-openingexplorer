@@ -1,6 +1,6 @@
 package lila.openingexplorer
 
-import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, Mode, Compressor, PageComparator, LogLevel, LogAppender }
+import fm.last.commons.kyoto.factory.{ KyotoDbBuilder, LogAppender, LogLevel, Mode }
 import java.io.File
 
 object Kyoto {

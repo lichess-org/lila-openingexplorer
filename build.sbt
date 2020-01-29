@@ -1,6 +1,6 @@
 name := """lila-openingexplorer"""
 
-version := "2.2"
+version := "2.3"
 
 lazy val root = (project in file("."))
   .enablePlugins(PlayScala, JavaAppPackaging)
@@ -12,38 +12,39 @@ sources in doc in Compile := List()
 publishArtifact in (Compile, packageDoc) := false
 publishArtifact in (Compile, packageSrc) := false
 
-scalaVersion := "2.12.4"
+scalaVersion := "2.13.1"
 
-scalacOptions ++= Seq("-unchecked", "-language:_")
+scalacOptions ++= Seq(
+  "-language:implicitConversions",
+  "-feature",
+  "-deprecation",
+  "-unchecked",
+  "-Wdead-code",
+  "-Xlint:unused,inaccessible,nullary-unit,adapted-args,infer-any,missing-interpolator,eta-zero",
+  "-Xfatal-warnings"
+)
 
 // https://groups.google.com/d/msg/specs2-users/7rvENck2Nzw/N6F-Q5EGv0oJ
-testOptions in Test += Tests.Setup(() => System.setProperty("java.vm.vendor", "Sun"))
+/* testOptions in Test += Tests.Setup(() => System.setProperty("java.vm.vendor", "Sun")) */
 
 libraryDependencies ++= Seq(
-  "org.lichess" %% "scalachess" % "8.2",
-  "com.github.ornicar" %% "scalalib" % "6.5",
+  "org.lichess" %% "scalachess" % "9.2.0",
+  "com.github.ornicar" %% "scalalib" % "6.8",
   "fm.last.commons" % "lastcommons-kyoto" % "1.24.0",
-  "com.github.kxbmap" %% "configs" % "0.4.4",
-  "com.github.blemale" %% "scaffeine" % "2.2.0" % "compile",
+  "com.github.blemale" %% "scaffeine" % "3.1.0" % "compile",
+  "io.methvin.play"       %% "autoconfig-macros"              % "0.3.2" % "provided",
+  "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0",
+  guice,
   specs2 % Test
 )
 
-resolvers += "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
 resolvers += "lila-maven" at "https://raw.githubusercontent.com/ornicar/lila-maven/master"
+
+import play.sbt.routes.RoutesKeys
+RoutesKeys.routesImport := Seq.empty
 
 testOptions in Test := Seq(Tests.Argument(TestFrameworks.Specs2, "console"))
 
 // Play provides two styles of routers, one expects its actions to be injected,
 // the other, legacy style, accesses its actions statically.
 routesGenerator := InjectedRoutesGenerator
-
-import com.typesafe.sbt.SbtScalariform.autoImport.scalariformFormat
-import com.typesafe.sbt.SbtScalariform.ScalariformKeys
-import scalariform.formatter.preferences._
-
-Seq(
-  ScalariformKeys.preferences := ScalariformKeys.preferences.value
-    .setPreference(DanglingCloseParenthesis, Force)
-    .setPreference(DoubleIndentConstructorArguments, true),
-  excludeFilter in scalariformFormat := "*Routes*"
-)
