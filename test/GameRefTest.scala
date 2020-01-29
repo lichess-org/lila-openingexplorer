@@ -28,7 +28,7 @@ class GameRefTest extends Specification {
     }
 
     "not overflow" in {
-      val g = GameRef("abcdefgh", Some(Color.White), SpeedGroup.Blitz, 5555)
+      val g        = GameRef("abcdefgh", Some(Color.White), SpeedGroup.Blitz, 5555)
       val restored = GameRef.unpack(g.pack)
 
       restored.gameId mustEqual g.gameId

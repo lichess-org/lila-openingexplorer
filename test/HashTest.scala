@@ -11,7 +11,9 @@ class HashTest extends Specification {
 
     "be consistent" in {
       val sit = Forsyth << "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-      sit.map(LichessDatabase.hash.apply(_).map("%02x" format _).mkString) mustEqual Some("463b96181691fc9c3d71fe83987aab73")
+      sit.map(LichessDatabase.hash.apply(_).map("%02x" format _).mkString) mustEqual Some(
+        "463b96181691fc9c3d71fe83987aab73"
+      )
     }
   }
 }

@@ -1,6 +1,6 @@
 package lila.openingexplorer
 
-import java.io.{ OutputStream, InputStream }
+import java.io.{ InputStream, OutputStream }
 
 import chess.Color
 
