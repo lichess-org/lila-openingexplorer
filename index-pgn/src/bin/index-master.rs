@@ -5,7 +5,6 @@ extern crate reqwest;
 
 use std::env;
 use std::fs::File;
-use std::io::Read;
 
 use memmap::Mmap;
 use madvise::{AccessPattern, AdviseMemory};
@@ -21,13 +20,12 @@ impl<'pgn> Visitor<'pgn> for Indexer {
     }
 
     fn end_game(&mut self, game: &'pgn [u8]) {
-        let mut res = reqwest::Client::new()
+        let res = reqwest::blocking::Client::new()
             .put("http://localhost:9000/import/master")
             .body(game.to_owned())
             .send().expect("send game");
 
-        let mut answer = String::new();
-        res.read_to_string(&mut answer).expect("decode response");
+        let answer = res.text().expect("decode response");
         println!("-> {}", answer);
     }
 }

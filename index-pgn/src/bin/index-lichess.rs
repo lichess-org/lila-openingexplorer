@@ -19,7 +19,8 @@ use memmap::Mmap;
 use madvise::{AccessPattern, AdviseMemory};
 use pgn_reader::{Visitor, Skip, Reader, San};
 use btoi::ParseIntegerError;
-use rand::{random, Closed01};
+use rand::{thread_rng, Rng};
+use rand::distributions::OpenClosed01;
 
 const BATCH_SIZE: usize = 50;
 
@@ -122,7 +123,7 @@ impl<'pgn> Indexer<'pgn> {
         if self.batch_size > 0 {
             self.batch_size = 0;
 
-            let mut res = reqwest::Client::new()
+            let mut res = reqwest::blocking::Client::new()
                 .put("http://localhost:9000/import/lichess")
                 .body(mem::replace(&mut self.batch, Vec::new()))
                 .send().expect("send batch");
@@ -205,7 +206,7 @@ impl<'pgn> Visitor<'pgn> for Indexer<'pgn> {
 
         self.current_game.push(b'\n');
 
-        let Closed01(rnd) = random::<Closed01<f64>>();
+        let rnd = thread_rng().sample(OpenClosed01);
         let accept = min(self.white_elo, self.black_elo) >= 1500 && probability >= rnd;
 
         self.skip = !accept;

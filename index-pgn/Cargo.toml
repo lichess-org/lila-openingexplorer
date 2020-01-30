@@ -8,5 +8,5 @@ pgn-reader = "0.5"
 memmap = "0.6"
 madvise = "0.1"
 btoi = "0.4"
-rand = "0.4"
-reqwest = "0.9"
+rand = "0.7"
+reqwest = { version = "0.10", features = ["blocking"] }
