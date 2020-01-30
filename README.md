@@ -4,7 +4,7 @@ Opening explorer for lichess.org
 Preparations
 ------------
 
-Assuming `build-essential`, `openjdk-8-jdk` and `sbt` are installed.
+Assuming `build-essential`, `openjdk-13-jdk` and `sbt` are installed.
 You already have this, if you are running a local lila instance.
 
 Install Kyoto cabinet headers and utilities.
