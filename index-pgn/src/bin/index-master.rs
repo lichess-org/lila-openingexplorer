@@ -20,8 +20,10 @@ impl<'pgn> Visitor<'pgn> for Indexer {
     }
 
     fn end_game(&mut self, game: &'pgn [u8]) {
+
         let res = reqwest::blocking::Client::new()
             .put("http://localhost:9000/import/master")
+            .header("Content-Type", "application/vnd.chess-pgn;charset=utf-8")
             .body(game.to_owned())
             .send().expect("send game");
 
