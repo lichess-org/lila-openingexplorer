@@ -1,8 +1,6 @@
 Opening explorer for lichess.org
 ================================
 
-[![Build Status](https://travis-ci.org/niklasf/lila-openingexplorer.svg?branch=master)](https://travis-ci.org/niklasf/lila-openingexplorer)
-
 Preparations
 ------------
 
@@ -21,10 +19,10 @@ Install Kyoto cabinet headers and utilities.
 Setup the `$JAVA_HOME` environment variable.
 
     # Debian:
-    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+    export JAVA_HOME=/usr/lib/jvm/java-13-openjdk-amd64
 
     # Arch:
-    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk
+    export JAVA_HOME=/usr/lib/jvm/java-13-openjdk
 
 Download and unpack [Kyotocabinet Java package](http://fallabs.com/kyotocabinet/javapkg/).
 
