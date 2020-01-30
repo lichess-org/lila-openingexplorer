@@ -13,13 +13,13 @@ class EntryTest extends Specification {
 
     "can contain low rated games" in {
       val patzerGame = new GameRef("patzer00", Some(Color.White), SpeedGroup.Classical, 456)
-      val move = Left(Uci.Move(Pos.G1, Pos.F3))
+      val move       = Left(Uci.Move(Pos.G1, Pos.F3))
       Entry.empty.withGameRef(patzerGame, move).totalGames must_== 1
     }
 
     "count total games" in {
-      val g1 = new GameRef("g0000001", Some(Color.Black), SpeedGroup.Bullet, 2001)
-      val g2 = new GameRef("g0000002", None, SpeedGroup.Bullet, 2002)
+      val g1   = new GameRef("g0000001", Some(Color.Black), SpeedGroup.Bullet, 2001)
+      val g2   = new GameRef("g0000002", None, SpeedGroup.Bullet, 2002)
       val move = Left(Uci.Move(Pos.H2, Pos.H6))
 
       Entry.empty.totalGames mustEqual 0
@@ -42,10 +42,12 @@ class EntryTest extends Specification {
 
       val s2 = new SubEntry(Map(e4 -> MoveStats(7, 7, 2, 1200)), List.empty)
 
-      val entry = Entry(Map(
-        (RatingGroup.Group1600, SpeedGroup.Blitz) -> s1,
-        (RatingGroup.Group1800, SpeedGroup.Classical) -> s2
-      ))
+      val entry = Entry(
+        Map(
+          (RatingGroup.Group1600, SpeedGroup.Blitz)     -> s1,
+          (RatingGroup.Group1800, SpeedGroup.Classical) -> s2
+        )
+      )
 
       val total = Map(
         e4 -> MoveStats(10, 10, 5, 2000),
@@ -67,17 +69,17 @@ class EntryTest extends Specification {
   "lichess database packer" should {
 
     "pack a single game" in {
-      val move = Left(Uci.Move(Pos.G1, Pos.F3))
-      val ref = GameRef("ref00000", Some(Color.White), SpeedGroup.Bullet, 1999)
+      val move  = Left(Uci.Move(Pos.G1, Pos.F3))
+      val ref   = GameRef("ref00000", Some(Color.White), SpeedGroup.Bullet, 1999)
       val entry = Entry.fromGameRef(ref, move)
 
       pipe(entry).allGameRefs mustEqual List(ref)
     }
 
     "pack two games" in {
-      val move = Left(Uci.Move(Pos.G1, Pos.F3))
-      val g1 = GameRef("g0000001", Some(Color.Black), SpeedGroup.Classical, 2300)
-      val g2 = GameRef("g0000002", None, SpeedGroup.Classical, 2455)
+      val move  = Left(Uci.Move(Pos.G1, Pos.F3))
+      val g1    = GameRef("g0000001", Some(Color.Black), SpeedGroup.Classical, 2300)
+      val g2    = GameRef("g0000002", None, SpeedGroup.Classical, 2455)
       val entry = Entry.fromGameRef(g1, move).withGameRef(g2, move)
 
       pipe(entry).allGameRefs mustEqual List(g2, g1)
@@ -85,11 +87,14 @@ class EntryTest extends Specification {
 
     "pack thousands of games" in {
       val move = Left(Uci.Move(Pos.G1, Pos.F3))
-      val g1 = GameRef("g0000001", Some(Color.White), SpeedGroup.Blitz, 2033)
-      val subEntry = new SubEntry(List(
-        move -> MoveStats(98765, 54321, 12345, 123456789L)
-      ).toMap, List(g1))
-      val entry = new Entry(Map((RatingGroup.Group2000, SpeedGroup.Blitz) -> subEntry))
+      val g1   = GameRef("g0000001", Some(Color.White), SpeedGroup.Blitz, 2033)
+      val subEntry = new SubEntry(
+        List(
+          move -> MoveStats(98765, 54321, 12345, 123456789L)
+        ).toMap,
+        List(g1)
+      )
+      val entry    = new Entry(Map((RatingGroup.Group2000, SpeedGroup.Blitz) -> subEntry))
       val restored = pipe(entry)
 
       restored.totalWhiteWins mustEqual 98765
@@ -102,9 +107,9 @@ class EntryTest extends Specification {
 
     "preserve chronological order" in {
       val move = Left(Uci.Move(Pos.G1, Pos.G8))
-      val g1 = new GameRef("g0000001", None, SpeedGroup.Classical, 2620)
-      val g2 = new GameRef("g0000002", None, SpeedGroup.Classical, 2610)
-      val g3 = new GameRef("g0000003", None, SpeedGroup.Classical, 2650)
+      val g1   = new GameRef("g0000001", None, SpeedGroup.Classical, 2620)
+      val g2   = new GameRef("g0000002", None, SpeedGroup.Classical, 2610)
+      val g3   = new GameRef("g0000003", None, SpeedGroup.Classical, 2650)
 
       val entry = Entry.fromGameRef(g1, move).withGameRef(g2, move).withGameRef(g3, move)
       entry.allGameRefs mustEqual List(g3, g2, g1)
@@ -136,7 +141,7 @@ class EntryTest extends Specification {
           List(low1, low2, low3, low4, low5, low6, low7, topGame, low8, low9)
         )
 
-      val entry = new Entry(Map((RatingGroup.Group2500, SpeedGroup.Classical) -> subEntry))
+      val entry    = new Entry(Map((RatingGroup.Group2500, SpeedGroup.Classical) -> subEntry))
       val restored = pipe(entry)
 
       restored.allGameRefs must contain(topGame)
@@ -172,16 +177,18 @@ class EntryTest extends Specification {
       val better8 = GameRef("better08", Some(Color.White), SpeedGroup.Bullet, 2784)
       val better9 = GameRef("better08", Some(Color.White), SpeedGroup.Bullet, 2785)
 
-      val entry = new Entry(Map(
-        (RatingGroup.Group2500, SpeedGroup.Classical) -> new SubEntry(
-          List(move -> MoveStats(12345L, 23456L, 34567L, 456789L)).toMap,
-          List(recent1, recent2, recent3, topGame, recent4, recent5, recent6, recent7, recent8, recent9)
-        ),
-        (RatingGroup.Group2500, SpeedGroup.Bullet) -> new SubEntry(
-          List(move -> MoveStats(54321L, 65432L, 76543L, 98765L)).toMap,
-          List(better1, better2, better3, better4, better5, better6, better7, better8, better9)
+      val entry = new Entry(
+        Map(
+          (RatingGroup.Group2500, SpeedGroup.Classical) -> new SubEntry(
+            List(move -> MoveStats(12345L, 23456L, 34567L, 456789L)).toMap,
+            List(recent1, recent2, recent3, topGame, recent4, recent5, recent6, recent7, recent8, recent9)
+          ),
+          (RatingGroup.Group2500, SpeedGroup.Bullet) -> new SubEntry(
+            List(move -> MoveStats(54321L, 65432L, 76543L, 98765L)).toMap,
+            List(better1, better2, better3, better4, better5, better6, better7, better8, better9)
+          )
         )
-      ))
+      )
 
       val restored = pipe(entry)
 

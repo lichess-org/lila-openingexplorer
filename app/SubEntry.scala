@@ -1,7 +1,7 @@
 package lila.openingexplorer
 
 import chess.format.Uci
-import java.io.{ OutputStream, InputStream }
+import java.io.{ InputStream, OutputStream }
 
 case class SubEntry(
     moves: Map[Either[Uci.Move, Uci.Drop], MoveStats],
@@ -31,7 +31,8 @@ case class SubEntry(
 
   def withoutExistingGameRef(game: GameRef, move: Either[Uci.Move, Uci.Drop]) = {
     val stats =
-      moves.get(move)
+      moves
+        .get(move)
         .map(_.withoutExistingGameRef(game: GameRef))
         .getOrElse(MoveStats.empty)
 
@@ -53,7 +54,8 @@ case class SubEntry(
   def write(out: OutputStream) = {
     writeStats(out)
 
-    gameRefs.sortWith(_.averageRating > _.averageRating)
+    gameRefs
+      .sortWith(_.averageRating > _.averageRating)
       .distinct
       .take(SubEntry.maxTopGames)
       .foreach(_.write(out))
@@ -74,7 +76,7 @@ object SubEntry extends PackHelper {
 
   def readStats(in: InputStream, gameRefs: List[GameRef] = List.empty): SubEntry = {
     var remainingMoves = readUint(in)
-    val moves = scala.collection.mutable.Map.empty[Either[Uci.Move, Uci.Drop], MoveStats]
+    val moves          = scala.collection.mutable.Map.empty[Either[Uci.Move, Uci.Drop], MoveStats]
     while (remainingMoves > 0) {
       moves += (readUci(in) -> MoveStats.read(in))
       remainingMoves -= 1;

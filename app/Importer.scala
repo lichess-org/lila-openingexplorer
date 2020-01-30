@@ -64,7 +64,7 @@ final class Importer @Inject() (
   def master(pgn: String): (Valid[Unit], Int) = Time {
     processMaster(pgn) flatMap {
       case Processed(parsed, replay, gameRef) => {
-        val moves = replay.chronoMoves.take(Config.explorer.master.maxPlies)
+        val moves = replay.chronoMoves.take(config.explorer.master.maxPlies)
         if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
           s"Invalid initial position: ${Forsyth >> replay.setup.situation}".failureNel
         else if (gameRef.averageRating < masterMinRating)
@@ -72,11 +72,13 @@ final class Importer @Inject() (
         else if (moves.isEmpty)
           s"No moves in game".failureNel
         else if (masterDb.exists(moves.last.fold(_.situationBefore, _.situationBefore)))
-          s"Likely duplicate: ${parsed.tags("White").getOrElse("?")} vs. ${parsed.tags("Black").getOrElse("?")} (${parsed.tags("Date").getOrElse("????.??.??")})".failureNel
+          s"Likely duplicate: ${parsed.tags("White").getOrElse("?")} vs. ${parsed
+            .tags("Black")
+            .getOrElse("?")} (${parsed.tags("Date").getOrElse("????.??.??")})".failureNel
         else if (pgnDb.store(gameRef.gameId, parsed, replay)) {
           scalaz.Success {
-            moves.foreach {
-              move => masterDb.merge(gameRef, move)
+            moves.foreach { move =>
+              masterDb.merge(gameRef, move)
             }
           }
         } else {

@@ -24,13 +24,17 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
 
   def withExistingGameRef(game: GameRef): Entry = {
     val ratingGroup = RatingGroup.find(game.averageRating)
-    copy(sub = sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed).withExistingGameRef(game)))
+    copy(sub = sub + ((ratingGroup, game.speed) -> subEntry(ratingGroup, game.speed)
+      .withExistingGameRef(game))
+    )
   }
 
   def gameRefs(groups: List[(RatingGroup, SpeedGroup)]): List[GameRef] =
     subEntries(groups)
       .map(_.gameRefs)
-      .flatMap(_.zipWithIndex).sortBy(_._2).map(_._1) // interleave
+      .flatMap(_.zipWithIndex)
+      .sortBy(_._2)
+      .map(_._1) // interleave
 
   def whiteWins(groups: List[(RatingGroup, SpeedGroup)]): Long =
     subEntries(groups).map(_.totalWhite).sum
@@ -57,10 +61,10 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
     subEntries(groups).map(_.moves).foldLeft(Map.empty[Either[Uci.Move, Uci.Drop], MoveStats])(_ |+| _)
   }
 
-  lazy val allGameRefs = gameRefs(Entry.allGroups)
-  def totalWhiteWins = whiteWins(Entry.allGroups)
-  def totalDraws = draws(Entry.allGroups)
-  def totalBlackWins = blackWins(Entry.allGroups)
+  lazy val allGameRefs      = gameRefs(Entry.allGroups)
+  def totalWhiteWins        = whiteWins(Entry.allGroups)
+  def totalDraws            = draws(Entry.allGroups)
+  def totalBlackWins        = blackWins(Entry.allGroups)
   def totalAverageRatingSum = averageRatingSum(Entry.allGroups)
 
   def write(out: OutputStream) = {
@@ -73,8 +77,7 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
     sub.foreach {
       case (group, subEntry) =>
         val toBeStored =
-          (subEntry.gameRefs.take(Entry.maxRecentGames) ::: topGameRefs.filter(_.group == group))
-            .distinct
+          (subEntry.gameRefs.take(Entry.maxRecentGames) ::: topGameRefs.filter(_.group == group)).distinct
 
         if (toBeStored.size > 0) {
           writeUint(out, toBeStored.size)
@@ -122,13 +125,13 @@ object Entry extends PackHelper {
     Entry.empty.withGameRef(game, move)
 
   def groups(
-    ratings: List[RatingGroup],
-    speeds: List[SpeedGroup]
+      ratings: List[RatingGroup],
+      speeds: List[SpeedGroup]
   ): List[(RatingGroup, SpeedGroup)] = {
     // cross product
     for {
       ratingGroup <- ratings
-      speedGroup <- speeds
+      speedGroup  <- speeds
     } yield (ratingGroup, speedGroup)
   }
 

@@ -1,10 +1,10 @@
 package lila.openingexplorer
 
-import java.io.{ ByteArrayOutputStream, ByteArrayInputStream }
+import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
 import org.specs2.mutable._
 import chess.format.Uci
 import chess.Pos
-import chess.{ Rook, King }
+import chess.{ King, Rook }
 
 class PackHelperTest extends Specification with PackHelper {
 

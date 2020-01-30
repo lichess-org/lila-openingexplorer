@@ -113,7 +113,7 @@ class WebApi @Inject() (
     }
   }
 
-  def getStats = Action { implicit req =>
+  def getStats = Action {
     CORS {
       JsonResult {
         Json stringify Json.obj(
