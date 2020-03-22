@@ -17,7 +17,7 @@ object Forms {
 
   object master {
 
-    case class Data(fen: String, moves: Option[Int], topGames: Option[Int]) {
+    case class Data(fen: String, play: Option[String], moves: Option[Int], topGames: Option[Int]) {
 
       def movesOrDefault    = moves getOrElse movesDefault
       def topGamesOrDefault = topGames getOrElse topGamesDefault
@@ -26,6 +26,7 @@ object Forms {
     val form = Form(
       mapping(
         "fen"      -> nonEmptyText,
+        "play"     -> optional(nonEmptyText),
         "moves"    -> optional(number),
         "topGames" -> optional(number)
       )(Data.apply)(Data.unapply)
@@ -36,6 +37,7 @@ object Forms {
 
     case class Data(
         fen: String,
+        play: Option[String],
         moves: Option[Int],
         variant: String,
         speeds: List[String],
@@ -64,6 +66,7 @@ object Forms {
     val form = Form(
       mapping(
         "fen"         -> nonEmptyText,
+        "play"        -> optional(nonEmptyText),
         "moves"       -> optional(number),
         "variant"     -> nonEmptyText.verifying(variants contains _),
         "speeds"      -> list(nonEmptyText.verifying(speeds contains _)),

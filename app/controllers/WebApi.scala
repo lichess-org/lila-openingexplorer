@@ -9,7 +9,8 @@ import javax.inject.{ Inject, Singleton }
 import play.api.libs.json._
 import play.api.mvc._
 
-import chess.format.Forsyth
+import chess.Situation
+import chess.format.{ Forsyth, Uci }
 
 import lila.openingexplorer._
 
@@ -26,6 +27,22 @@ class WebApi @Inject() (
     with Validation
     with play.api.i18n.I18nSupport {
 
+  private def play(sit: Option[Situation], uci: Option[String]): Option[Situation] =
+    uci.filter(_ != "").map(_.split(",")).getOrElse(Array()).foldLeft(sit)({
+      case (Some(sit), uci) => Uci(uci).flatMap(m => m(sit) match {
+        case scalaz.Success(Left(move)) => move.situationAfter.some
+        case scalaz.Success(Right(drop)) => drop.situationAfter.some
+        case scalaz.Failure(_) => None
+      })
+      case ((None, _)) => None
+    })
+
+  private def situationOf(data: Forms.master.Data) =
+    play((Forsyth << data.fen), data.play)
+
+  private def situationOf(data: Forms.lichess.Data) =
+    play((Forsyth << data.fen) map (_ withVariant data.actualVariant), data.play)
+
   private val cacheConfig = config.explorer.cache
 
   private val masterCache: LoadingCache[Forms.master.Data, String] = Scaffeine()
@@ -34,7 +51,7 @@ class WebApi @Inject() (
     .build(fetchMaster)
 
   private def fetchMaster(data: Forms.master.Data): String =
-    (Forsyth << data.fen).fold("") { situation =>
+    situationOf(data).fold("") { situation =>
       val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
       Json stringify JsonView.masterEntry(pgnDb.get)(result)
     }
@@ -44,11 +61,11 @@ class WebApi @Inject() (
       Forms.master.form.bindFromRequest.fold(
         err => BadRequest(err.errorsAsJson),
         data =>
-          (Forsyth << data.fen) match {
+          situationOf(data) match {
             case Some(situation) =>
               JsonResult {
                 fenMoveNumber(data.fen).fold(fetchMaster _) { moveNumber =>
-                  if (moveNumber > cacheConfig.maxMoves) fetchMaster _
+                  if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves) fetchMaster _
                   else masterCache.get _
                 }(data)
               }
@@ -77,9 +94,6 @@ class WebApi @Inject() (
     .maximumSize(10000)
     .build(fetchLichess)
 
-  private def situationOf(data: Forms.lichess.Data) =
-    (Forsyth << data.fen) map (_ withVariant data.actualVariant)
-
   private def fetchLichess(data: Forms.lichess.Data): String =
     situationOf(data).fold("") { situation =>
       val request = LichessDatabase.Request(
@@ -103,7 +117,7 @@ class WebApi @Inject() (
             case Some(situation) =>
               JsonResult {
                 fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
-                  if (moveNumber > cacheConfig.maxMoves || !data.fullHouse) fetchLichess _
+                  if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves || !data.fullHouse) fetchLichess _
                   lichessCache.get _
                 }(data)
               }
