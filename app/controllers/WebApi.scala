@@ -11,6 +11,7 @@ import play.api.mvc._
 
 import chess.Situation
 import chess.format.{ Forsyth, Uci }
+import chess.opening.{ FullOpening, FullOpeningDB }
 
 import lila.openingexplorer._
 
@@ -27,15 +28,28 @@ class WebApi @Inject() (
     with Validation
     with play.api.i18n.I18nSupport {
 
-  private def play(sit: Option[Situation], uci: Option[String]): Option[Situation] =
-    uci.filter(_ != "").map(_.split(",")).getOrElse(Array()).foldLeft(sit)({
-      case (Some(sit), uci) => Uci(uci).flatMap(m => m(sit) match {
-        case scalaz.Success(Left(move)) => move.situationAfter.some
-        case scalaz.Success(Right(drop)) => drop.situationAfter.some
-        case scalaz.Failure(_) => None
-      })
+  private def findOpening(sit: Situation): Option[FullOpening] =
+    FullOpeningDB.findByFen(Forsyth >> sit)
+
+  private def play(
+      situation: Option[Situation],
+      line: Option[String]
+  ): Option[(Situation, Option[FullOpening])] = {
+    val moves = line.filter(_ != "").map(_.split(",")).getOrElse(Array())
+    moves.foldLeft(situation.map(sit => (sit, findOpening(sit)))) {
+      case (Some((sit, opening)), uci) =>
+        Uci(uci).flatMap(m =>
+          m(sit) match {
+            case scalaz.Success(Left(move)) =>
+              Some((move.situationAfter, findOpening(move.situationAfter) orElse opening))
+            case scalaz.Success(Right(drop)) =>
+              Some((drop.situationAfter, opening))
+            case scalaz.Failure(_) => None
+          }
+        )
       case ((None, _)) => None
-    })
+    }
+  }
 
   private def situationOf(data: Forms.master.Data) =
     play((Forsyth << data.fen), data.play)
@@ -51,9 +65,10 @@ class WebApi @Inject() (
     .build(fetchMaster)
 
   private def fetchMaster(data: Forms.master.Data): String =
-    situationOf(data).fold("") { situation =>
-      val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
-      Json stringify JsonView.masterEntry(pgnDb.get)(result)
+    situationOf(data).fold("") {
+      case (situation, opening) =>
+        val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
+        Json stringify JsonView.masterEntry(pgnDb.get)(result, opening)
     }
 
   def getMaster = Action { implicit req =>
@@ -69,7 +84,7 @@ class WebApi @Inject() (
                   else masterCache.get _
                 }(data)
               }
-            case None => BadRequest("valid fen required")
+            case None => BadRequest("valid position required")
           }
       )
     }
@@ -95,17 +110,18 @@ class WebApi @Inject() (
     .build(fetchLichess)
 
   private def fetchLichess(data: Forms.lichess.Data): String =
-    situationOf(data).fold("") { situation =>
-      val request = LichessDatabase.Request(
-        data.speedGroups,
-        data.ratingGroups,
-        data.topGamesOrDefault,
-        data.recentGamesOrDefault,
-        data.movesOrDefault
-      )
+    situationOf(data).fold("") {
+      case (situation, opening) =>
+        val request = LichessDatabase.Request(
+          data.speedGroups,
+          data.ratingGroups,
+          data.topGamesOrDefault,
+          data.recentGamesOrDefault,
+          data.movesOrDefault
+        )
 
-      val entry = lichessDb.query(situation, request)
-      Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry)
+        val entry = lichessDb.query(situation, request)
+        Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, opening)
     }
 
   def getLichess = Action { implicit req =>
@@ -117,11 +133,12 @@ class WebApi @Inject() (
             case Some(situation) =>
               JsonResult {
                 fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
-                  if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves || !data.fullHouse) fetchLichess _
+                  if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves || !data.fullHouse)
+                    fetchLichess _
                   lichessCache.get _
                 }(data)
               }
-            case None => BadRequest("valid fen required")
+            case None => BadRequest("valid position required")
           }
       )
     }

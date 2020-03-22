@@ -114,8 +114,9 @@ name | type | default | description
     },
     // ...
   ],
-  "recentGames": []  // roughly ordered by date, newer games first
-                     // (only in lichess database)
+  "recentGames": [],  // roughly ordered by date, newer games first
+                      // (only in lichess database)
+  "opening": null  // eco, name
 }
 ```
 

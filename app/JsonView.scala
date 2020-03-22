@@ -3,21 +3,24 @@ package lila.openingexplorer
 import play.api.libs.json._
 
 import chess.MoveOrDrop
+import chess.opening.FullOpening
 
 object JsonView {
 
-  def masterEntry(fetchPgn: String => Option[String])(entry: QueryResult) = {
+  def masterEntry(fetchPgn: String => Option[String])(entry: QueryResult, opening: Option[FullOpening]) = {
     def refToJson(ref: GameRef) =
       fetchPgn(ref.gameId) flatMap GameInfo.parse map richGameRef(ref)
-    baseEntry(entry) ++ Json.obj(
+    baseEntry(entry, opening) ++ Json.obj(
       "topGames" -> entry.topGames.flatMap(refToJson)
     )
   }
 
-  def lichessEntry(fetchInfo: String => Option[GameInfo])(entry: QueryResult) = {
+  def lichessEntry(
+      fetchInfo: String => Option[GameInfo]
+  )(entry: QueryResult, opening: Option[FullOpening]) = {
     def refToJson(ref: GameRef) =
       fetchInfo(ref.gameId) map richGameRef(ref)
-    baseEntry(entry) ++ Json.obj(
+    baseEntry(entry, opening) ++ Json.obj(
       "recentGames" -> entry.recentGames.flatMap(refToJson),
       "topGames"    -> entry.topGames.flatMap(refToJson)
     )
@@ -37,12 +40,18 @@ object JsonView {
     }
   }
 
-  private def baseEntry(entry: QueryResult) = Json.obj(
+  private def openingInfo(opening: FullOpening) = Json.obj(
+    "eco"  -> opening.eco,
+    "name" -> opening.name
+  )
+
+  private def baseEntry(entry: QueryResult, opening: Option[FullOpening]) = Json.obj(
     "white"         -> entry.white,
     "draws"         -> entry.draws,
     "black"         -> entry.black,
     "moves"         -> moveStats(entry.moves),
-    "averageRating" -> entry.averageRating
+    "averageRating" -> entry.averageRating,
+    "opening"       -> opening.map(openingInfo)
   )
 
   private def gameRef(ref: GameRef) = Json.obj(
