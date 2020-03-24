@@ -137,7 +137,7 @@ class WebApi @Inject() (
                 fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
                   if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves || !data.fullHouse)
                     fetchLichess _
-                  lichessCache.get _
+                  else lichessCache.get _
                 }(data)
               }
             case None => BadRequest("valid position required")
