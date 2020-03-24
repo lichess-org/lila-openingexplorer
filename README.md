@@ -26,7 +26,9 @@ Setup the `$JAVA_HOME` environment variable.
 
 Download and unpack [Kyotocabinet Java package](http://fallabs.com/kyotocabinet/javapkg/).
 
-    curl http://fallabs.com/kyotocabinet/javapkg/kyotocabinet-java-1.24.tar.gz | tar xvz
+    wget http://fallabs.com/kyotocabinet/javapkg/kyotocabinet-java-1.24.tar.gz
+    sha512sum --check kyotocabinet-java-1.24.tar.gz.sha512
+    tar -xvzf kyotocabinet-java-1.24.tar.gz
     cd kyotocabinet-java-1.24
     ./configure
     make
