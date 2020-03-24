@@ -32,9 +32,7 @@ final class PgnDatabase @Inject() (
 
   def store(gameId: String, parsed: ParsedPgn, replay: Replay): Boolean = {
 
-    val tags = parsed.tags.value.filter { tag =>
-      relevantTags contains tag.name
-    }
+    val tags = parsed.tags.value.filter { tag => relevantTags contains tag.name }
     val fenSituation = tags find (_.name == Tag.FEN) flatMap {
       case Tag(_, fen) => Forsyth <<< fen
     }

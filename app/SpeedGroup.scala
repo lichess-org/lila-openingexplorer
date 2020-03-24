@@ -17,9 +17,7 @@ object SpeedGroup {
 
   val all = List(Bullet, Blitz, Rapid, Classical)
 
-  val byId = all.view.map { v =>
-    (v.id, v)
-  }.toMap
+  val byId = all.view.map { v => (v.id, v) }.toMap
 
   def apply(speed: chess.Speed) = speed match {
     case chess.Speed.Bullet | chess.Speed.UltraBullet       => Bullet

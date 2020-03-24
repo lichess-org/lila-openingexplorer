@@ -93,9 +93,7 @@ object GameRef extends PackHelper with Validation {
   }
 
   private def averageRating(tags: chess.format.pgn.Tags): Option[Int] = {
-    val ratings = chess.Color.all.flatMap { c =>
-      tags(s"${c}Elo").flatMap(_.toIntOption)
-    }
+    val ratings = chess.Color.all.flatMap { c => tags(s"${c}Elo").flatMap(_.toIntOption) }
     if (ratings.nonEmpty) Some(ratings.sum / ratings.size) else None
   }
 

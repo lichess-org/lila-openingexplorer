@@ -77,9 +77,7 @@ final class Importer @Inject() (
             .getOrElse("?")} (${parsed.tags("Date").getOrElse("????.??.??")})".failureNel
         else if (pgnDb.store(gameRef.gameId, parsed, replay)) {
           scalaz.Success {
-            moves.foreach { move =>
-              masterDb.merge(gameRef, move)
-            }
+            moves.foreach { move => masterDb.merge(gameRef, move) }
           }
         } else {
           s"Duplicate master game id: ${gameRef.gameId}".failureNel

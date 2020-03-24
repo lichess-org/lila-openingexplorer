@@ -56,16 +56,13 @@ final class LichessDatabase @Inject() (
         .take(math.min(request.topGames, Entry.maxTopGames))
 
     val highestRatingGroup =
-      potentialTopGames.headOption.map { bestGame =>
-        RatingGroup.find(bestGame.averageRating)
-      }
+      potentialTopGames.headOption.map { bestGame => RatingGroup.find(bestGame.averageRating) }
 
     // only yield top games if highest rating group selected
     val topGames =
       if (highestRatingGroup.fold(false) { request.ratings.contains _ })
-        potentialTopGames.filter { game =>
-          request.ratings.contains(RatingGroup.find(game.averageRating))
-        } else
+        potentialTopGames.filter { game => request.ratings.contains(RatingGroup.find(game.averageRating)) }
+      else
         List.empty
 
     val numRecentGames =
@@ -137,9 +134,7 @@ final class LichessDatabase @Inject() (
 
   shutdown.addTask(CoordinatedShutdown.PhaseServiceStop, "close master db") { () =>
     scala.concurrent.Future {
-      dbs.values.foreach { db =>
-        db.close()
-      }
+      dbs.values.foreach { db => db.close() }
       akka.Done
     }
   }

@@ -46,13 +46,9 @@ object Forms {
         recentGames: Option[Int]
     ) {
 
-      def ratingGroups = RatingGroup.all.filter { x =>
-        ratings contains x.range.min
-      }
+      def ratingGroups = RatingGroup.all.filter { x => ratings contains x.range.min }
 
-      def speedGroups = SpeedGroup.all.filter { x =>
-        speeds contains x.name
-      }
+      def speedGroups = SpeedGroup.all.filter { x => speeds contains x.name }
 
       def actualVariant = chess.variant.Variant orDefault variant
 
