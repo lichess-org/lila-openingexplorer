@@ -2,8 +2,6 @@ package lila.openingexplorer
 
 import org.specs2.mutable._
 
-import chess.Color
-
 class GameInfoTest extends Specification {
 
   val pgn =

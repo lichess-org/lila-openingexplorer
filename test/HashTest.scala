@@ -2,7 +2,6 @@ package lila.openingexplorer
 
 import org.specs2.mutable._
 
-import chess.{ Hash, PositionHash }
 import chess.format.Forsyth
 
 class HashTest extends Specification {
