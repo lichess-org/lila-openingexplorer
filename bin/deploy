@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-REMOTE="root@salsa.lichess.ovh"
+REMOTE="root@rubik.lichess.ovh"
 REMOTE_DIR="/home/explorer"
 
 echo "Deploy to server $REMOTE:$REMOTE_DIR"
@@ -37,7 +37,7 @@ echo "rsync complete"
 echo "Press [Enter] to continue."
 read
 
-echo "Restart lichess-explorer"
-ssh $REMOTE "chown -R lichess-explorer:lichess-explorer $REMOTE_DIR && systemctl restart lichess-explorer"
+echo "Restart lila-openingexplorer"
+ssh $REMOTE "chown -R lichess-explorer:lichess-explorer $REMOTE_DIR && systemctl restart lila-openingexplorer"
 
 echo "Deploy complete"
