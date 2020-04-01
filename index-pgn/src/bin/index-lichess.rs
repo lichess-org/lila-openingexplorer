@@ -1,5 +1,3 @@
-#![feature(try_trait)]
-
 extern crate pgn_reader;
 extern crate memmap;
 extern crate madvise;
@@ -12,7 +10,6 @@ use std::mem;
 use std::str;
 use std::cmp::min;
 use std::fs::File;
-use std::option::NoneError;
 use std::io::Read;
 
 use memmap::Mmap;
@@ -38,12 +35,6 @@ enum TimeControl {
 
 #[derive(Debug)]
 struct TimeControlError;
-
-impl From<NoneError> for TimeControlError {
-    fn from(_: NoneError) -> TimeControlError {
-        TimeControlError { }
-    }
-}
 
 impl From<ParseIntegerError> for TimeControlError {
     fn from(_: ParseIntegerError) -> TimeControlError {
@@ -76,8 +67,8 @@ impl TimeControl {
         }
 
         let mut parts = bytes.splitn(2, |ch| *ch == b'+');
-        let seconds = btoi::btou(parts.next()?)?;
-        let increment = btoi::btou(parts.next()?)?;
+        let seconds = btoi::btou(parts.next().ok_or(TimeControlError)?)?;
+        let increment = btoi::btou(parts.next().ok_or(TimeControlError)?)?;
         Ok(TimeControl::from_seconds_and_increment(seconds, increment))
     }
 }
