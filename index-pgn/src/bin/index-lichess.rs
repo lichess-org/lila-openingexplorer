@@ -239,11 +239,13 @@ fn main() {
     for arg in env::args().skip(1) {
         eprintln!("% indexing lichess games from {} ...", arg);
         let file = File::open(&arg).expect("fopen");
-        let pgn = unsafe { Mmap::map(&file).expect("mmap") };
-        pgn.advise_memory_access(AccessPattern::Sequential).expect("madvise");
+        if file.metadata().expect("meta").len() != 0 {
+            let pgn = unsafe { Mmap::map(&file).expect("mmap") };
+            pgn.advise_memory_access(AccessPattern::Sequential).expect("madvise");
 
-        let mut indexer = Indexer::new(&arg);
-        Reader::new(&mut indexer, &pgn[..]).read_all();
-        indexer.send(); // send last
+            let mut indexer = Indexer::new(&arg);
+            Reader::new(&mut indexer, &pgn[..]).read_all();
+            indexer.send(); // send last
+        }
     }
 }
