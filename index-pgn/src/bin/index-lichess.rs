@@ -11,6 +11,7 @@ use std::str;
 use std::cmp::min;
 use std::fs::File;
 use std::io::Read;
+use std::time::Duration;
 
 use memmap::Mmap;
 use madvise::{AccessPattern, AdviseMemory};
@@ -74,6 +75,8 @@ impl TimeControl {
 }
 
 struct Indexer<'pgn> {
+    client: reqwest::blocking::Client,
+
     filename: String,
     date: &'pgn [u8],
 
@@ -93,6 +96,8 @@ struct Indexer<'pgn> {
 impl<'pgn> Indexer<'pgn> {
     fn new(filename: &str) -> Indexer {
         Indexer {
+            client: reqwest::blocking::Client::builder().timeout(Duration::from_secs(60)).build().expect("client"),
+
             filename: filename.into(),
             date: b"0000.00.00",
 
@@ -114,8 +119,8 @@ impl<'pgn> Indexer<'pgn> {
         if self.batch_size > 0 {
             self.batch_size = 0;
 
-            let mut res = reqwest::blocking::Client::new()
-                .put("http://localhost:9000/import/lichess")
+            let mut res = self.client
+                .put("http://127.0.0.1:9000/import/lichess")
                 .body(mem::replace(&mut self.batch, Vec::new()))
                 .send().expect("send batch");
 
