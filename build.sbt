@@ -24,9 +24,6 @@ scalacOptions ++= Seq(
   "-Xfatal-warnings"
 )
 
-// https://groups.google.com/d/msg/specs2-users/7rvENck2Nzw/N6F-Q5EGv0oJ
-/* testOptions in Test += Tests.Setup(() => System.setProperty("java.vm.vendor", "Sun")) */
-
 libraryDependencies ++= Seq(
   "org.lichess"            %% "scalachess"                 % "9.2.1",
   "com.github.ornicar"     %% "scalalib"                   % "6.8",
@@ -43,6 +40,7 @@ resolvers += "lila-maven" at "https://raw.githubusercontent.com/ornicar/lila-mav
 import play.sbt.routes.RoutesKeys
 RoutesKeys.routesImport := Seq.empty
 
+parallelExecution in Test := false
 testOptions in Test := Seq(Tests.Argument(TestFrameworks.Specs2, "console"))
 
 // Play provides two styles of routers, one expects its actions to be injected,
