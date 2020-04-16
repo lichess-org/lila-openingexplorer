@@ -14,4 +14,4 @@ jobs:
     - uses: olafurpg/setup-scala@49fc8c734ef6916b4e1da8ba8d81bb26a2b46a06 # v7
       with:
         java-version: openjdk@1.13.0-2
-    - run: sbt test
+    - run: sbt compile
