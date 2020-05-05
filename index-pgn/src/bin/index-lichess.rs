@@ -121,6 +121,7 @@ impl<'pgn> Indexer<'pgn> {
 
             let mut res = self.client
                 .put("http://127.0.0.1:9000/import/lichess")
+                .header("Content-Type", "application/vnd.chess-pgn;charset=utf-8")
                 .body(mem::replace(&mut self.batch, Vec::new()))
                 .send().expect("send batch");
 
