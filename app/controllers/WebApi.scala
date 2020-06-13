@@ -11,7 +11,7 @@ import play.api.mvc._
 
 import chess.Situation
 import chess.variant.Variant
-import chess.format.{ Forsyth, Uci }
+import chess.format.{ Forsyth, Uci, FEN }
 import chess.opening.{ FullOpening, FullOpeningDB }
 
 import lila.openingexplorer._
@@ -30,7 +30,7 @@ class WebApi @Inject() (
     with play.api.i18n.I18nSupport {
 
   private def findOpening(sit: Situation): Option[FullOpening] =
-    if (Variant.openingSensibleVariants(sit.board.variant)) FullOpeningDB.findByFen(Forsyth >> sit)
+    if (Variant.openingSensibleVariants(sit.board.variant)) FullOpeningDB.findByFen(FEN(Forsyth >> sit))
     else None
 
   private def play(
