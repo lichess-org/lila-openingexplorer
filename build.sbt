@@ -25,7 +25,7 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "org.lichess"            %% "scalachess"                 % "10.1.2",
+  "org.lichess"            %% "scalachess"                 % "9.3.0",
   "com.github.ornicar"     %% "scalalib"                   % "6.8",
   "fm.last.commons"        % "lastcommons-kyoto"           % "1.24.0",
   "com.github.blemale"     %% "scaffeine"                  % "4.0.2" % "compile",

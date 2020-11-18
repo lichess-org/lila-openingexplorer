@@ -1,17 +1,17 @@
 package controllers
 
 import com.github.blemale.scaffeine.{ LoadingCache, Scaffeine }
+import ornicar.scalalib.Validation
+import scalaz.{ Failure, Success }
 
 import javax.inject.{ Inject, Singleton }
-
-import cats.data.Validated
 
 import play.api.libs.json._
 import play.api.mvc._
 
 import chess.Situation
 import chess.variant.Variant
-import chess.format.{ FEN, Forsyth, Uci }
+import chess.format.{ Forsyth, Uci, FEN }
 import chess.opening.{ FullOpening, FullOpeningDB }
 
 import lila.openingexplorer._
@@ -26,10 +26,11 @@ class WebApi @Inject() (
     gameInfoDb: GameInfoDatabase,
     importer: Importer
 ) extends AbstractController(cc)
+    with Validation
     with play.api.i18n.I18nSupport {
 
   private def findOpening(sit: Situation): Option[FullOpening] =
-    if (Variant.openingSensibleVariants(sit.board.variant)) FullOpeningDB.findByFen(Forsyth >> sit)
+    if (Variant.openingSensibleVariants(sit.board.variant)) FullOpeningDB.findByFen(FEN(Forsyth >> sit))
     else None
 
   private def play(
@@ -41,11 +42,11 @@ class WebApi @Inject() (
       case (Some((sit, opening)), uci) =>
         Uci(uci).flatMap(m =>
           m(sit) match {
-            case Validated.Valid(Left(move)) =>
+            case scalaz.Success(Left(move)) =>
               Some((move.situationAfter, findOpening(move.situationAfter) orElse opening))
-            case Validated.Valid(Right(drop)) =>
+            case scalaz.Success(Right(drop)) =>
               Some((drop.situationAfter, opening))
-            case Validated.Invalid(_) => None
+            case scalaz.Failure(_) => None
           }
         )
       case ((None, _)) => None
@@ -53,10 +54,10 @@ class WebApi @Inject() (
   }
 
   private def situationOf(data: Forms.master.Data) =
-    play((Forsyth << FEN(data.fen)), data.play)
+    play((Forsyth << data.fen), data.play)
 
   private def situationOf(data: Forms.lichess.Data) =
-    play((Forsyth << FEN(data.fen)) map (_ withVariant data.actualVariant), data.play)
+    play((Forsyth << data.fen) map (_ withVariant data.actualVariant), data.play)
 
   private val cacheConfig = config.explorer.cache
 
@@ -171,8 +172,8 @@ class WebApi @Inject() (
 
   def putMaster = Action(parse.tolerantText) { implicit req =>
     importer.master(req.body) match {
-      case (Validated.Valid(_), ms)       => Ok(s"$ms ms")
-      case (Validated.Invalid(error), ms) => BadRequest(error)
+      case (Success(_), ms)      => Ok(s"$ms ms")
+      case (Failure(errors), ms) => BadRequest(errors.list.toList.mkString)
     }
   }
 
