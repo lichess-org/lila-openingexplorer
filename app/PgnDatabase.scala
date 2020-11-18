@@ -4,7 +4,7 @@ import akka.actor.CoordinatedShutdown
 import fm.last.commons.kyoto.factory.{ Compressor, PageComparator }
 import javax.inject.{ Inject, Singleton }
 
-import chess.format.Forsyth
+import chess.format.{ FEN, Forsyth }
 import chess.format.pgn.{ Move, ParsedPgn, Pgn, Tag, TagType, Tags, Turn }
 import chess.Replay
 
@@ -34,7 +34,7 @@ final class PgnDatabase @Inject() (
 
     val tags = parsed.tags.value.filter { tag => relevantTags contains tag.name }
     val fenSituation = tags find (_.name == Tag.FEN) flatMap {
-      case Tag(_, fen) => Forsyth <<< fen
+      case Tag(_, fen) => Forsyth <<< FEN(fen)
     }
     val pgnMoves = replay.chronoMoves
       .foldLeft(replay.setup) {

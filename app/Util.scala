@@ -1,5 +1,7 @@
 package lila.openingexplorer
 
+import cats.data.Validated
+
 import chess.{ MoveOrDrop, Situation }
 import chess.format.Uci
 
@@ -11,9 +13,9 @@ object Util {
       .map(d => situation.drop(d.role, d.pos))
 
     move match {
-      case Left(scalaz.Success(move))  => Some(Left(move))
-      case Right(scalaz.Success(drop)) => Some(Right(drop))
-      case _                           => None
+      case Left(Validated.Valid(move))  => Some(Left(move))
+      case Right(Validated.Valid(drop)) => Some(Right(drop))
+      case _                            => None
     }
   }
 

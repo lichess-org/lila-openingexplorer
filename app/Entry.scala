@@ -2,8 +2,8 @@ package lila.openingexplorer
 
 import java.io.{ InputStream, OutputStream }
 
-import scalaz._
-import Scalaz._
+import cats.Semigroup
+import cats.implicits._
 
 import chess.format.Uci
 
