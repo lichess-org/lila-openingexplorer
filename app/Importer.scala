@@ -1,9 +1,10 @@
 package lila.openingexplorer
 
-import ornicar.scalalib.Validation
 import scala.collection.parallel.CollectionConverters._
-import scalaz.Validation.FlatMap._
 import javax.inject.{ Inject, Singleton }
+
+import cats.data.Validated
+import cats.syntax.option._
 
 import chess.format.Forsyth
 import chess.format.pgn.{ InitialPosition, ParsedPgn, Parser, Reader, Sans }
@@ -16,9 +17,7 @@ final class Importer @Inject() (
     lichessDb: LichessDatabase,
     pgnDb: PgnDatabase,
     gameInfoDb: GameInfoDatabase
-) extends Validation
-    with scalaz.syntax.ToValidationOps {
-
+) {
   private val lichessSeparator = "\n\n\n"
 
   private val logger = play.api.Logger("importer")
@@ -29,9 +28,9 @@ final class Importer @Inject() (
     val pgns = text.split(lichessSeparator)
     val processed = pgns.par flatMap { pgn =>
       processLichess(pgn) match {
-        case scalaz.Success(processed) => Some(processed)
-        case scalaz.Failure(errors) =>
-          logger.warn(errors.list.toList mkString ", ")
+        case Validated.Valid(processed) => Some(processed)
+        case Validated.Invalid(error) =>
+          logger.warn(error)
           None
       }
     }
@@ -61,26 +60,26 @@ final class Importer @Inject() (
 
   private val masterMinRating = 2200
 
-  def master(pgn: String): (Valid[Unit], Int) = Time {
-    processMaster(pgn) flatMap {
+  def master(pgn: String): (Validated[String, Unit], Int) = Time {
+    processMaster(pgn) andThen {
       case Processed(parsed, replay, gameRef) => {
         val moves = replay.chronoMoves.take(config.explorer.master.maxPlies)
         if ((Forsyth >> replay.setup.situation) != Forsyth.initial)
-          s"Invalid initial position: ${Forsyth >> replay.setup.situation}".failureNel
+          Validated.invalid(s"Invalid initial position: ${Forsyth >> replay.setup.situation}")
         else if (gameRef.averageRating < masterMinRating)
-          s"Skipping average rating: ${gameRef.averageRating} < $masterMinRating".failureNel
+          Validated.invalid(s"Skipping average rating: ${gameRef.averageRating} < $masterMinRating")
         else if (moves.isEmpty)
-          s"No moves in game".failureNel
+          Validated.invalid(s"No moves in game")
         else if (masterDb.exists(moves.last.fold(_.situationBefore, _.situationBefore)))
-          s"Likely duplicate: ${parsed.tags("White").getOrElse("?")} vs. ${parsed
+          Validated.invalid(s"Likely duplicate: ${parsed.tags("White").getOrElse("?")} vs. ${parsed
             .tags("Black")
-            .getOrElse("?")} (${parsed.tags("Date").getOrElse("????.??.??")})".failureNel
+            .getOrElse("?")} (${parsed.tags("Date").getOrElse("????.??.??")})")
         else if (pgnDb.store(gameRef.gameId, parsed, replay)) {
-          scalaz.Success {
+          Validated.valid {
             moves.foreach { move => masterDb.merge(gameRef, move) }
           }
         } else {
-          s"Duplicate master game id: ${gameRef.gameId}".failureNel
+          Validated.invalid(s"Duplicate master game id: ${gameRef.gameId}")
         }
       }
     }
@@ -88,9 +87,9 @@ final class Importer @Inject() (
 
   def deleteMaster(gameId: String) = {
     pgnDb.get(gameId) map { pgn =>
-      processMaster(pgn) flatMap {
+      processMaster(pgn) andThen {
         case Processed(parsed, replay, newGameRef) =>
-          scalaz.Success {
+          Validated.valid {
             val gameRef = newGameRef.copy(gameId = gameId)
             replay.chronoMoves.take(config.explorer.master.maxPlies).foreach { move =>
               masterDb.subtract(gameRef, move)
@@ -104,17 +103,17 @@ final class Importer @Inject() (
 
   private case class Processed(parsed: ParsedPgn, replay: Replay, gameRef: GameRef)
 
-  private def processMaster(pgn: String): Valid[Processed] =
+  private def processMaster(pgn: String): Validated[String, Processed] =
     for {
       parsed  <- Parser.full(pgn)
       replay  <- Reader.fullWithSans(parsed, identity[Sans] _).valid
       gameRef <- GameRef.fromMasterPgn(parsed)
     } yield Processed(parsed, replay, gameRef)
 
-  private def processLichess(pgn: String): Valid[Processed] =
+  private def processLichess(pgn: String): Validated[String, Processed] =
     for {
       parsed  <- parseFastPgn(pgn)
-      variant <- parsed.tags.variant toValid "Invalid variant"
+      variant <- parsed.tags.variant.toValid("Invalid variant")
       replay <- Reader
         .fullWithSans(
           parsed,
@@ -127,14 +126,14 @@ final class Importer @Inject() (
       gameRef <- GameRef.fromLichessPgn(parsed)
     } yield Processed(parsed, replay, gameRef)
 
-  private def parseFastPgn(pgn: String): Valid[ParsedPgn] = pgn.split("\n\n") match {
+  private def parseFastPgn(pgn: String): Validated[String, ParsedPgn] = pgn.split("\n\n") match {
     case Array(tagStr, moveStr) =>
       for {
         tags    <- Parser.TagParser(tagStr)
-        variant <- tags.variant toValid "Invalid variant"
+        variant <- tags.variant.toValid("Invalid variant")
         moves   <- Parser.moves(moveStr, variant)
       } yield ParsedPgn(InitialPosition(List.empty), tags, moves)
-    case _ => s"Invalid fast pgn $pgn".failureNel
+    case _ => Validated.invalid(s"Invalid fast pgn $pgn")
   }
 
   private def Time[A](f: => A): (A, Int) = {
