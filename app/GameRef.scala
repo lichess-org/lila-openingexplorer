@@ -2,8 +2,10 @@ package lila.openingexplorer
 
 import scala.util.Random
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream }
-import ornicar.scalalib.Validation
-import scalaz.Validation.FlatMap._
+
+import cats.data.Validated
+import cats.syntax.option._
+import cats.syntax.either._
 
 import chess.Color
 
@@ -48,7 +50,7 @@ case class GameRef(
   }
 }
 
-object GameRef extends PackHelper with Validation {
+object GameRef extends PackHelper {
 
   val packSize = 8
 
@@ -97,16 +99,16 @@ object GameRef extends PackHelper with Validation {
     if (ratings.nonEmpty) Some(ratings.sum / ratings.size) else None
   }
 
-  def fromLichessPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
-    for {
-      gameId <- game.tags("LichessID").toValid("No LichessID header")
-      winner <- game.tags.resultColor.toValid("No result")
-      rating <- averageRating(game.tags).toValid("No rating")
-      speed  <- SpeedGroup.fromPgn(game.tags).toValid("Invalid clock")
-    } yield new GameRef(gameId, winner, speed, rating)
+  def fromLichessPgn(game: chess.format.pgn.ParsedPgn): Validated[String, GameRef] = {
+    (for {
+      gameId <- game.tags("LichessID").toRight("No LichessID header")
+      winner <- game.tags.resultColor.toRight("No result")
+      speed <- SpeedGroup.fromPgn(game.tags).toRight("Invalid clock")
+      rating <- averageRating(game.tags).toRight("No rating")
+    } yield new GameRef(gameId, winner, speed, rating)).toValidated
   }
 
-  def fromMasterPgn(game: chess.format.pgn.ParsedPgn): Valid[GameRef] = {
+  def fromMasterPgn(game: chess.format.pgn.ParsedPgn): Validated[String, GameRef] = {
     val gameId = game.tags("LichessID") orElse {
       game.tags("FICSGamesDBGameNo") flatMap (_.toLongOption) map unpackGameId
     } getOrElse Random.alphanumeric.take(8).mkString
