@@ -12,7 +12,7 @@ sources in doc in Compile := List()
 publishArtifact in (Compile, packageDoc) := false
 publishArtifact in (Compile, packageSrc) := false
 
-scalaVersion := "2.13.1"
+scalaVersion := "2.13.5"
 
 scalacOptions ++= Seq(
   "-language:implicitConversions",
