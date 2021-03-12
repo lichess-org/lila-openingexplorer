@@ -74,7 +74,7 @@ class WebApi @Inject() (
 
   def getMaster = Action { implicit req =>
     CORS {
-      Forms.master.form.bindFromRequest.fold(
+      Forms.master.form.bindFromRequest().fold(
         err => BadRequest(err.errorsAsJson),
         data =>
           situationOf(data) match {
@@ -127,7 +127,7 @@ class WebApi @Inject() (
 
   def getLichess = Action { implicit req =>
     CORS {
-      Forms.lichess.form.bindFromRequest.fold(
+      Forms.lichess.form.bindFromRequest().fold(
         err => BadRequest(err.errorsAsJson),
         data =>
           situationOf(data) match {
