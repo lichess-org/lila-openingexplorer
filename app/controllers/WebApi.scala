@@ -61,7 +61,7 @@ class WebApi @Inject() (
   private val cacheConfig = config.explorer.cache
 
   private val masterCache: LoadingCache[Forms.master.Data, String] = Scaffeine()
-    .expireAfterAccess(cacheConfig.ttl)
+    .expireAfterWrite(cacheConfig.ttl)
     .maximumSize(10000)
     .build(fetchMaster)
 
@@ -106,7 +106,7 @@ class WebApi @Inject() (
   }
 
   private val lichessCache: LoadingCache[Forms.lichess.Data, String] = Scaffeine()
-    .expireAfterAccess(cacheConfig.ttl)
+    .expireAfterWrite(cacheConfig.ttl)
     .maximumSize(10000)
     .build(fetchLichess)
 
