@@ -33,12 +33,12 @@ final class PgnDatabase @Inject() (
   def store(gameId: String, parsed: ParsedPgn, replay: Replay): Boolean = {
 
     val tags = parsed.tags.value.filter { tag => relevantTags contains tag.name }
-    val fenSituation = tags find (_.name == Tag.FEN) flatMap {
-      case Tag(_, fen) => Forsyth <<< FEN(fen)
+    val fenSituation = tags find (_.name == Tag.FEN) flatMap { case Tag(_, fen) =>
+      Forsyth <<< FEN(fen)
     }
     val pgnMoves = replay.chronoMoves
-      .foldLeft(replay.setup) {
-        case (game, moveOrDrop) => moveOrDrop.fold(game.apply, game.applyDrop)
+      .foldLeft(replay.setup) { case (game, moveOrDrop) =>
+        moveOrDrop.fold(game.apply, game.applyDrop)
       }
       .pgnMoves
     val moves       = if (fenSituation.exists(_.situation.color.black)) ".." +: pgnMoves else pgnMoves
@@ -49,13 +49,12 @@ final class PgnDatabase @Inject() (
   }
 
   private def turns(moves: Vector[String], from: Int): List[Turn] =
-    (moves grouped 2).zipWithIndex.toList map {
-      case (moves, index) =>
-        Turn(
-          number = index + from,
-          white = moves.headOption filter (".." !=) map { Move(_) },
-          black = moves lift 1 map { Move(_) }
-        )
+    (moves grouped 2).zipWithIndex.toList map { case (moves, index) =>
+      Turn(
+        number = index + from,
+        white = moves.headOption filter (".." !=) map { Move(_) },
+        black = moves lift 1 map { Move(_) }
+      )
     } filterNot (_.isEmpty)
 
   def delete(gameId: String) = db.remove(gameId)

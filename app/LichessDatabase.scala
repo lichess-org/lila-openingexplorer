@@ -18,17 +18,16 @@ final class LichessDatabase @Inject() (
   val variants = Variant.all.filter(chess.variant.FromPosition.!=)
 
   private val dbs: Map[Variant, KyotoDb] = variants
-    .map({
-      case variant =>
-        variant -> Util.wrapLog(
-          s"Loading ${variant.name} database...",
-          s"${variant.name} database loaded!"
-        ) {
-          val conf   = config.explorer.lichess(variant)
-          val dbFile = new File(conf.kyoto.file.replace("(variant)", variant.key))
-          dbFile.createNewFile
-          Kyoto.builder(dbFile, conf.kyoto).buildAndOpen
-        }
+    .map({ case variant =>
+      variant -> Util.wrapLog(
+        s"Loading ${variant.name} database...",
+        s"${variant.name} database loaded!"
+      ) {
+        val conf   = config.explorer.lichess(variant)
+        val dbFile = new File(conf.kyoto.file.replace("(variant)", variant.key))
+        dbFile.createNewFile
+        Kyoto.builder(dbFile, conf.kyoto).buildAndOpen
+      }
     })
     .toMap
 
@@ -82,8 +81,8 @@ final class LichessDatabase @Inject() (
         .filterNot(_._2.isEmpty)
         .sortBy(-_._2.total)
         .take(request.maxMoves)
-        .flatMap {
-          case (uci, stats) => Util.moveFromUci(situation, uci).map(_ -> stats)
+        .flatMap { case (uci, stats) =>
+          Util.moveFromUci(situation, uci).map(_ -> stats)
         },
       gameRefs.take(math.min(request.recentGames, numRecentGames)),
       topGames
