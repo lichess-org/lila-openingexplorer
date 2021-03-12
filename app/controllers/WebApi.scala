@@ -66,10 +66,9 @@ class WebApi @Inject() (
     .build(fetchMaster)
 
   private def fetchMaster(data: Forms.master.Data): String =
-    situationOf(data).fold("") {
-      case (situation, opening) =>
-        val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
-        Json stringify JsonView.masterEntry(pgnDb.get)(result, opening)
+    situationOf(data).fold("") { case (situation, opening) =>
+      val result = masterDb.query(situation, data.movesOrDefault, data.topGamesOrDefault)
+      Json stringify JsonView.masterEntry(pgnDb.get)(result, opening)
     }
 
   def getMaster =
@@ -116,18 +115,17 @@ class WebApi @Inject() (
     .build(fetchLichess)
 
   private def fetchLichess(data: Forms.lichess.Data): String =
-    situationOf(data).fold("") {
-      case (situation, opening) =>
-        val request = LichessDatabase.Request(
-          data.speedGroups,
-          data.ratingGroups,
-          data.topGamesOrDefault,
-          data.recentGamesOrDefault,
-          data.movesOrDefault
-        )
+    situationOf(data).fold("") { case (situation, opening) =>
+      val request = LichessDatabase.Request(
+        data.speedGroups,
+        data.ratingGroups,
+        data.topGamesOrDefault,
+        data.recentGamesOrDefault,
+        data.movesOrDefault
+      )
 
-        val entry = lichessDb.query(situation, request)
-        Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, opening)
+      val entry = lichessDb.query(situation, request)
+      Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, opening)
     }
 
   def getLichess =
@@ -164,12 +162,11 @@ class WebApi @Inject() (
             ),
             "lichess" -> Json.toJson(
               lichessDb.variants
-                .map({
-                  case variant =>
-                    variant.key -> Json.obj(
-                      "games"           -> lichessDb.totalGames(variant),
-                      "uniquePositions" -> lichessDb.uniquePositions(variant)
-                    )
+                .map({ case variant =>
+                  variant.key -> Json.obj(
+                    "games"           -> lichessDb.totalGames(variant),
+                    "uniquePositions" -> lichessDb.uniquePositions(variant)
+                  )
                 })
                 .toMap
             )

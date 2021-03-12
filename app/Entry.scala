@@ -75,16 +75,15 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
         .take(Entry.maxTopGames)
     }
 
-    sub.foreach {
-      case (group, subEntry) =>
-        val toBeStored =
-          (subEntry.gameRefs.take(Entry.maxRecentGames) ::: topGameRefs.filter(_.group == group)).distinct
+    sub.foreach { case (group, subEntry) =>
+      val toBeStored =
+        (subEntry.gameRefs.take(Entry.maxRecentGames) ::: topGameRefs.filter(_.group == group)).distinct
 
-        if (toBeStored.size > 0) {
-          writeUint(out, toBeStored.size)
-          toBeStored.foreach(_.write(out))
-          subEntry.writeStats(out)
-        }
+      if (toBeStored.size > 0) {
+        writeUint(out, toBeStored.size)
+        toBeStored.foreach(_.write(out))
+        subEntry.writeStats(out)
+      }
     }
   }
 }

@@ -31,8 +31,8 @@ final class MasterDatabase @Inject() (
         .filterNot(_._2.isEmpty)
         .sortBy(-_._2.total)
         .take(maxMoves)
-        .flatMap {
-          case (uci, stats) => Util.moveFromUci(situation, uci).map(_ -> stats)
+        .flatMap { case (uci, stats) =>
+          Util.moveFromUci(situation, uci).map(_ -> stats)
         },
       List.empty,
       entry.gameRefs.distinct.sortBy(-_.averageRating).take(maxGames)

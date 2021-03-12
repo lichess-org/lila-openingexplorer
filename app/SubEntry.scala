@@ -44,10 +44,9 @@ case class SubEntry(
 
   def writeStats(out: OutputStream) = {
     writeUint(out, moves.size)
-    moves.foreach {
-      case (move, stats) =>
-        writeUci(out, move)
-        stats.write(out)
+    moves.foreach { case (move, stats) =>
+      writeUci(out, move)
+      stats.write(out)
     }
   }
 

@@ -22,9 +22,8 @@ case class GameRef(
   def write(stream: OutputStream) = {
     val packedGameId = gameId
       .zip(gameId.indices.reverse)
-      .map {
-        case (c, i) =>
-          GameRef.base.indexOf(c) * math.pow(GameRef.base.size, i).toLong
+      .map { case (c, i) =>
+        GameRef.base.indexOf(c) * math.pow(GameRef.base.size, i).toLong
       }
       .sum
 

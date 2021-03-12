@@ -35,24 +35,23 @@ final class Importer @Inject() (
             None
         }
       }
-      processed foreach {
-        case Processed(parsed, replay, gameRef) =>
-          GameInfo parse parsed.tags match {
-            case None => logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
-            case Some(info) =>
-              val variant = replay.setup.board.variant
-              try {
-                if (gameInfoDb.store(gameRef.gameId, info)) {
-                  replay.chronoMoves.take(config.explorer.lichess(variant).maxPlies).foreach { move =>
-                    lichessDb.merge(variant, gameRef, move)
-                  }
-                } else {
-                  logger.warn(s"Duplicate lichess game ${gameRef.gameId}")
+      processed foreach { case Processed(parsed, replay, gameRef) =>
+        GameInfo parse parsed.tags match {
+          case None => logger.warn(s"Can't produce GameInfo for game ${gameRef.gameId}")
+          case Some(info) =>
+            val variant = replay.setup.board.variant
+            try {
+              if (gameInfoDb.store(gameRef.gameId, info)) {
+                replay.chronoMoves.take(config.explorer.lichess(variant).maxPlies).foreach { move =>
+                  lichessDb.merge(variant, gameRef, move)
                 }
-              } catch {
-                case e: Exception => logger.error(s"Can't merge game ${gameRef.gameId}: ${e.getMessage}")
+              } else {
+                logger.warn(s"Duplicate lichess game ${gameRef.gameId}")
               }
-          }
+            } catch {
+              case e: Exception => logger.error(s"Can't merge game ${gameRef.gameId}: ${e.getMessage}")
+            }
+        }
       }
       val nb = processed.size
       nbImported = nbImported + nb
@@ -89,15 +88,14 @@ final class Importer @Inject() (
 
   def deleteMaster(gameId: String) = {
     pgnDb.get(gameId) map { pgn =>
-      processMaster(pgn) andThen {
-        case Processed(parsed, replay, newGameRef) =>
-          Validated.valid {
-            val gameRef = newGameRef.copy(gameId = gameId)
-            replay.chronoMoves.take(config.explorer.master.maxPlies).foreach { move =>
-              masterDb.subtract(gameRef, move)
-            }
-            pgnDb.delete(gameRef.gameId)
+      processMaster(pgn) andThen { case Processed(parsed, replay, newGameRef) =>
+        Validated.valid {
+          val gameRef = newGameRef.copy(gameId = gameId)
+          replay.chronoMoves.take(config.explorer.master.maxPlies).foreach { move =>
+            masterDb.subtract(gameRef, move)
           }
+          pgnDb.delete(gameRef.gameId)
+        }
       }
       true
     } getOrElse false

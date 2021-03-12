@@ -28,16 +28,15 @@ object JsonView {
 
   def moveStats(moves: List[(MoveOrDrop, MoveStats)]) =
     JsArray {
-      moves.map {
-        case (move, stats) =>
-          Json.obj(
-            "uci"           -> move.fold(_.toUci, _.toUci).uci,
-            "san"           -> move.fold(chess.format.pgn.Dumper(_), chess.format.pgn.Dumper(_)),
-            "white"         -> stats.white,
-            "draws"         -> stats.draws,
-            "black"         -> stats.black,
-            "averageRating" -> stats.averageRating
-          )
+      moves.map { case (move, stats) =>
+        Json.obj(
+          "uci"           -> move.fold(_.toUci, _.toUci).uci,
+          "san"           -> move.fold(chess.format.pgn.Dumper(_), chess.format.pgn.Dumper(_)),
+          "white"         -> stats.white,
+          "draws"         -> stats.draws,
+          "black"         -> stats.black,
+          "averageRating" -> stats.averageRating
+        )
       }
     }
 
