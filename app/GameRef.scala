@@ -103,7 +103,7 @@ object GameRef extends PackHelper {
     (for {
       gameId <- game.tags("LichessID").toRight("No LichessID header")
       winner <- game.tags.resultColor.toRight("No result")
-      speed <- SpeedGroup.fromPgn(game.tags).toRight("Invalid clock")
+      speed  <- SpeedGroup.fromPgn(game.tags).toRight("Invalid clock")
       rating <- averageRating(game.tags).toRight("No rating")
     } yield new GameRef(gameId, winner, speed, rating)).toValidated
   }

@@ -64,17 +64,18 @@ object Config {
       crazyhouse: Domain
   ) {
 
-    def apply(variant: Variant): Domain = variant match {
-      case Standard      => standard
-      case Chess960      => chess960
-      case KingOfTheHill => kingOfTheHill
-      case ThreeCheck    => threeCheck
-      case Antichess     => antichess
-      case Atomic        => atomic
-      case Horde         => horde
-      case RacingKings   => racingKings
-      case Crazyhouse    => crazyhouse
-    }
+    def apply(variant: Variant): Domain =
+      variant match {
+        case Standard      => standard
+        case Chess960      => chess960
+        case KingOfTheHill => kingOfTheHill
+        case ThreeCheck    => threeCheck
+        case Antichess     => antichess
+        case Atomic        => atomic
+        case Horde         => horde
+        case RacingKings   => racingKings
+        case Crazyhouse    => crazyhouse
+      }
   }
   implicit val lichessLoader: ConfigLoader[Lichess] = AutoConfig.loader
 }

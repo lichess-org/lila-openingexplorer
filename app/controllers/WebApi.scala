@@ -48,7 +48,7 @@ class WebApi @Inject() (
             case Validated.Invalid(_) => None
           }
         )
-      case ((None, _)) => None
+      case (None, _) => None
     }
   }
 
@@ -72,38 +72,43 @@ class WebApi @Inject() (
         Json stringify JsonView.masterEntry(pgnDb.get)(result, opening)
     }
 
-  def getMaster = Action { implicit req =>
-    CORS {
-      Forms.master.form.bindFromRequest().fold(
-        err => BadRequest(err.errorsAsJson),
-        data =>
-          situationOf(data) match {
-            case Some(situation) =>
-              JsonResult {
-                fenMoveNumber(data.fen).fold(fetchMaster _) { moveNumber =>
-                  if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves) fetchMaster _
-                  else masterCache.get _
-                }(data)
+  def getMaster =
+    Action { implicit req =>
+      CORS {
+        Forms.master.form
+          .bindFromRequest()
+          .fold(
+            err => BadRequest(err.errorsAsJson),
+            data =>
+              situationOf(data) match {
+                case Some(situation) =>
+                  JsonResult {
+                    fenMoveNumber(data.fen).fold(fetchMaster _) { moveNumber =>
+                      if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves) fetchMaster _
+                      else masterCache.get _
+                    }(data)
+                  }
+                case None => BadRequest("valid position required")
               }
-            case None => BadRequest("valid position required")
-          }
-      )
+          )
+      }
     }
-  }
 
-  def deleteMaster(gameId: String) = Action {
-    if (importer.deleteMaster(gameId))
-      Status(204)
-    else
-      NotFound("game not found")
-  }
-
-  def getMasterPgn(gameId: String) = Action {
-    pgnDb.get(gameId) match {
-      case Some(pgn) => Ok(pgn)
-      case None      => NotFound("game not found")
+  def deleteMaster(gameId: String) =
+    Action {
+      if (importer.deleteMaster(gameId))
+        Status(204)
+      else
+        NotFound("game not found")
     }
-  }
+
+  def getMasterPgn(gameId: String) =
+    Action {
+      pgnDb.get(gameId) match {
+        case Some(pgn) => Ok(pgn)
+        case None      => NotFound("game not found")
+      }
+    }
 
   private val lichessCache: LoadingCache[Forms.lichess.Data, String] = Scaffeine()
     .expireAfterWrite(cacheConfig.ttl)
@@ -125,62 +130,68 @@ class WebApi @Inject() (
         Json stringify JsonView.lichessEntry(gameInfoDb.get)(entry, opening)
     }
 
-  def getLichess = Action { implicit req =>
-    CORS {
-      Forms.lichess.form.bindFromRequest().fold(
-        err => BadRequest(err.errorsAsJson),
-        data =>
-          situationOf(data) match {
-            case Some(situation) =>
-              JsonResult {
-                fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
-                  if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves || !data.fullHouse)
-                    fetchLichess _
-                  else lichessCache.get _
-                }(data)
+  def getLichess =
+    Action { implicit req =>
+      CORS {
+        Forms.lichess.form
+          .bindFromRequest()
+          .fold(
+            err => BadRequest(err.errorsAsJson),
+            data =>
+              situationOf(data) match {
+                case Some(situation) =>
+                  JsonResult {
+                    fenMoveNumber(data.fen).fold(fetchLichess _) { moveNumber =>
+                      if (moveNumber + data.play.size / 2 > cacheConfig.maxMoves || !data.fullHouse)
+                        fetchLichess _
+                      else lichessCache.get _
+                    }(data)
+                  }
+                case None => BadRequest("valid position required")
               }
-            case None => BadRequest("valid position required")
-          }
-      )
-    }
-  }
-
-  def getStats = Action {
-    CORS {
-      JsonResult {
-        Json stringify Json.obj(
-          "master" -> Json.obj(
-            "games"           -> pgnDb.count,
-            "uniquePositions" -> masterDb.uniquePositions
-          ),
-          "lichess" -> Json.toJson(
-            lichessDb.variants
-              .map({
-                case variant =>
-                  variant.key -> Json.obj(
-                    "games"           -> lichessDb.totalGames(variant),
-                    "uniquePositions" -> lichessDb.uniquePositions(variant)
-                  )
-              })
-              .toMap
           )
-        )
       }
     }
-  }
 
-  def putMaster = Action(parse.tolerantText) { implicit req =>
-    importer.master(req.body) match {
-      case (Validated.Valid(_), ms)       => Ok(s"$ms ms")
-      case (Validated.Invalid(error), ms) => BadRequest(error)
+  def getStats =
+    Action {
+      CORS {
+        JsonResult {
+          Json stringify Json.obj(
+            "master" -> Json.obj(
+              "games"           -> pgnDb.count,
+              "uniquePositions" -> masterDb.uniquePositions
+            ),
+            "lichess" -> Json.toJson(
+              lichessDb.variants
+                .map({
+                  case variant =>
+                    variant.key -> Json.obj(
+                      "games"           -> lichessDb.totalGames(variant),
+                      "uniquePositions" -> lichessDb.uniquePositions(variant)
+                    )
+                })
+                .toMap
+            )
+          )
+        }
+      }
     }
-  }
 
-  def putLichess = Action(parse.tolerantText) { implicit req =>
-    importer.lichess(req.body) match {
-      case (_, ms) => Ok(s"$ms ms")
+  def putMaster =
+    Action(parse.tolerantText) { implicit req =>
+      importer.master(req.body) match {
+        case (Validated.Valid(_), ms)       => Ok(s"$ms ms")
+        case (Validated.Invalid(error), ms) => BadRequest(error)
+      }
     }
-  }
+
+  def putLichess =
+    Action(parse.tolerantText) { implicit req =>
+      importer.lichess(req.body) match {
+        case (_, ms) => Ok(s"$ms ms")
+      }
+    }
 
   def CORS(res: Result) =
     if (config.explorer.corsHeader) res.withHeaders("Access-Control-Allow-Origin" -> "*")

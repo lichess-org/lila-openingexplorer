@@ -95,34 +95,35 @@ final class LichessDatabase @Inject() (
     Entry.read(in)
   }
 
-  def merge(variant: Variant, gameRef: GameRef, move: MoveOrDrop) = dbs get variant foreach { db =>
-    val hash = LichessDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
-    val uci  = move.left.map(_.toUci).map(_.toUci)
+  def merge(variant: Variant, gameRef: GameRef, move: MoveOrDrop) =
+    dbs get variant foreach { db =>
+      val hash = LichessDatabase.hash(move.fold(_.situationBefore, _.situationBefore))
+      val uci  = move.left.map(_.toUci).map(_.toUci)
 
-    db.accept(
-      hash,
-      new WritableVisitor {
-        def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
-          val out = new ByteArrayOutputStream()
-          unpack(value).withGameRef(gameRef, uci).write(out)
-          out.toByteArray
-        }
+      db.accept(
+        hash,
+        new WritableVisitor {
+          def record(key: PositionHash, value: Array[Byte]): Array[Byte] = {
+            val out = new ByteArrayOutputStream()
+            unpack(value).withGameRef(gameRef, uci).write(out)
+            out.toByteArray
+          }
 
-        def emptyRecord(key: PositionHash): Array[Byte] = {
-          val out = new ByteArrayOutputStream()
-          Entry.fromGameRef(gameRef, uci).write(out)
-          out.toByteArray
+          def emptyRecord(key: PositionHash): Array[Byte] = {
+            val out = new ByteArrayOutputStream()
+            Entry.fromGameRef(gameRef, uci).write(out)
+            out.toByteArray
+          }
         }
-      }
-    )
-  }
+      )
+    }
 
   def uniquePositions(variant: Variant): Long =
     dbs.get(variant).map(_.recordCount()).getOrElse(0L)
 
   def totalGames(variant: Variant): Long = {
     val games = (chess.format.Forsyth << variant.initialFen)
-      .map((situation) => probe(situation withVariant variant).totalGames)
+      .map(situation => probe(situation withVariant variant).totalGames)
       .getOrElse(0L)
 
     if (variant == chess.variant.Chess960)

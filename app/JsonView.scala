@@ -26,48 +26,54 @@ object JsonView {
     )
   }
 
-  def moveStats(moves: List[(MoveOrDrop, MoveStats)]) = JsArray {
-    moves.map {
-      case (move, stats) =>
-        Json.obj(
-          "uci"           -> move.fold(_.toUci, _.toUci).uci,
-          "san"           -> move.fold(chess.format.pgn.Dumper(_), chess.format.pgn.Dumper(_)),
-          "white"         -> stats.white,
-          "draws"         -> stats.draws,
-          "black"         -> stats.black,
-          "averageRating" -> stats.averageRating
-        )
+  def moveStats(moves: List[(MoveOrDrop, MoveStats)]) =
+    JsArray {
+      moves.map {
+        case (move, stats) =>
+          Json.obj(
+            "uci"           -> move.fold(_.toUci, _.toUci).uci,
+            "san"           -> move.fold(chess.format.pgn.Dumper(_), chess.format.pgn.Dumper(_)),
+            "white"         -> stats.white,
+            "draws"         -> stats.draws,
+            "black"         -> stats.black,
+            "averageRating" -> stats.averageRating
+          )
+      }
     }
-  }
 
-  private def openingInfo(opening: FullOpening) = Json.obj(
-    "eco"  -> opening.eco,
-    "name" -> opening.name
-  )
+  private def openingInfo(opening: FullOpening) =
+    Json.obj(
+      "eco"  -> opening.eco,
+      "name" -> opening.name
+    )
 
-  private def baseEntry(entry: QueryResult, opening: Option[FullOpening]) = Json.obj(
-    "white"         -> entry.white,
-    "draws"         -> entry.draws,
-    "black"         -> entry.black,
-    "moves"         -> moveStats(entry.moves),
-    "averageRating" -> entry.averageRating,
-    "opening"       -> opening.map(openingInfo)
-  )
+  private def baseEntry(entry: QueryResult, opening: Option[FullOpening]) =
+    Json.obj(
+      "white"         -> entry.white,
+      "draws"         -> entry.draws,
+      "black"         -> entry.black,
+      "moves"         -> moveStats(entry.moves),
+      "averageRating" -> entry.averageRating,
+      "opening"       -> opening.map(openingInfo)
+    )
 
-  private def gameRef(ref: GameRef) = Json.obj(
-    "id"     -> ref.gameId,
-    "winner" -> ref.winner.fold("draw")(_.fold("white", "black")),
-    "speed"  -> ref.speed.name
-  )
+  private def gameRef(ref: GameRef) =
+    Json.obj(
+      "id"     -> ref.gameId,
+      "winner" -> ref.winner.fold("draw")(_.fold("white", "black")),
+      "speed"  -> ref.speed.name
+    )
 
-  private def richGameRef(ref: GameRef)(info: GameInfo) = gameRef(ref) ++ Json.obj(
-    "white" -> player(info.white),
-    "black" -> player(info.black),
-    "year"  -> info.year
-  )
+  private def richGameRef(ref: GameRef)(info: GameInfo) =
+    gameRef(ref) ++ Json.obj(
+      "white" -> player(info.white),
+      "black" -> player(info.black),
+      "year"  -> info.year
+    )
 
-  private def player(p: GameInfo.Player) = Json.obj(
-    "name"   -> p.name,
-    "rating" -> p.rating
-  )
+  private def player(p: GameInfo.Player) =
+    Json.obj(
+      "name"   -> p.name,
+      "rating" -> p.rating
+    )
 }

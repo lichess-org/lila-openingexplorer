@@ -13,7 +13,7 @@ case class Entry(sub: Map[(RatingGroup, SpeedGroup), SubEntry]) extends PackHelp
     sub.getOrElse((ratingGroup, speedGroup), SubEntry.empty)
 
   def subEntries(groups: List[(RatingGroup, SpeedGroup)]): List[SubEntry] =
-    groups.map((g) => subEntry(g._1, g._2))
+    groups.map(g => subEntry(g._1, g._2))
 
   def totalGames = sub.values.map(_.totalGames).sum
 

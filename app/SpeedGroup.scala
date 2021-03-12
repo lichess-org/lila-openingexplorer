@@ -19,16 +19,18 @@ object SpeedGroup {
 
   val byId = all.view.map { v => (v.id, v) }.toMap
 
-  def apply(speed: chess.Speed) = speed match {
-    case chess.Speed.Bullet | chess.Speed.UltraBullet       => Bullet
-    case chess.Speed.Blitz                                  => Blitz
-    case chess.Speed.Rapid                                  => Rapid
-    case chess.Speed.Classical | chess.Speed.Correspondence => Classical
-  }
+  def apply(speed: chess.Speed) =
+    speed match {
+      case chess.Speed.Bullet | chess.Speed.UltraBullet       => Bullet
+      case chess.Speed.Blitz                                  => Blitz
+      case chess.Speed.Rapid                                  => Rapid
+      case chess.Speed.Classical | chess.Speed.Correspondence => Classical
+    }
 
-  def fromPgn(tags: chess.format.pgn.Tags): Option[SpeedGroup] = tags("TimeControl") match {
-    case Some("-")         => Some(Classical) // correspondence
-    case Some(timeControl) => Clock.readPgnConfig(timeControl).map(clock => apply(chess.Speed(clock)))
-    case None              => None
-  }
+  def fromPgn(tags: chess.format.pgn.Tags): Option[SpeedGroup] =
+    tags("TimeControl") match {
+      case Some("-")         => Some(Classical) // correspondence
+      case Some(timeControl) => Clock.readPgnConfig(timeControl).map(clock => apply(chess.Speed(clock)))
+      case None              => None
+    }
 }

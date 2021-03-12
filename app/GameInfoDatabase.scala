@@ -50,17 +50,18 @@ object GameInfoDatabase {
       info.year.fold("?")(_.toString)
     ) mkString "|"
 
-  def unpack(str: String): Option[GameInfo] = str split '|' match {
-    case Array(wn, wrS, bn, brS, yearS) =>
-      for {
-        wr <- wrS.toIntOption
-        br <- brS.toIntOption
-        year = yearS.toIntOption
-      } yield GameInfo(
-        white = GameInfo.Player(wn, wr),
-        black = GameInfo.Player(bn, br),
-        year = year
-      )
-    case _ => None
-  }
+  def unpack(str: String): Option[GameInfo] =
+    str split '|' match {
+      case Array(wn, wrS, bn, brS, yearS) =>
+        for {
+          wr <- wrS.toIntOption
+          br <- brS.toIntOption
+          year = yearS.toIntOption
+        } yield GameInfo(
+          white = GameInfo.Player(wn, wr),
+          black = GameInfo.Player(bn, br),
+          year = year
+        )
+      case _ => None
+    }
 }
