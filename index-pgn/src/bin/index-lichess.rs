@@ -83,6 +83,7 @@ struct Indexer<'pgn> {
     white_elo: i16,
     black_elo: i16,
     time_control: TimeControl,
+    bot: bool,
     skip: bool,
 
     current_game: Vec<u8>,
@@ -104,6 +105,7 @@ impl<'pgn> Indexer<'pgn> {
             white_elo: 0,
             black_elo: 0,
             time_control: TimeControl::Correspondence,
+            bot: false,
             skip: true,
 
             current_game: Vec::new(),
@@ -146,6 +148,7 @@ impl<'pgn> Visitor<'pgn> for Indexer<'pgn> {
         self.black_elo = 0;
         self.time_control = TimeControl::Correspondence;
         self.standard = true;
+        self.bot = false;
     }
 
     fn header(&mut self, key: &'pgn [u8], value: &'pgn [u8]) {
@@ -162,6 +165,10 @@ impl<'pgn> Visitor<'pgn> for Indexer<'pgn> {
             }
         } else if key == b"Date" || key == b"UTCDate" {
             self.date = value;
+        } else if key == b"WhiteTitle" || key == b"BlackTitle" {
+            if value == b"BOT" {
+                self.bot = true;
+            }
         }
 
         let (key, value) = if key == b"Site" {
@@ -204,7 +211,7 @@ impl<'pgn> Visitor<'pgn> for Indexer<'pgn> {
         self.current_game.push(b'\n');
 
         let rnd = thread_rng().sample(OpenClosed01);
-        let accept = min(self.white_elo, self.black_elo) >= 1500 && probability >= rnd;
+        let accept = min(self.white_elo, self.black_elo) >= 1500 && probability >= rnd && !self.bot;
 
         self.skip = !accept;
         Skip(self.skip)
