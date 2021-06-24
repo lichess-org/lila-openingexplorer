@@ -4,8 +4,6 @@ version := "2.4"
 
 lazy val root = (project in file("."))
   .enablePlugins(PlayScala, JavaAppPackaging)
-  // .enablePlugins(PlayScala, PlayNettyServer, JavaAppPackaging)
-  // .disablePlugins(PlayAkkaHttpServer)
   .disablePlugins(PlayFilters)
 
 sources in doc in Compile := List()
@@ -26,7 +24,6 @@ scalacOptions ++= Seq(
 
 libraryDependencies ++= Seq(
   "org.lichess"            %% "scalachess"                 % "10.2.1",
-  "com.github.ornicar"     %% "scalalib"                   % "7.0.2",
   "fm.last.commons"         % "lastcommons-kyoto"          % "1.24.0",
   "com.github.blemale"     %% "scaffeine"                  % "4.0.2" % "compile",
   "io.methvin.play"        %% "autoconfig-macros"          % "0.3.2" % "provided",
