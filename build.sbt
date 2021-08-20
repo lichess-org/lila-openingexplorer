@@ -23,7 +23,7 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "org.lichess"            %% "scalachess"                 % "10.2.1",
+  "org.lichess"            %% "scalachess"                 % "10.2.9",
   "fm.last.commons"         % "lastcommons-kyoto"          % "1.24.0",
   "com.github.blemale"     %% "scaffeine"                  % "5.1.0" % "compile",
   "io.methvin.play"        %% "autoconfig-macros"          % "0.3.2" % "provided",
