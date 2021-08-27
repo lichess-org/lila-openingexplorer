@@ -37,9 +37,6 @@ resolvers += "lila-maven" at "https://raw.githubusercontent.com/ornicar/lila-mav
 import play.sbt.routes.RoutesKeys
 RoutesKeys.routesImport := Seq.empty
 
-parallelExecution in Test := false
-testOptions in Test := Seq(Tests.Argument(TestFrameworks.Specs2, "console"))
-
 // Play provides two styles of routers, one expects its actions to be injected,
 // the other, legacy style, accesses its actions statically.
 routesGenerator := InjectedRoutesGenerator
