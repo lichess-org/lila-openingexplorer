@@ -161,14 +161,12 @@ class WebApi @Inject() (
               "uniquePositions" -> masterDb.uniquePositions
             ),
             "lichess" -> Json.toJson(
-              lichessDb.variants
-                .map({ case variant =>
-                  variant.key -> Json.obj(
-                    "games"           -> lichessDb.totalGames(variant),
-                    "uniquePositions" -> lichessDb.uniquePositions(variant)
-                  )
-                })
-                .toMap
+              lichessDb.variants.map { case variant =>
+                variant.key -> Json.obj(
+                  "games"           -> lichessDb.totalGames(variant),
+                  "uniquePositions" -> lichessDb.uniquePositions(variant)
+                )
+              }.toMap
             )
           )
         }

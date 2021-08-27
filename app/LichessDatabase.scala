@@ -17,19 +17,17 @@ final class LichessDatabase @Inject() (
 
   val variants = Variant.all.filter(chess.variant.FromPosition.!=)
 
-  private val dbs: Map[Variant, KyotoDb] = variants
-    .map({ case variant =>
-      variant -> Util.wrapLog(
-        s"Loading ${variant.name} database...",
-        s"${variant.name} database loaded!"
-      ) {
-        val conf   = config.explorer.lichess(variant)
-        val dbFile = new File(conf.kyoto.file.replace("(variant)", variant.key))
-        dbFile.createNewFile
-        Kyoto.builder(dbFile, conf.kyoto).buildAndOpen
-      }
-    })
-    .toMap
+  private val dbs: Map[Variant, KyotoDb] = variants.map { case variant =>
+    variant -> Util.wrapLog(
+      s"Loading ${variant.name} database...",
+      s"${variant.name} database loaded!"
+    ) {
+      val conf   = config.explorer.lichess(variant)
+      val dbFile = new File(conf.kyoto.file.replace("(variant)", variant.key))
+      dbFile.createNewFile
+      Kyoto.builder(dbFile, conf.kyoto).buildAndOpen
+    }
+  }.toMap
 
   import LichessDatabase.Request
 

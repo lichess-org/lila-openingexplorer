@@ -8,7 +8,7 @@ import cats.syntax.option._
 
 import chess.format.Forsyth
 import chess.format.pgn.{ InitialPosition, ParsedPgn, Parser, Reader, Sans }
-import chess.{ Replay }
+import chess.Replay
 
 @Singleton
 final class Importer @Inject() (
