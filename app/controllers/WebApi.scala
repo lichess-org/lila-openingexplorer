@@ -56,7 +56,7 @@ class WebApi @Inject() (
     play((Forsyth << FEN(data.fen)), data.play)
 
   private def situationOf(data: Forms.lichess.Data) =
-    play((Forsyth << FEN(data.fen)) map (_ withVariant data.actualVariant), data.play)
+    play(Forsyth.<<@(data.actualVariant, FEN(data.fen)), data.play)
 
   private val cacheConfig = config.explorer.cache
 

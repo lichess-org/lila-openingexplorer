@@ -119,8 +119,9 @@ final class LichessDatabase @Inject() (
     dbs.get(variant).map(_.recordCount()).getOrElse(0L)
 
   def totalGames(variant: Variant): Long = {
-    val games = (chess.format.Forsyth << variant.initialFen)
-      .map(situation => probe(situation withVariant variant).totalGames)
+    val games = chess.format.Forsyth
+      .<<@(variant, variant.initialFen)
+      .map(situation => probe(situation).totalGames)
       .getOrElse(0L)
 
     if (variant == chess.variant.Chess960)
