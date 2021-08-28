@@ -6,7 +6,7 @@ lazy val root = (project in file("."))
   .enablePlugins(PlayScala, JavaAppPackaging)
   .disablePlugins(PlayFilters)
 
-sources in doc in Compile := List()
+sources in doc in Compile                := List()
 publishArtifact in (Compile, packageDoc) := false
 publishArtifact in (Compile, packageSrc) := false
 
