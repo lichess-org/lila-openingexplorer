@@ -13,3 +13,4 @@ keywords = ["chess", "lichess"]
 edition = "2018"
 
 [dependencies]
+shakmaty = "0.19"
