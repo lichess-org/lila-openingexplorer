@@ -1,5 +1,6 @@
 use shakmaty::uci::Uci;
 use shakmaty::fen::Fen;
+use shakmaty::variant::VariantKey;
 
 enum Speed {
     Ultrabullet,
@@ -16,6 +17,7 @@ enum Mode {
 }
 
 struct Query {
+    variant: VariantKey,
     fen: Fen,
     play: Vec<Uci>,
     modes: Option<Vec<Mode>>,
