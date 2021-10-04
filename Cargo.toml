@@ -1,0 +1,15 @@
+[package]
+name = "lila-openingexplorer3"
+version = "0.1.0"
+publish = false
+description = "An opening explorer for lichess.org"
+homepage = "https://explorer.lichess.ovh"
+repository = "https://github.com/niklasf/lila-openingexplorer3"
+readme = "README.md"
+license = "AGPL-3.0+"
+authors = ["Niklas Fiekas <niklas.fiekas@backscattering.de>"]
+categories = ["games"]
+keywords = ["chess", "lichess"]
+edition = "2018"
+
+[dependencies]
