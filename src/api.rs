@@ -22,4 +22,7 @@ struct Query {
     speeds: Option<Vec<Speed>>,
     player: String,
     color: Color,
+    since: Day,
 }
+
+struct Day(u16); // days since 2000 or so
