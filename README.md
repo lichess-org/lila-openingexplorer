@@ -4,33 +4,40 @@ lila-openingexplorer3
 Goal: Implement personal opening explorer. Likely to become a rewrite of the
 existing opening explorer.
 
-Explorer
---------
+Flow
+----
 
-## Hashed
+Request data for a position (with various filters).
+Pull new data from lila on demand.
+
+Data
+----
+
+### Explorer
+
+#### Hashed
 
 * Position (incl. variant)
 * Player
 * White/Black
 
-## Lexicographic
+#### Lexicographic
 
 * Date
 * Move
 
-## Multiple select
+#### Multiple select
 
 * Speed
 * Rated/Casual
 
-## Value
+#### Value
 
 * Win/Draw/Loss
 * Rating
 * Games: IDs, Opponents with ratings
 
-Player
-------
+### Player
 
 * Last game ID
 * Last pulled
@@ -38,8 +45,7 @@ Player
 * Title
 * Erased
 
-Game
-----
+### Game
 
 * White player
 * White rating
