@@ -29,15 +29,13 @@ impl FromStr for GameId {
         }
 
         let mut n = 0;
-        let mut digit = 1;
-        for c in s.bytes() {
-            n += match c {
+        for c in s.bytes().rev() {
+            n = match c {
                 b'0'..=b'9' => c - b'0',
                 b'A'..=b'Z' => c - b'A' + 10,
                 b'a'..=b'z' => c - b'a' + 10 + 26,
                 _ => return Err(InvalidGameId),
-            } as u64 * digit;
-            digit *= 62;
+            } as u64 + n * 62;
         }
 
         Ok(GameId(n))
