@@ -7,8 +7,7 @@ pub use game_id::{GameId, InvalidGameId};
 
 fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
     let mut n = 0;
-    let mut shift = 0;
-    loop {
+    for shift in (0..).step_by(7) {
         let byte = reader.read_u8()?;
         n |= u64::from(byte & 127)
             .checked_shl(shift)
@@ -16,7 +15,6 @@ fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
         if byte & 128 == 0 {
             break;
         }
-        shift += 7;
     }
     Ok(n)
 }
