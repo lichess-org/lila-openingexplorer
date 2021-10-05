@@ -1,7 +1,7 @@
 mod game_id;
 
-use byteorder::ReadBytesExt;
-use std::io::{self, Read};
+use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use std::io::{self, Read, Write};
 
 pub use game_id::{GameId, InvalidGameId};
 
@@ -19,4 +19,29 @@ fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
         shift += 7;
     }
     Ok(n)
+}
+
+fn write_uint<W: Write>(writer: &mut W, mut n: u64) -> io::Result<()> {
+    while n > 127 {
+        writer.write_u8((n as u8 & 127) | 128)?;
+        n >>= 7;
+    }
+    writer.write_u8(n as u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck::quickcheck;
+    use std::io::Cursor;
+
+    quickcheck! {
+        fn uint_roundtrip(n: u64) -> bool {
+            let mut writer = Cursor::new(Vec::new());
+            write_uint(&mut writer, n).unwrap();
+
+            let mut reader = Cursor::new(writer.into_inner());
+            read_uint(&mut reader).unwrap() == n
+        }
+    }
 }
