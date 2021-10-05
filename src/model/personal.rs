@@ -15,8 +15,8 @@ enum Header {
     End,
 }
 
-impl Header {
-    pub fn read<R: Read>(reader: &mut R) -> io::Result<Header> {
+impl Record for Header {
+    fn read<R: Read>(reader: &mut R) -> io::Result<Header> {
         let n = reader.read_u8()?;
         Ok(Header::Group {
             speed: match n & 7 {
@@ -34,7 +34,7 @@ impl Header {
         })
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_u8(match *self {
             Header::End => 0,
             Header::Group {
@@ -63,8 +63,8 @@ struct Stats {
     black: u64,
 }
 
-impl Stats {
-    pub fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
+impl Record for Stats {
+    fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
         Ok(Stats {
             white: read_uint(reader)?,
             draw: read_uint(reader)?,
@@ -72,7 +72,7 @@ impl Stats {
         })
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         write_uint(writer, self.white)?;
         write_uint(writer, self.draw)?;
         write_uint(writer, self.black)
