@@ -1,4 +1,4 @@
-use super::{Speed, Mode};
+use super::{Speed, Mode, read_uint, write_uint};
 use std::io::{self, Read, Write};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 
@@ -36,6 +36,29 @@ impl Header {
             Speed::Classical => 4,
             Speed::Correspondence => 5,
         } << 1) | (self.games << 4))
+    }
+}
+
+#[derive(Debug)]
+struct Stats {
+    white: u64,
+    draw: u64,
+    black: u64,
+}
+
+impl Stats {
+    pub fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
+        Ok(Stats {
+            white: read_uint(reader)?,
+            draw: read_uint(reader)?,
+            black: read_uint(reader)?,
+        })
+    }
+
+    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        write_uint(writer, self.white)?;
+        write_uint(writer, self.draw)?;
+        write_uint(writer, self.black)
     }
 }
 
