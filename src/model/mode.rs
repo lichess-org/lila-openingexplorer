@@ -3,6 +3,12 @@ pub enum Mode {
     Casual,
 }
 
+impl Mode {
+    pub fn from_rated(rated: bool) -> Mode {
+        if rated { Mode::Rated } else { Mode::Casual }
+    }
+}
+
 pub struct ByMode<T> {
     pub rated: T,
     pub casual: T,
