@@ -18,6 +18,7 @@ impl Mode {
     }
 }
 
+#[derive(Default)]
 pub struct ByMode<T> {
     pub rated: T,
     pub casual: T,
@@ -28,6 +29,13 @@ impl<T> ByMode<T> {
         match mode {
             Mode::Rated => &self.rated,
             Mode::Casual => &self.casual,
+        }
+    }
+
+    pub fn by_mode_mut(&mut self, mode: Mode) -> &mut T {
+        match mode {
+            Mode::Rated => &mut self.rated,
+            Mode::Casual => &mut self.casual,
         }
     }
 

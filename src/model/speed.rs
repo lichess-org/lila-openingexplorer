@@ -8,7 +8,7 @@ pub enum Speed {
     Correspondence,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BySpeed<T> {
     pub ultrabullet: T,
     pub bullet: T,
@@ -27,6 +27,17 @@ impl<T> BySpeed<T> {
             Speed::Rapid => &self.rapid,
             Speed::Classical => &self.classical,
             Speed::Correspondence => &self.correspondence,
+        }
+    }
+
+    pub fn by_speed_mut(&mut self, speed: Speed) -> &mut T {
+        match speed {
+            Speed::Ultrabullet => &mut self.ultrabullet,
+            Speed::Bullet => &mut self.bullet,
+            Speed::Blitz => &mut self.blitz,
+            Speed::Rapid => &mut self.rapid,
+            Speed::Classical => &mut self.classical,
+            Speed::Correspondence => &mut self.correspondence,
         }
     }
 

@@ -8,7 +8,9 @@ mod uint;
 use std::io::{self, Read, Write};
 
 trait Record {
-    fn read<R: Read>(reader: &mut R) -> io::Result<Self> where Self: Sized;
+    fn read<R: Read>(reader: &mut R) -> io::Result<Self>
+    where
+        Self: Sized;
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()>;
 }
 

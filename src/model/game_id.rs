@@ -15,7 +15,7 @@ impl GameId {
         writer.write_u48::<LittleEndian>(self.0)
     }
 
-    pub fn read<R: Read>(&self, reader: &mut R) -> io::Result<GameId> {
+    pub fn read<R: Read>(reader: &mut R) -> io::Result<GameId> {
         let n = reader.read_u48::<LittleEndian>()?;
         if n < 62u64.pow(8) {
             Ok(GameId(n))
