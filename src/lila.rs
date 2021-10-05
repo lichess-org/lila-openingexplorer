@@ -10,6 +10,7 @@ struct Game {
     #[serde_as(as = "DisplayFromStr")]
     id: GameId,
     rated: bool, // TODO: mode
+    status: Status,
     variant: LilaVariant,
     players: Players,
     speed: Speed,
@@ -60,4 +61,33 @@ enum WinnerColor {
     White,
     #[serde(rename = "black")]
     Black,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum Status {
+    Created,
+    Started,
+    Aborted,
+    Mate,
+    Resign,
+    Stalemate,
+    Timeout,
+    Draw,
+    #[serde(rename = "outoftime")]
+    OutOfTime,
+    Cheat,
+    NoStart,
+    UnknownFinish,
+    VariantEnd,
+}
+
+impl Status {
+    pub fn is_ongoing(self) -> bool {
+        matches!(self, Status::Created | Status::Started)
+    }
+
+    pub fn is_unindexable(self) -> bool {
+        matches!(self, Status::UnknownFinish | Status::NoStart | Status::Aborted)
+    }
 }
