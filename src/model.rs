@@ -1,6 +1,8 @@
-use std::convert::TryFrom;
-use std::fmt::{self, Write};
+use std::fmt::{self, Write as _};
 use std::str::FromStr;
+use std::io;
+use std::io::{Read, Write};
+use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 
 #[derive(Debug)]
 struct InvalidGameId;
@@ -8,14 +10,17 @@ struct InvalidGameId;
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct GameId(u64);
 
-impl TryFrom<u64> for GameId {
-    type Error = InvalidGameId;
+impl GameId {
+    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        writer.write_u48::<LittleEndian>(self.0)
+    }
 
-    fn try_from(n: u64) -> Result<Self, Self::Error> {
+    fn read<R: Read>(&self, reader: &mut R) -> io::Result<GameId> {
+        let n = reader.read_u48::<LittleEndian>()?;
         if n < 62u64.pow(8) {
             Ok(GameId(n))
         } else {
-            Err(InvalidGameId)
+            Err(io::ErrorKind::InvalidData.into())
         }
     }
 }
