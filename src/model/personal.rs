@@ -1,5 +1,6 @@
 use super::{read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Speed};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use rustc_hash::FxHashMap;
 use shakmaty::uci::Uci;
 use smallvec::SmallVec;
 use std::cmp::max;
@@ -104,8 +105,9 @@ impl AddAssign for Group {
     }
 }
 
+#[derive(Default)]
 struct Entry {
-    sub_entries: HashMap<Uci, BySpeed<ByMode<Group>>>,
+    sub_entries: FxHashMap<Uci, BySpeed<ByMode<Group>>>,
     max_game_idx: u64,
 }
 
