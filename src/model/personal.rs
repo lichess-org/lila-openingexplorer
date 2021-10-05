@@ -29,7 +29,7 @@ impl Header {
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_u8(
-            (if self.mode.is_rated() { 1 } else { 0 })
+            self.mode.is_rated() as u8
                 | (match self.speed {
                     Speed::Ultrabullet => 0,
                     Speed::Bullet => 1,
