@@ -1,10 +1,10 @@
 mod game_id;
 
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
-use std::io::{self, Read, Write};
-use std::convert::TryFrom;
-use shakmaty::{Role, Square};
 use shakmaty::uci::Uci;
+use shakmaty::{Role, Square};
+use std::convert::TryFrom;
+use std::io::{self, Read, Write};
 
 pub use game_id::{GameId, InvalidGameId};
 
@@ -41,17 +41,27 @@ fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
             None => Uci::Null,
         }
     } else {
-        Uci::Normal { from, to, promotion: role }
+        Uci::Normal {
+            from,
+            to,
+            promotion: role,
+        }
     })
 }
 
 fn write_uci<W: Write>(writer: &mut W, uci: Uci) -> io::Result<()> {
     let (from, to, role) = match uci {
-        Uci::Normal { from, to, promotion } => (from, to, promotion),
+        Uci::Normal {
+            from,
+            to,
+            promotion,
+        } => (from, to, promotion),
         Uci::Put { role, to } => (to, to, Some(role)),
         Uci::Null => (Square::A1, Square::A1, None),
     };
-    writer.write_u16::<LittleEndian>(u16::from(from) | (u16::from(to) << 6) | role.map(u16::from).unwrap_or_default() << 12)
+    writer.write_u16::<LittleEndian>(
+        u16::from(from) | (u16::from(to) << 6) | (role.map(u16::from).unwrap_or_default() << 12),
+    )
 }
 
 #[cfg(test)]
