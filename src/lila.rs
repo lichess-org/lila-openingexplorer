@@ -9,7 +9,7 @@ use serde_with::{serde_as, DisplayFromStr, StringWithSeparator, SpaceSeparator};
 struct Game {
     #[serde_as(as = "DisplayFromStr")]
     id: GameId,
-    rated: bool, // TODO: mode
+    rated: bool,
     status: Status,
     variant: LilaVariant,
     players: Players,
