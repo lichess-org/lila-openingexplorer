@@ -88,9 +88,17 @@ impl Record for Stats {
     }
 }
 
+#[derive(Default)]
 struct Group {
     stats: Stats,
     games: Vec<GameId>,
+}
+
+impl AddAssign for Group {
+    fn add_assign(&mut self, rhs: Group) {
+        self.stats += rhs.stats;
+        self.games.extend(rhs.games);
+    }
 }
 
 type Inner = BySpeed<ByMode<Group>>;
@@ -115,7 +123,7 @@ impl Record for PersonalRecord {
                         games.push(GameId::read(reader)?);
                     }
                     let group = inner.by_speed_mut(speed).by_mode_mut(mode);
-                    *group = (stats, games);
+                    *group = Group { stats, games };
                 }
                 Header::End => break,
             }
@@ -125,8 +133,8 @@ impl Record for PersonalRecord {
 
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         self.inner.as_ref().try_map(|speed, by_mode| {
-            by_mode.as_ref().try_map(|mode, (stats, games)| {
-                let num_games = min(games.len(), MAX_GAMES);
+            by_mode.as_ref().try_map(|mode, group| {
+                let num_games = min(group.games.len(), MAX_GAMES);
 
                 Header::Group {
                     speed,
@@ -135,9 +143,9 @@ impl Record for PersonalRecord {
                 }
                 .write(writer)?;
 
-                stats.write(writer)?;
+                group.stats.write(writer)?;
 
-                for game in games.iter().take(num_games) {
+                for game in group.games.iter().take(num_games) {
                     game.write(writer)?;
                 }
 
