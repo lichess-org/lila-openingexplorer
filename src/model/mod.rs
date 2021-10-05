@@ -49,8 +49,8 @@ fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     })
 }
 
-fn write_uci<W: Write>(writer: &mut W, uci: Uci) -> io::Result<()> {
-    let (from, to, role) = match uci {
+fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
+    let (from, to, role) = match *uci {
         Uci::Normal {
             from,
             to,
@@ -69,6 +69,37 @@ mod tests {
     use super::*;
     use quickcheck::quickcheck;
     use std::io::Cursor;
+
+    #[test]
+    fn test_uci_roundtrip() {
+        let moves = [
+            Uci::Null,
+            Uci::Normal {
+                from: Square::A1,
+                to: Square::H8,
+                promotion: None,
+            },
+            Uci::Normal {
+                from: Square::A2,
+                to: Square::A1,
+                promotion: Some(Role::King),
+            },
+            Uci::Put {
+                to: Square::A1,
+                role: Role::Knight,
+            },
+        ];
+
+        let mut writer = Cursor::new(Vec::new());
+        for uci in &moves {
+            write_uci(&mut writer, uci).unwrap();
+        }
+
+        let mut reader = Cursor::new(writer.into_inner());
+        for uci in moves {
+            assert_eq!(uci, read_uci(&mut reader).unwrap());
+        }
+    }
 
     quickcheck! {
         fn uint_roundtrip(n: u64) -> bool {
