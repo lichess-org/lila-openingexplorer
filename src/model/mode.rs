@@ -1,3 +1,4 @@
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Mode {
     Rated,
     Casual,
@@ -6,6 +7,10 @@ pub enum Mode {
 impl Mode {
     pub fn from_rated(rated: bool) -> Mode {
         if rated { Mode::Rated } else { Mode::Casual }
+    }
+
+    pub fn is_rated(self) -> bool {
+        self == Mode::Rated
     }
 }
 

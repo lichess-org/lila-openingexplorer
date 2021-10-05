@@ -1,3 +1,4 @@
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Speed {
     Ultrabullet,
     Bullet,
@@ -7,6 +8,7 @@ pub enum Speed {
     Correspondence,
 }
 
+#[derive(Debug)]
 pub struct BySpeed<T> {
     pub ultrabullet: T,
     pub bullet: T,
