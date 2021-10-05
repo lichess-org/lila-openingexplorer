@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 
-fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
+pub fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
     let mut n = 0;
     for shift in (0..).step_by(7) {
         let byte = reader.read_u8()?;
@@ -15,7 +15,7 @@ fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
     Ok(n)
 }
 
-fn write_uint<W: Write>(writer: &mut W, mut n: u64) -> io::Result<()> {
+pub fn write_uint<W: Write>(writer: &mut W, mut n: u64) -> io::Result<()> {
     while n > 127 {
         writer.write_u8((n as u8 & 127) | 128)?;
         n >>= 7;

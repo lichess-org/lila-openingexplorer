@@ -4,7 +4,7 @@ use shakmaty::{Role, Square};
 use std::convert::TryFrom;
 use std::io::{self, Read, Write};
 
-fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
+pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     let n = reader.read_u16::<LittleEndian>()?;
     let from = Square::try_from(n & 63).unwrap();
     let to = Square::try_from((n >> 6) & 63).unwrap();
@@ -23,7 +23,7 @@ fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     })
 }
 
-fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
+pub fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
     let (from, to, role) = match *uci {
         Uci::Normal {
             from,
@@ -41,7 +41,6 @@ fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck::quickcheck;
     use std::io::Cursor;
 
     #[test]
