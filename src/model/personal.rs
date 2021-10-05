@@ -2,6 +2,7 @@ use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Record, Speed}
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 use std::cmp::min;
 use std::io::{self, Read, Write};
+use std::ops::AddAssign;
 
 const MAX_GAMES: usize = 15; // 4 bits
 
@@ -63,6 +64,14 @@ struct Stats {
     black: u64,
 }
 
+impl AddAssign for Stats {
+    fn add_assign(&mut self, rhs: Stats) {
+        self.white += rhs.white;
+        self.draw += rhs.draw;
+        self.black += rhs.black;
+    }
+}
+
 impl Record for Stats {
     fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
         Ok(Stats {
@@ -79,7 +88,12 @@ impl Record for Stats {
     }
 }
 
-type Inner = BySpeed<ByMode<(Stats, Vec<GameId>)>>;
+struct Group {
+    stats: Stats,
+    games: Vec<GameId>,
+}
+
+type Inner = BySpeed<ByMode<Group>>;
 
 struct PersonalRecord {
     inner: Inner,

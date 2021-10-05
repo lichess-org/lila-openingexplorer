@@ -1,3 +1,5 @@
+use std::ops::AddAssign;
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Speed {
     Ultrabullet,
@@ -64,5 +66,16 @@ impl<T> BySpeed<T> {
             classical: f(Speed::Classical, self.classical)?,
             correspondence: f(Speed::Correspondence, self.correspondence)?,
         })
+    }
+}
+
+impl<T: AddAssign> AddAssign for BySpeed<T> {
+    fn add_assign(&mut self, rhs: BySpeed<T>) {
+        self.ultrabullet += rhs.ultrabullet;
+        self.bullet += rhs.bullet;
+        self.blitz += rhs.blitz;
+        self.rapid += rhs.rapid;
+        self.classical += rhs.classical;
+        self.correspondence += rhs.correspondence;
     }
 }

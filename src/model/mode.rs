@@ -1,3 +1,5 @@
+use std::ops::AddAssign;
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Mode {
     Rated,
@@ -54,5 +56,12 @@ impl<T> ByMode<T> {
             rated: f(Mode::Rated, self.rated)?,
             casual: f(Mode::Casual, self.casual)?,
         })
+    }
+}
+
+impl<T: AddAssign> AddAssign for ByMode<T> {
+    fn add_assign(&mut self, rhs: ByMode<T>) {
+        self.rated += rhs.rated;
+        self.casual += rhs.casual;
     }
 }
