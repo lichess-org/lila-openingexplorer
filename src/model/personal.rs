@@ -1,11 +1,12 @@
-use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Record, Speed, ByUci};
+use shakmaty::uci::Uci;
+use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Speed, read_uci, write_uci};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
-use std::cmp::min;
 use std::io::{self, Read, Write};
 use std::ops::AddAssign;
 use std::cmp::max;
+use std::collections::HashMap;
 
-const MAX_GAMES: usize = 15; // 4 bits
+const MAX_GAMES: u64 = 15; // 4 bits
 
 #[derive(Debug, Eq, PartialEq)]
 enum Header {
@@ -17,7 +18,7 @@ enum Header {
     End,
 }
 
-impl Record for Header {
+impl Header {
     fn read<R: Read>(reader: &mut R) -> io::Result<Header> {
         let n = reader.read_u8()?;
         Ok(Header::Group {
@@ -73,7 +74,7 @@ impl AddAssign for Stats {
     }
 }
 
-impl Record for Stats {
+impl Stats {
     fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
         Ok(Stats {
             white: read_uint(reader)?,
@@ -92,76 +93,96 @@ impl Record for Stats {
 #[derive(Default)]
 struct Group {
     stats: Stats,
-    games: Vec<(usize, GameId)>,
+    games: Vec<(u64, GameId)>,
 }
 
-#[derive(Default)]
-struct SubEntry {
-    inner: BySpeed<ByMode<Group>>,
-    max_game_idx: usize,
-}
-
-impl Record for SubEntry {
-    fn read<R: Read>(reader: &mut R) -> io::Result<SubEntry> {
-        let mut acc = SubEntry::default();
-        loop {
-            match Header::read(reader)? {
-                Header::Group {
-                    speed,
-                    mode,
-                    num_games,
-                } => {
-                    let stats = Stats::read(reader)?;
-                    let mut games = Vec::with_capacity(num_games);
-                    for _ in 0..num_games {
-                        let game_idx = usize::from(reader.read_u8()?);
-                        acc.max_game_idx = max(acc.max_game_idx, game_idx);
-                        let game = GameId::read(reader)?;
-                        games.push((game_idx, game));
-                    }
-                    let group = acc.inner.by_speed_mut(speed).by_mode_mut(mode);
-                    *group = Group { stats, games };
-                }
-                Header::End => break,
-            }
-        }
-        Ok(acc)
-    }
-
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        self.inner.as_ref().try_map(|speed, by_mode| {
-            by_mode.as_ref().try_map(|mode, group| {
-                let num_games = min(group.games.len(), MAX_GAMES);
-
-                Header::Group {
-                    speed,
-                    mode,
-                    num_games,
-                }
-                .write(writer)?;
-
-                group.stats.write(writer)?;
-
-                for (game_idx, game) in group.games.iter().take(num_games) {
-                    writer.write_u8(*game_idx as u8)?;
-                    game.write(writer)?;
-                }
-
-                Ok::<_, io::Error>(())
-            })
-        })?;
-
-        Header::End.write(writer)
+impl AddAssign for Group {
+    fn add_assign(&mut self, rhs: Group) {
+        self.stats += rhs.stats;
+        self.games.extend(rhs.games);
     }
 }
 
 struct Entry {
-    inner: ByUci<SubEntry>,
+    sub_entries: HashMap<Uci, BySpeed<ByMode<Group>>>,
+    max_game_idx: u64,
 }
 
 impl Entry {
-    fn max_game_idx(&self) -> usize {
-        self.inner.0.values().map(|v| v.max_game_idx).max().unwrap_or(0)
+    fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
+        loop {
+            let uci = match read_uci(reader) {
+                Ok(uci) => uci,
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
+                Err(err) => return Err(err),
+            };
+
+            let sub_entry = self.sub_entries.entry(uci).or_default();
+
+            let base_game_idx = self.max_game_idx + 1;
+
+            loop {
+                match Header::read(reader)? {
+                    Header::Group {
+                        speed,
+                        mode,
+                        num_games,
+                    } => {
+                        let stats = Stats::read(reader)?;
+                        let mut games = Vec::with_capacity(num_games);
+                        for _ in 0..num_games {
+                            let game_idx = base_game_idx + read_uint(reader)?;
+                            self.max_game_idx = max(self.max_game_idx, game_idx);
+                            let game = GameId::read(reader)?;
+                            games.push((game_idx, game));
+                        }
+                        let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
+                        *group += Group { stats, games };
+                    }
+                    Header::End => break,
+                }
+            }
+        }
+    }
+
+    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        let discarded_game_idx = self.max_game_idx.saturating_sub(MAX_GAMES);
+
+        for (uci, sub_entry) in &self.sub_entries {
+            write_uci(writer, uci)?;
+
+            sub_entry.as_ref().try_map(|speed, by_mode| {
+                by_mode.as_ref().try_map(|mode, group| {
+                    let num_games = if group.games.len() == 1 {
+                        1
+                    } else {
+                        group.games.iter().filter(|(game_idx, _)| *game_idx > discarded_game_idx).count()
+                    };
+
+                    Header::Group {
+                        speed,
+                        mode,
+                        num_games,
+                    }
+                    .write(writer)?;
+
+                    group.stats.write(writer)?;
+
+                    for (game_idx, game) in group.games.iter() {
+                        if *game_idx > discarded_game_idx || group.games.len() == 1 {
+                            write_uint(writer, *game_idx)?;
+                            game.write(writer)?;
+                        }
+                    }
+
+                    Ok::<_, io::Error>(())
+                })
+            })?;
+
+            Header::End.write(writer)?;
+        }
+
+        Ok(())
     }
 }
 

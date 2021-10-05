@@ -3,7 +3,6 @@ use std::fmt::{self, Write as _};
 use std::io;
 use std::io::{Read, Write};
 use std::str::FromStr;
-use super::Record;
 
 #[derive(Debug)]
 pub struct InvalidGameId;
@@ -11,12 +10,12 @@ pub struct InvalidGameId;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GameId(u64);
 
-impl Record for GameId {
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+impl GameId {
+    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_u48::<LittleEndian>(self.0)
     }
 
-    fn read<R: Read>(reader: &mut R) -> io::Result<GameId> {
+    pub fn read<R: Read>(reader: &mut R) -> io::Result<GameId> {
         let n = reader.read_u48::<LittleEndian>()?;
         if n < 62u64.pow(8) {
             Ok(GameId(n))
