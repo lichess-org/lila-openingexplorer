@@ -1,5 +1,5 @@
-use std::io::{self, Read, Write};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use std::io::{self, Read, Write};
 
 pub fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
     let mut n = 0;

@@ -1,6 +1,6 @@
-use super::{Speed, Mode, read_uint, write_uint};
-use std::io::{self, Read, Write};
+use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Speed};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use std::io::{self, Read, Write};
 
 #[derive(Debug, Eq, PartialEq)]
 struct Header {
@@ -28,14 +28,18 @@ impl Header {
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_u8((if self.mode.is_rated() { 1 } else { 0 }) | (match self.speed {
-            Speed::Ultrabullet => 0,
-            Speed::Bullet => 1,
-            Speed::Blitz => 2,
-            Speed::Rapid => 3,
-            Speed::Classical => 4,
-            Speed::Correspondence => 5,
-        } << 1) | (self.games << 4))
+        writer.write_u8(
+            (if self.mode.is_rated() { 1 } else { 0 })
+                | (match self.speed {
+                    Speed::Ultrabullet => 0,
+                    Speed::Bullet => 1,
+                    Speed::Blitz => 2,
+                    Speed::Rapid => 3,
+                    Speed::Classical => 4,
+                    Speed::Correspondence => 5,
+                } << 1)
+                | (self.games << 4),
+        )
     }
 }
 
@@ -61,6 +65,8 @@ impl Stats {
         write_uint(writer, self.black)
     }
 }
+
+type Group = BySpeed<ByMode<(Stats, Vec<(u8, GameId)>)>>;
 
 #[cfg(test)]
 mod tests {
