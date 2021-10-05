@@ -14,6 +14,7 @@ edition = "2018"
 
 [dependencies]
 byteorder = "1"
+rocksdb = "0.17"
 rustc-hash = "1"
 shakmaty = { version = "0.19", features = ["variant"] }
 smallvec = "1"

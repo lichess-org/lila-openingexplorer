@@ -10,3 +10,4 @@ pub use mode::{ByMode, Mode};
 pub use speed::{BySpeed, Speed};
 pub use uci::{read_uci, write_uci};
 pub use uint::{read_uint, write_uint};
+pub use personal::PersonalEntry;

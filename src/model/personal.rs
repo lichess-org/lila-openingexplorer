@@ -4,7 +4,6 @@ use rustc_hash::FxHashMap;
 use shakmaty::uci::Uci;
 use smallvec::SmallVec;
 use std::cmp::max;
-use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::ops::AddAssign;
 
@@ -106,13 +105,13 @@ impl AddAssign for Group {
 }
 
 #[derive(Default)]
-struct Entry {
+pub struct PersonalEntry {
     sub_entries: FxHashMap<Uci, BySpeed<ByMode<Group>>>,
     max_game_idx: u64,
 }
 
-impl Entry {
-    fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
+impl PersonalEntry {
+    pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
         loop {
             let uci = match read_uci(reader) {
                 Ok(uci) => uci,
@@ -148,7 +147,7 @@ impl Entry {
         }
     }
 
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         let discarded_game_idx = self.max_game_idx.saturating_sub(MAX_GAMES);
 
         for (uci, sub_entry) in &self.sub_entries {

@@ -3,21 +3,9 @@ use shakmaty::uci::Uci;
 use shakmaty::variant::Variant;
 use shakmaty::Color;
 
-enum Speed {
-    Ultrabullet,
-    Bullet,
-    Blitz,
-    Rapid,
-    Classical,
-    Correspondence,
-}
+use super::model::{Mode, Speed};
 
-enum Mode {
-    Casual,
-    Rated,
-}
-
-struct Query {
+struct _Query {
     variant: Variant,
     fen: Fen,
     play: Vec<Uci>,
@@ -25,7 +13,7 @@ struct Query {
     speeds: Option<Vec<Speed>>,
     player: String,
     color: Color,
-    since: SinceYear,
+    since: _SinceYear,
 }
 
-struct SinceYear(u8); // since 2000 or so
+struct _SinceYear(u8); // since 2000 or so
