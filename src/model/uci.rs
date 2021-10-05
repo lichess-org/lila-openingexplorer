@@ -3,8 +3,10 @@ use shakmaty::uci::Uci;
 use shakmaty::{Role, Square};
 use std::convert::TryFrom;
 use std::io::{self, Read, Write};
+use std::collections::HashMap;
+use super::Record;
 
-pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
+fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     let n = reader.read_u16::<LittleEndian>()?;
     let from = Square::try_from(n & 63).unwrap();
     let to = Square::try_from((n >> 6) & 63).unwrap();
@@ -23,7 +25,7 @@ pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     })
 }
 
-pub fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
+fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
     let (from, to, role) = match *uci {
         Uci::Normal {
             from,
@@ -36,6 +38,34 @@ pub fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
     writer.write_u16::<LittleEndian>(
         u16::from(from) | (u16::from(to) << 6) | (role.map(u16::from).unwrap_or_default() << 12),
     )
+}
+
+pub struct ByUci<T> {
+    inner: HashMap<Uci, T>,
+}
+
+impl<T: Record> ByUci<T> {
+    pub fn read<R: Read>(reader: &mut R) -> io::Result<ByUci<T>> {
+        let mut inner = HashMap::new();
+        loop {
+            let uci = read_uci(reader)?;
+            let record = match T::read(reader) {
+                Ok(record) => record,
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => break,
+                Err(err) => return Err(err),
+            };
+            inner.insert(uci, record);
+        }
+        Ok(ByUci { inner })
+    }
+
+    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        for (uci, record) in &self.inner {
+            write_uci(writer, uci)?;
+            record.write(writer)?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

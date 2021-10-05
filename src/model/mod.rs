@@ -7,7 +7,7 @@ mod uint;
 
 use std::io::{self, Read, Write};
 
-trait Record {
+pub trait Record {
     fn read<R: Read>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized;
@@ -17,5 +17,5 @@ trait Record {
 pub use game_id::{GameId, InvalidGameId};
 pub use mode::{ByMode, Mode};
 pub use speed::{BySpeed, Speed};
-pub use uci::{read_uci, write_uci};
+pub use uci::ByUci;
 pub use uint::{read_uint, write_uint};
