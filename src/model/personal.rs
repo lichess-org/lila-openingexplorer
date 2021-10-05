@@ -3,6 +3,7 @@ use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 use std::cmp::min;
 use std::io::{self, Read, Write};
 use std::ops::AddAssign;
+use std::cmp::max;
 
 const MAX_GAMES: usize = 15; // 4 bits
 
@@ -95,13 +96,14 @@ struct Group {
 }
 
 #[derive(Default)]
-struct PersonalRecord {
+struct SubRecord {
     inner: BySpeed<ByMode<Group>>,
+    max_game_idx: u8,
 }
 
-impl Record for PersonalRecord {
-    fn read<R: Read>(reader: &mut R) -> io::Result<PersonalRecord> {
-        let mut acc = PersonalRecord::default();
+impl Record for SubRecord {
+    fn read<R: Read>(reader: &mut R) -> io::Result<SubRecord> {
+        let mut acc = SubRecord::default();
         loop {
             match Header::read(reader)? {
                 Header::Group {
@@ -113,6 +115,7 @@ impl Record for PersonalRecord {
                     let mut games = Vec::with_capacity(num_games);
                     for _ in 0..num_games {
                         let game_idx = reader.read_u8()?;
+                        acc.max_game_idx = max(acc.max_game_idx, game_idx);
                         let game = GameId::read(reader)?;
                         games.push((game_idx, game));
                     }
