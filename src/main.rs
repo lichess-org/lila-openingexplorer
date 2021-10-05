@@ -1,3 +1,6 @@
+mod api;
+mod model;
+
 use shakmaty::Color;
 
 struct HashKey {
