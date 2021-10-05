@@ -13,6 +13,7 @@ keywords = ["chess", "lichess"]
 edition = "2018"
 
 [dependencies]
+byteorder = "1.4.3"
 shakmaty = { version = "0.19", features = ["variant"] }
 
 [dev-dependencies]
