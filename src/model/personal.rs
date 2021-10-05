@@ -25,7 +25,7 @@ impl Header {
         Ok(Header::Group {
             speed: match n & 7 {
                 0 => return Ok(Header::End),
-                1 => Speed::Ultrabullet,
+                1 => Speed::UltraBullet,
                 2 => Speed::Bullet,
                 3 => Speed::Blitz,
                 4 => Speed::Rapid,
@@ -47,7 +47,7 @@ impl Header {
                 num_games,
             } => {
                 (match speed {
-                    Speed::Ultrabullet => 1,
+                    Speed::UltraBullet => 1,
                     Speed::Bullet => 2,
                     Speed::Blitz => 3,
                     Speed::Rapid => 4,

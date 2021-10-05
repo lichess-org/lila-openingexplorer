@@ -3,9 +3,18 @@ use std::fmt::{self, Write as _};
 use std::io;
 use std::io::{Read, Write};
 use std::str::FromStr;
+use std::error::Error;
 
 #[derive(Debug)]
 pub struct InvalidGameId;
+
+impl fmt::Display for InvalidGameId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid game id")
+    }
+}
+
+impl Error for InvalidGameId {}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GameId(u64);

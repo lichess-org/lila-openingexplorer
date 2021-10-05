@@ -1,8 +1,10 @@
+use serde::Deserialize;
 use std::ops::AddAssign;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Speed {
-    Ultrabullet,
+    UltraBullet,
     Bullet,
     Blitz,
     Rapid,
@@ -12,7 +14,7 @@ pub enum Speed {
 
 #[derive(Debug, Default)]
 pub struct BySpeed<T> {
-    pub ultrabullet: T,
+    pub ultra_bullet: T,
     pub bullet: T,
     pub blitz: T,
     pub rapid: T,
@@ -23,7 +25,7 @@ pub struct BySpeed<T> {
 impl<T> BySpeed<T> {
     pub fn by_speed(&self, speed: Speed) -> &T {
         match speed {
-            Speed::Ultrabullet => &self.ultrabullet,
+            Speed::UltraBullet => &self.ultra_bullet,
             Speed::Bullet => &self.bullet,
             Speed::Blitz => &self.blitz,
             Speed::Rapid => &self.rapid,
@@ -34,7 +36,7 @@ impl<T> BySpeed<T> {
 
     pub fn by_speed_mut(&mut self, speed: Speed) -> &mut T {
         match speed {
-            Speed::Ultrabullet => &mut self.ultrabullet,
+            Speed::UltraBullet => &mut self.ultra_bullet,
             Speed::Bullet => &mut self.bullet,
             Speed::Blitz => &mut self.blitz,
             Speed::Rapid => &mut self.rapid,
@@ -45,7 +47,7 @@ impl<T> BySpeed<T> {
 
     pub fn as_ref(&self) -> BySpeed<&T> {
         BySpeed {
-            ultrabullet: &self.ultrabullet,
+            ultra_bullet: &self.ultra_bullet,
             bullet: &self.bullet,
             blitz: &self.blitz,
             rapid: &self.rapid,
@@ -59,7 +61,7 @@ impl<T> BySpeed<T> {
         F: FnMut(Speed, T) -> Result<U, E>,
     {
         Ok(BySpeed {
-            ultrabullet: f(Speed::Ultrabullet, self.ultrabullet)?,
+            ultra_bullet: f(Speed::UltraBullet, self.ultra_bullet)?,
             bullet: f(Speed::Bullet, self.bullet)?,
             blitz: f(Speed::Blitz, self.blitz)?,
             rapid: f(Speed::Rapid, self.rapid)?,
@@ -71,7 +73,7 @@ impl<T> BySpeed<T> {
 
 impl<T: AddAssign> AddAssign for BySpeed<T> {
     fn add_assign(&mut self, rhs: BySpeed<T>) {
-        self.ultrabullet += rhs.ultrabullet;
+        self.ultra_bullet += rhs.ultra_bullet;
         self.bullet += rhs.bullet;
         self.blitz += rhs.blitz;
         self.rapid += rhs.rapid;

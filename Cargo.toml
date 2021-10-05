@@ -16,6 +16,8 @@ edition = "2018"
 byteorder = "1"
 rocksdb = "0.17"
 rustc-hash = "1"
+serde = { version = "1", features = ["derive"] }
+serde_with = "1.10.0"
 shakmaty = { version = "0.19", features = ["variant"] }
 smallvec = "1"
 
