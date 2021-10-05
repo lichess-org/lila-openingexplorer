@@ -30,7 +30,7 @@ mod tests {
     use std::io::Cursor;
 
     quickcheck! {
-        fn uint_roundtrip(n: u64) -> bool {
+        fn test_uint_roundtrip(n: u64) -> bool {
             let mut writer = Cursor::new(Vec::new());
             write_uint(&mut writer, n).unwrap();
 

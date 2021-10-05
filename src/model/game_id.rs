@@ -79,7 +79,7 @@ mod tests {
     }
 
     quickcheck! {
-        fn game_id_roundtrip(game_id: GameId) -> bool {
+        fn test_game_id_roundtrip(game_id: GameId) -> bool {
             GameId::from_str(&game_id.to_string()).unwrap() == game_id
         }
     }
