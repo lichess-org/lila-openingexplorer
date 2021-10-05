@@ -1,7 +1,7 @@
-use shakmaty::Color;
-use shakmaty::uci::Uci;
 use shakmaty::fen::Fen;
+use shakmaty::uci::Uci;
 use shakmaty::variant::Variant;
+use shakmaty::Color;
 
 enum Speed {
     Ultrabullet,

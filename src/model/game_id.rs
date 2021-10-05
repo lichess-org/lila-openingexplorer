@@ -1,8 +1,8 @@
+use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use std::fmt::{self, Write as _};
-use std::str::FromStr;
 use std::io;
 use std::io::{Read, Write};
-use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct InvalidGameId;
@@ -40,7 +40,8 @@ impl FromStr for GameId {
                 b'A'..=b'Z' => c - b'A' + 10,
                 b'a'..=b'z' => c - b'a' + 10 + 26,
                 _ => return Err(InvalidGameId),
-            } as u64 + n * 62;
+            } as u64
+                + n * 62;
         }
 
         Ok(GameId(n))
@@ -67,8 +68,8 @@ impl fmt::Display for GameId {
 
 #[cfg(test)]
 mod tests {
-    use quickcheck::{Arbitrary, Gen, quickcheck};
     use super::*;
+    use quickcheck::{quickcheck, Arbitrary, Gen};
 
     impl Arbitrary for GameId {
         fn arbitrary(g: &mut Gen) -> Self {
