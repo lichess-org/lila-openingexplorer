@@ -5,17 +5,17 @@ use std::io::{Read, Write};
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 
 #[derive(Debug)]
-struct InvalidGameId;
+pub struct InvalidGameId;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-struct GameId(u64);
+pub struct GameId(u64);
 
 impl GameId {
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_u48::<LittleEndian>(self.0)
     }
 
-    fn read<R: Read>(&self, reader: &mut R) -> io::Result<GameId> {
+    pub fn read<R: Read>(&self, reader: &mut R) -> io::Result<GameId> {
         let n = reader.read_u48::<LittleEndian>()?;
         if n < 62u64.pow(8) {
             Ok(GameId(n))
