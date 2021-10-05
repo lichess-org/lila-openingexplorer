@@ -1,4 +1,4 @@
-use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Record, Speed};
+use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Record, Speed, ByUci};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 use std::cmp::min;
 use std::io::{self, Read, Write};
@@ -91,25 +91,17 @@ impl Record for Stats {
 #[derive(Default)]
 struct Group {
     stats: Stats,
-    games: Vec<GameId>,
+    games: Vec<(u8, GameId)>,
 }
 
-impl AddAssign for Group {
-    fn add_assign(&mut self, rhs: Group) {
-        self.stats += rhs.stats;
-        self.games.extend(rhs.games);
-    }
-}
-
-type Inner = BySpeed<ByMode<Group>>;
-
+#[derive(Default)]
 struct PersonalRecord {
-    inner: Inner,
+    inner: BySpeed<ByMode<Group>>,
 }
 
 impl Record for PersonalRecord {
     fn read<R: Read>(reader: &mut R) -> io::Result<PersonalRecord> {
-        let mut inner = Inner::default();
+        let mut acc = PersonalRecord::default();
         loop {
             match Header::read(reader)? {
                 Header::Group {
@@ -120,15 +112,17 @@ impl Record for PersonalRecord {
                     let stats = Stats::read(reader)?;
                     let mut games = Vec::with_capacity(num_games);
                     for _ in 0..num_games {
-                        games.push(GameId::read(reader)?);
+                        let game_idx = reader.read_u8()?;
+                        let game = GameId::read(reader)?;
+                        games.push((game_idx, game));
                     }
-                    let group = inner.by_speed_mut(speed).by_mode_mut(mode);
+                    let group = acc.inner.by_speed_mut(speed).by_mode_mut(mode);
                     *group = Group { stats, games };
                 }
                 Header::End => break,
             }
         }
-        Ok(PersonalRecord { inner })
+        Ok(acc)
     }
 
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
@@ -145,7 +139,8 @@ impl Record for PersonalRecord {
 
                 group.stats.write(writer)?;
 
-                for game in group.games.iter().take(num_games) {
+                for (game_idx, game) in group.games.iter().take(num_games) {
+                    writer.write_u8(*game_idx)?;
                     game.write(writer)?;
                 }
 

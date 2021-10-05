@@ -40,9 +40,8 @@ fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
     )
 }
 
-pub struct ByUci<T> {
-    inner: HashMap<Uci, T>,
-}
+#[derive(Default)]
+pub struct ByUci<T>(HashMap<Uci, T>);
 
 impl<T: Record> Record for ByUci<T> {
     fn read<R: Read>(reader: &mut R) -> io::Result<ByUci<T>> {
@@ -56,11 +55,11 @@ impl<T: Record> Record for ByUci<T> {
             };
             inner.insert(uci, record);
         }
-        Ok(ByUci { inner })
+        Ok(ByUci(inner))
     }
 
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        for (uci, record) in &self.inner {
+        for (uci, record) in &self.0 {
             write_uci(writer, uci)?;
             record.write(writer)?;
         }
