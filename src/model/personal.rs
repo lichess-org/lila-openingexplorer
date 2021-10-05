@@ -1,10 +1,11 @@
-use shakmaty::uci::Uci;
-use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Speed, read_uci, write_uci};
+use super::{read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Speed};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
-use std::io::{self, Read, Write};
-use std::ops::AddAssign;
+use shakmaty::uci::Uci;
+use smallvec::SmallVec;
 use std::cmp::max;
 use std::collections::HashMap;
+use std::io::{self, Read, Write};
+use std::ops::AddAssign;
 
 const MAX_GAMES: u64 = 15; // 4 bits
 
@@ -93,7 +94,7 @@ impl Stats {
 #[derive(Default)]
 struct Group {
     stats: Stats,
-    games: Vec<(u64, GameId)>,
+    games: SmallVec<[(u64, GameId); 1]>,
 }
 
 impl AddAssign for Group {
@@ -129,7 +130,7 @@ impl Entry {
                         num_games,
                     } => {
                         let stats = Stats::read(reader)?;
-                        let mut games = Vec::with_capacity(num_games);
+                        let mut games = SmallVec::with_capacity(num_games);
                         for _ in 0..num_games {
                             let game_idx = base_game_idx + read_uint(reader)?;
                             self.max_game_idx = max(self.max_game_idx, game_idx);
@@ -156,7 +157,11 @@ impl Entry {
                     let num_games = if group.games.len() == 1 {
                         1
                     } else {
-                        group.games.iter().filter(|(game_idx, _)| *game_idx > discarded_game_idx).count()
+                        group
+                            .games
+                            .iter()
+                            .filter(|(game_idx, _)| *game_idx > discarded_game_idx)
+                            .count()
                     };
 
                     Header::Group {
