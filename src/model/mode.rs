@@ -30,4 +30,21 @@ impl<T> ByMode<T> {
             Mode::Casual => &self.casual,
         }
     }
+
+    pub fn as_ref(&self) -> ByMode<&T> {
+        ByMode {
+            rated: &self.rated,
+            casual: &self.casual,
+        }
+    }
+
+    pub fn try_map<U, E, F>(self, mut f: F) -> Result<ByMode<U>, E>
+    where
+        F: FnMut(Mode, T) -> Result<U, E>,
+    {
+        Ok(ByMode {
+            rated: f(Mode::Rated, self.rated)?,
+            casual: f(Mode::Casual, self.casual)?,
+        })
+    }
 }

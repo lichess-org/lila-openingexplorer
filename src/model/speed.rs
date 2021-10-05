@@ -29,4 +29,29 @@ impl<T> BySpeed<T> {
             Speed::Correspondence => &self.correspondence,
         }
     }
+
+    pub fn as_ref(&self) -> BySpeed<&T> {
+        BySpeed {
+            ultrabullet: &self.ultrabullet,
+            bullet: &self.bullet,
+            blitz: &self.blitz,
+            rapid: &self.rapid,
+            classical: &self.classical,
+            correspondence: &self.correspondence,
+        }
+    }
+
+    pub fn try_map<U, E, F>(self, mut f: F) -> Result<BySpeed<U>, E>
+    where
+        F: FnMut(Speed, T) -> Result<U, E>,
+    {
+        Ok(BySpeed {
+            ultrabullet: f(Speed::Ultrabullet, self.ultrabullet)?,
+            bullet: f(Speed::Bullet, self.bullet)?,
+            blitz: f(Speed::Blitz, self.blitz)?,
+            rapid: f(Speed::Rapid, self.rapid)?,
+            classical: f(Speed::Classical, self.classical)?,
+            correspondence: f(Speed::Correspondence, self.correspondence)?,
+        })
+    }
 }

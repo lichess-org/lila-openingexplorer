@@ -1,12 +1,15 @@
-use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Speed};
+use super::{read_uint, write_uint, ByMode, BySpeed, GameId, Mode, Record, Speed};
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 use std::io::{self, Read, Write};
+use std::cmp::min;
+
+const MAX_GAMES: usize = 15; // 4 bits
 
 #[derive(Debug, Eq, PartialEq)]
 struct Header {
     mode: Mode,
     speed: Speed,
-    games: u8, // up to 15
+    num_games: usize,
 }
 
 impl Header {
@@ -23,7 +26,7 @@ impl Header {
                 5 => Speed::Correspondence,
                 _ => return Err(io::ErrorKind::InvalidData.into()),
             },
-            games: n >> 4,
+            num_games: usize::from(n >> 4),
         })
     }
 
@@ -38,12 +41,12 @@ impl Header {
                     Speed::Classical => 4,
                     Speed::Correspondence => 5,
                 } << 1)
-                | (self.games << 4),
+                | ((self.num_games as u8) << 4),
         )
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Stats {
     white: u64,
     draw: u64,
@@ -66,7 +69,39 @@ impl Stats {
     }
 }
 
-type Group = BySpeed<ByMode<(Stats, Vec<(u8, GameId)>)>>;
+struct PersonalRecord {
+    inner: BySpeed<ByMode<(Stats, Vec<GameId>)>>,
+}
+
+impl Record for PersonalRecord {
+    fn read<R: Read>(reader: &mut R) -> io::Result<PersonalRecord> {
+
+    }
+
+    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        self.inner.as_ref().try_map(|speed, by_mode| {
+            by_mode.as_ref().try_map(|mode, (stats, games)| {
+                let num_games = min(games.len(), MAX_GAMES);
+
+                Header {
+                    speed,
+                    mode,
+                    num_games,
+                }.write(writer)?;
+
+                stats.write(writer)?;
+
+                for game in games.iter().take(num_games) {
+                    game.write(writer)?;
+                }
+
+                Ok::<_, io::Error>(())
+            })
+        })?;
+
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -78,7 +113,7 @@ mod tests {
         let header = Header {
             mode: Mode::Rated,
             speed: Speed::Correspondence,
-            games: 15,
+            num_games: 15,
         };
 
         let mut writer = Cursor::new(Vec::new());
