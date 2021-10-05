@@ -41,7 +41,7 @@ fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
 }
 
 #[derive(Default)]
-pub struct ByUci<T>(HashMap<Uci, T>);
+pub struct ByUci<T>(pub HashMap<Uci, T>);
 
 impl<T: Record> Record for ByUci<T> {
     fn read<R: Read>(reader: &mut R) -> io::Result<ByUci<T>> {

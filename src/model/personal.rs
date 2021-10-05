@@ -92,18 +92,18 @@ impl Record for Stats {
 #[derive(Default)]
 struct Group {
     stats: Stats,
-    games: Vec<(u8, GameId)>,
+    games: Vec<(usize, GameId)>,
 }
 
 #[derive(Default)]
-struct SubRecord {
+struct SubEntry {
     inner: BySpeed<ByMode<Group>>,
-    max_game_idx: u8,
+    max_game_idx: usize,
 }
 
-impl Record for SubRecord {
-    fn read<R: Read>(reader: &mut R) -> io::Result<SubRecord> {
-        let mut acc = SubRecord::default();
+impl Record for SubEntry {
+    fn read<R: Read>(reader: &mut R) -> io::Result<SubEntry> {
+        let mut acc = SubEntry::default();
         loop {
             match Header::read(reader)? {
                 Header::Group {
@@ -114,7 +114,7 @@ impl Record for SubRecord {
                     let stats = Stats::read(reader)?;
                     let mut games = Vec::with_capacity(num_games);
                     for _ in 0..num_games {
-                        let game_idx = reader.read_u8()?;
+                        let game_idx = usize::from(reader.read_u8()?);
                         acc.max_game_idx = max(acc.max_game_idx, game_idx);
                         let game = GameId::read(reader)?;
                         games.push((game_idx, game));
@@ -143,7 +143,7 @@ impl Record for SubRecord {
                 group.stats.write(writer)?;
 
                 for (game_idx, game) in group.games.iter().take(num_games) {
-                    writer.write_u8(*game_idx)?;
+                    writer.write_u8(*game_idx as u8)?;
                     game.write(writer)?;
                 }
 
@@ -152,6 +152,16 @@ impl Record for SubRecord {
         })?;
 
         Header::End.write(writer)
+    }
+}
+
+struct Entry {
+    inner: ByUci<SubEntry>,
+}
+
+impl Entry {
+    fn max_game_idx(&self) -> usize {
+        self.inner.0.values().map(|v| v.max_game_idx).max().unwrap_or(0)
     }
 }
 
