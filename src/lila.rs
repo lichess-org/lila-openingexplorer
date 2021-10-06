@@ -6,10 +6,12 @@ use serde_with::{serde_as, DisplayFromStr, StringWithSeparator, SpaceSeparator};
 
 #[serde_as]
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Game {
     #[serde_as(as = "DisplayFromStr")]
     id: GameId,
     rated: bool,
+    created_at: u64,
     status: Status,
     variant: LilaVariant,
     players: Players,
@@ -19,7 +21,7 @@ struct Game {
     #[serde(default)]
     winner: Option<WinnerColor>,
     #[serde_as(as = "Option<DisplayFromStr>")]
-    #[serde(default, rename = "initialFen")]
+    #[serde(default)]
     initial_fen: Option<Fen>
 }
 
