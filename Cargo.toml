@@ -14,6 +14,7 @@ edition = "2018"
 
 [dependencies]
 byteorder = "1"
+reqwest = "0.11"
 rocksdb = "0.17"
 rustc-hash = "1"
 serde = { version = "1", features = ["derive"] }

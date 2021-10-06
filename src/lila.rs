@@ -93,3 +93,26 @@ impl Status {
         matches!(self, Status::UnknownFinish | Status::NoStart | Status::Aborted)
     }
 }
+
+pub struct Api {
+    client: reqwest::Client,
+}
+
+impl Api {
+    pub fn new() -> Api {
+        Api {
+            client: reqwest::Client::builder()
+                .build()
+                .expect("reqwest client")
+        }
+    }
+
+    pub async fn user_games(&self, name: String /* XXX */) -> reqwest::Result<()> {
+        let res = self.client.get(format!("https://lichess.org/api/games/user/{}", name))
+            .header("Accept", "application/x-ndjson")
+            .send()
+            .await?;
+
+        Ok(())
+    }
+}
