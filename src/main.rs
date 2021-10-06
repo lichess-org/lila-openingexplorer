@@ -3,6 +3,7 @@ pub mod lila;
 pub mod model;
 
 use shakmaty::Color;
+use futures_util::stream::StreamExt as _;
 
 use self::model::PersonalEntry;
 use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB};
@@ -40,7 +41,8 @@ fn personal_merge(
     Some(writer.into_inner())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let mut db_opts = Options::default();
     db_opts.create_if_missing(true);
     db_opts.create_missing_column_families(true);
@@ -58,4 +60,11 @@ fn main() {
     let personal_column = db.cf_handle("personal").expect("personal cf");
 
     db.merge_cf(&personal_column, "k", "").expect("merge");
+
+    let api = lila::Api::new();
+
+    let mut games = api.user_games("revoof").await.expect("user games request");
+    while let Some(game) = games.next().await {
+        dbg!(game.expect("next game"));
+    }
 }

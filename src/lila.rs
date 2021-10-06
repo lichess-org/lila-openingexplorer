@@ -22,7 +22,7 @@ impl Api {
 
     pub async fn user_games(
         &self,
-        name: String, /* XXX */
+        name: &str, /* XXX */
     ) -> reqwest::Result<impl Stream<Item = io::Result<Game>>> {
         let stream = self
             .client
@@ -38,7 +38,7 @@ impl Api {
             LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {
                 match line {
                     Ok(line) if line.is_empty() => None,
-                    Ok(line) => Some(serde_json::from_str::<Game>(&line).map_err(io::Error::from)),
+                    Ok(line) => Some(serde_json::from_str::<Game>(&dbg!(line)).map_err(io::Error::from)),
                     Err(err) => Some(Err(err)),
                 }
             }),
@@ -47,7 +47,7 @@ impl Api {
 }
 
 #[serde_as]
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     #[serde_as(as = "DisplayFromStr")]
@@ -67,24 +67,26 @@ pub struct Game {
     initial_fen: Option<Fen>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Players {
     white: Player,
     black: Player,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Player {
-    user: User,
-    rating: u16,
+    #[serde(default)]
+    user: Option<User>,
+    #[serde(default)]
+    rating: Option<u16>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct User {
     name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum LilaVariant {
     Antichess,
@@ -99,15 +101,14 @@ enum LilaVariant {
     ThreeCheck,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 enum WinnerColor {
-    #[serde(rename = "white")]
     White,
-    #[serde(rename = "black")]
     Black,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum Status {
     Created,
