@@ -1,8 +1,13 @@
 use crate::model::{GameId, Speed};
-use shakmaty::san::San;
-use shakmaty::fen::Fen;
+use futures_util::stream::TryStreamExt as _;
 use serde::Deserialize;
-use serde_with::{serde_as, DisplayFromStr, StringWithSeparator, SpaceSeparator};
+use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
+use shakmaty::fen::Fen;
+use shakmaty::san::San;
+use std::io;
+use tokio::io::AsyncBufReadExt as _;
+use tokio_stream::wrappers::LinesStream;
+use tokio_util::io::StreamReader;
 
 #[serde_as]
 #[derive(Deserialize)]
@@ -22,7 +27,7 @@ struct Game {
     winner: Option<WinnerColor>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    initial_fen: Option<Fen>
+    initial_fen: Option<Fen>,
 }
 
 #[derive(Deserialize)]
@@ -90,7 +95,10 @@ impl Status {
     }
 
     pub fn is_unindexable(self) -> bool {
-        matches!(self, Status::UnknownFinish | Status::NoStart | Status::Aborted)
+        matches!(
+            self,
+            Status::UnknownFinish | Status::NoStart | Status::Aborted
+        )
     }
 }
 
@@ -101,17 +109,22 @@ pub struct Api {
 impl Api {
     pub fn new() -> Api {
         Api {
-            client: reqwest::Client::builder()
-                .build()
-                .expect("reqwest client")
+            client: reqwest::Client::builder().build().expect("reqwest client"),
         }
     }
 
     pub async fn user_games(&self, name: String /* XXX */) -> reqwest::Result<()> {
-        let res = self.client.get(format!("https://lichess.org/api/games/user/{}", name))
+        let stream = self
+            .client
+            .get(format!("https://lichess.org/api/games/user/{}", name))
             .header("Accept", "application/x-ndjson")
             .send()
-            .await?;
+            .await?
+            .error_for_status()?
+            .bytes_stream()
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+
+        LinesStream::new(StreamReader::new(stream).lines());
 
         Ok(())
     }

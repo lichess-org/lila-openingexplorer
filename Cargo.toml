@@ -14,13 +14,17 @@ edition = "2018"
 
 [dependencies]
 byteorder = "1"
-reqwest = "0.11"
+futures-util = "0.3"
+reqwest = { version = "0.11", features = ["stream"] }
 rocksdb = "0.17"
 rustc-hash = "1"
 serde = { version = "1", features = ["derive"] }
 serde_with = "1.10.0"
 shakmaty = { version = "0.19", features = ["variant"] }
 smallvec = "1"
+tokio = "1"
+tokio-stream = { version = "0.1", features = ["io-util"] }
+tokio-util = { version = "0.6", features = ["io"] }
 
 [dev-dependencies]
 quickcheck = "1"

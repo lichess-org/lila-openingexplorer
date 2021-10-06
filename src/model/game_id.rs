@@ -1,9 +1,9 @@
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use std::error::Error;
 use std::fmt::{self, Write as _};
 use std::io;
 use std::io::{Read, Write};
 use std::str::FromStr;
-use std::error::Error;
 
 #[derive(Debug)]
 pub struct InvalidGameId;
