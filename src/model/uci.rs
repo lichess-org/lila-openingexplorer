@@ -6,8 +6,8 @@ use std::io::{self, Read, Write};
 
 pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     let n = reader.read_u16::<LittleEndian>()?;
-    let from = Square::try_from(n & 63).unwrap();
-    let to = Square::try_from((n >> 6) & 63).unwrap();
+    let from = Square::new(u32::from(n & 63));
+    let to = Square::new(u32::from((n >> 6) & 63));
     let role = Role::try_from(n >> 12).ok();
     Ok(if from == to {
         match role {
