@@ -1,5 +1,5 @@
 use crate::model::{GameId, Speed};
-use futures_util::stream::TryStreamExt as _;
+use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 use shakmaty::fen::Fen;
@@ -9,10 +9,47 @@ use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::io::StreamReader;
 
+pub struct Api {
+    client: reqwest::Client,
+}
+
+impl Api {
+    pub fn new() -> Api {
+        Api {
+            client: reqwest::Client::builder().build().expect("reqwest client"),
+        }
+    }
+
+    pub async fn user_games(
+        &self,
+        name: String, /* XXX */
+    ) -> reqwest::Result<impl Stream<Item = io::Result<Game>>> {
+        let stream = self
+            .client
+            .get(format!("https://lichess.org/api/games/user/{}", name))
+            .header("Accept", "application/x-ndjson")
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes_stream()
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+
+        Ok(Box::pin(
+            LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {
+                match line {
+                    Ok(line) if line.is_empty() => None,
+                    Ok(line) => Some(serde_json::from_str::<Game>(&line).map_err(io::Error::from)),
+                    Err(err) => Some(Err(err)),
+                }
+            }),
+        ))
+    }
+}
+
 #[serde_as]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Game {
+pub struct Game {
     #[serde_as(as = "DisplayFromStr")]
     id: GameId,
     rated: bool,
@@ -99,33 +136,5 @@ impl Status {
             self,
             Status::UnknownFinish | Status::NoStart | Status::Aborted
         )
-    }
-}
-
-pub struct Api {
-    client: reqwest::Client,
-}
-
-impl Api {
-    pub fn new() -> Api {
-        Api {
-            client: reqwest::Client::builder().build().expect("reqwest client"),
-        }
-    }
-
-    pub async fn user_games(&self, name: String /* XXX */) -> reqwest::Result<()> {
-        let stream = self
-            .client
-            .get(format!("https://lichess.org/api/games/user/{}", name))
-            .header("Accept", "application/x-ndjson")
-            .send()
-            .await?
-            .error_for_status()?
-            .bytes_stream()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
-
-        LinesStream::new(StreamReader::new(stream).lines());
-
-        Ok(())
     }
 }
