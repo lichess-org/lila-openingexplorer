@@ -57,5 +57,8 @@ async fn personal(
     Extension(indexer): Extension<IndexerStub>,
     Query(query): Query<PersonalQuery>,
 ) -> Result<Json<PersonalResponse>, Error> {
-    indexer.index_player(query.player).await.map(|_| Json(PersonalResponse { }))
+    indexer
+        .index_player(query.player)
+        .await
+        .map(|_| Json(PersonalResponse {}))
 }

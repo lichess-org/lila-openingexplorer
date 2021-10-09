@@ -1,6 +1,5 @@
 use crate::api::{Error, UserName};
 use crate::db::Database;
-use crate::util::NevermindExt as _;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::{
@@ -12,7 +11,10 @@ use tokio::{
     time::timeout,
 };
 
+mod actor;
 mod lila;
+
+use actor::{IndexerActor, IndexerMessage};
 
 #[derive(Clone)]
 pub struct IndexerStub {
@@ -45,40 +47,11 @@ impl IndexerStub {
             })?;
 
         Ok(match timeout(Duration::from_secs(7), res).await {
-            Ok(Ok(res)) => IndexerStatus::Completed,
+            Ok(Ok(_)) => IndexerStatus::Completed,
             Ok(Err(_)) => IndexerStatus::Failed,
             Err(_) => IndexerStatus::Ongoing,
         })
     }
-}
-
-struct IndexerActor {
-    rx: mpsc::Receiver<IndexerMessage>,
-    db: Arc<Database>,
-}
-
-impl IndexerActor {
-    async fn run(mut self) {
-        while let Some(msg) = self.rx.recv().await {
-            match msg {
-                IndexerMessage::IndexPlayer { callback, player } => {
-                    dbg!(player);
-                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                    callback.send(()).nevermind("user no longer waiting");
-                }
-            }
-        }
-    }
-
-    async fn index_player(&self, player: UserName) {
-    }
-}
-
-enum IndexerMessage {
-    IndexPlayer {
-        player: UserName,
-        callback: oneshot::Sender<()>,
-    },
 }
 
 pub enum IndexerStatus {
