@@ -1,6 +1,7 @@
 use crate::api::{Error, UserName};
 use crate::db::Database;
 use crate::util::NevermindExt as _;
+use futures_util::StreamExt;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::{
@@ -84,7 +85,11 @@ impl IndexerActor {
     }
 
     async fn index_player(&self, player: UserName) -> Result<(), Error> {
-        let games = self.lila.user_games(player);
+        let mut games = self.lila.user_games(player).await?;
+        while let Some(game) = games.next().await {
+            let game = game?;
+            println!("- {:?}", game);
+        }
         Ok(())
     }
 }

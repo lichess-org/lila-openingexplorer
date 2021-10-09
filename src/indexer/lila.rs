@@ -41,7 +41,7 @@ impl Lila {
                 match line {
                     Ok(line) if line.is_empty() => None,
                     Ok(line) => Some(
-                        serde_json::from_str::<Game>(&dbg!(line))
+                        serde_json::from_str::<Game>(&line)
                             .map_err(|err| Error::IndexerStreamError(err.into())),
                     ),
                     Err(err) => Some(Err(Error::IndexerStreamError(err))),
