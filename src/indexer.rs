@@ -1,5 +1,6 @@
 use crate::api::{Error, UserName};
 use crate::db::Database;
+use crate::util::NevermindExt as _;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::{
@@ -18,7 +19,7 @@ pub struct IndexerStub {
 
 impl IndexerStub {
     pub fn spawn(db: Arc<Database>) -> (IndexerStub, JoinHandle<()>) {
-        let (tx, rx) = mpsc::channel(100);
+        let (tx, rx) = mpsc::channel(2);
         (
             IndexerStub { tx },
             tokio::spawn(IndexerActor { rx, db }.run()),
@@ -61,10 +62,13 @@ impl IndexerActor {
                 IndexerMessage::IndexPlayer { callback, player } => {
                     dbg!(player);
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                    callback.send(());
+                    callback.send(()).nevermind("user no longer waiting");
                 }
             }
         }
+    }
+
+    async fn index_player(&self, player: UserName) {
     }
 }
 

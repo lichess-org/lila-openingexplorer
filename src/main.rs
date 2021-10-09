@@ -3,6 +3,7 @@ pub mod db;
 pub mod indexer;
 pub mod lila;
 pub mod model;
+pub mod util;
 
 use crate::{
     api::{Error, PersonalQuery, PersonalResponse},

@@ -140,7 +140,7 @@ impl axum::response::IntoResponse for Error {
     fn into_response(self) -> axum::http::Response<Self::Body> {
         axum::http::Response::builder()
             .status(match self {
-                Error::IndexerTooBusy => StatusCode::INTERNAL_SERVER_ERROR,
+                Error::IndexerTooBusy => StatusCode::SERVICE_UNAVAILABLE,
             })
             .body(Self::Body::from(self.to_string()))
             .unwrap()
