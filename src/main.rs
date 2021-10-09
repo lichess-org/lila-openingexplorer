@@ -8,12 +8,20 @@ use crate::{
     api::{Error, PersonalQuery, PersonalResponse},
     db::Database,
     indexer::IndexerStub,
+    model::PersonalKeyBuilder,
 };
 use axum::{
     extract::{Extension, Query},
     handler::get,
     response::Json,
     AddExtensionLayer, Router,
+};
+use shakmaty::{
+    CastlingMode,
+    Position,
+    fen::Fen,
+    variant::VariantPosition,
+    zobrist::ZobristHash,
 };
 use clap::Clap;
 use std::net::SocketAddr;
@@ -57,8 +65,18 @@ async fn personal(
     Extension(indexer): Extension<IndexerStub>,
     Query(query): Query<PersonalQuery>,
 ) -> Result<Json<PersonalResponse>, Error> {
-    indexer
-        .index_player(query.player)
-        .await
-        .map(|_| Json(PersonalResponse {}))
+    if true {
+        let status = indexer.index_player(query.player.clone()).await?;
+    }
+
+    let mut pos = VariantPosition::from_setup(query.variant.into(), &Fen::from(query.fen), CastlingMode::Chess960)?;
+    for uci in query.play {
+        let m = uci.to_move(&pos)?;
+        pos.play_unchecked(&m);
+    }
+
+    let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color).with_zobrist(pos.zobrist_hash());
+    let queryable = db.queryable();
+    dbg!(queryable.db.get_cf(queryable.cf_personal, key.prefix()).expect("get cf personal"));
+    Ok(Json(PersonalResponse {}))
 }

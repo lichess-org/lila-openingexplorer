@@ -2,12 +2,31 @@ use axum::http::StatusCode;
 use std::error::Error as StdError;
 use std::fmt;
 use std::io;
+use shakmaty::{
+    PositionError,
+    uci::IllegalUciError,
+    variant::VariantPosition,
+};
 
 #[derive(Debug)]
 pub enum Error {
     IndexerQueueFull,
     IndexerRequestError(reqwest::Error),
     IndexerStreamError(io::Error),
+    PositionError(PositionError<VariantPosition>),
+    IllegalUciError(IllegalUciError),
+}
+
+impl From<PositionError<VariantPosition>> for Error {
+    fn from(err: PositionError<VariantPosition>) -> Error {
+        Error::PositionError(err)
+    }
+}
+
+impl From<IllegalUciError> for Error {
+    fn from(err: IllegalUciError) -> Error {
+        Error::IllegalUciError(err)
+    }
 }
 
 impl StdError for Error {}
@@ -18,6 +37,8 @@ impl fmt::Display for Error {
             Error::IndexerQueueFull => f.write_str("indexer queue full"),
             Error::IndexerRequestError(err) => write!(f, "indexer request error: {}", err),
             Error::IndexerStreamError(err) => write!(f, "indexer stream error: {}", err),
+            Error::PositionError(err) => write!(f, "bad request: {}", err),
+            Error::IllegalUciError(err) => write!(f, "bad request: {}", err),
         }
     }
 }
@@ -32,6 +53,7 @@ impl axum::response::IntoResponse for Error {
                 Error::IndexerQueueFull
                 | Error::IndexerRequestError(_)
                 | Error::IndexerStreamError(_) => StatusCode::SERVICE_UNAVAILABLE,
+                Error::PositionError(_) | Error::IllegalUciError(_) => StatusCode::BAD_REQUEST,
             })
             .body(Self::Body::from(self.to_string()))
             .unwrap()

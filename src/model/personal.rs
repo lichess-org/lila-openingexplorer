@@ -243,6 +243,7 @@ impl PersonalEntry {
     }
 }
 
+#[derive(Debug)]
 pub struct PersonalKeyBuilder {
     base: u128,
 }
@@ -265,6 +266,7 @@ impl PersonalKeyBuilder {
     }
 }
 
+#[derive(Debug)]
 pub struct PersonalKeyPrefix {
     prefix: u128,
 }

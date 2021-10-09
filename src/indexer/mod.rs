@@ -161,7 +161,7 @@ impl IndexerActor {
                             .db
                             .merge_cf(
                                 queryable.cf_personal,
-                                builder.with_zobrist(zobrist).prefix(),
+                                dbg!(builder.with_zobrist(zobrist).prefix()),
                                 buf.into_inner(),
                             )
                             .expect("merge cf personal");

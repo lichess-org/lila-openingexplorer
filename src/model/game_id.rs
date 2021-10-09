@@ -38,7 +38,7 @@ impl FromStr for GameId {
     type Err = InvalidGameId;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if dbg!(s).len() != 8 {
+        if s.len() != 8 {
             return Err(InvalidGameId);
         }
 

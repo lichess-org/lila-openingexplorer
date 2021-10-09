@@ -15,27 +15,29 @@ pub use variant::LilaVariant;
 #[serde_as]
 #[derive(Deserialize)]
 pub struct PersonalQuery {
-    variant: LilaVariant,
+    pub variant: LilaVariant,
     #[serde_as(as = "DisplayFromStr")]
-    fen: LaxFen,
+    pub fen: LaxFen,
     #[serde_as(as = "StringWithSeparator<CommaSeparator, Uci>")]
     #[serde(default)]
-    play: Vec<Uci>,
-    modes: Option<Vec<Mode>>,
-    speeds: Option<Vec<Speed>>,
+    pub play: Vec<Uci>,
+    pub modes: Option<Vec<Mode>>,
+    pub speeds: Option<Vec<Speed>>,
     #[serde_as(as = "DisplayFromStr")]
     pub player: UserName,
     #[serde_as(as = "FromInto<ColorProxy>")]
-    color: Color,
+    pub color: Color,
     #[serde(default)]
-    since: Option<SinceYear>,
+    pub since: Option<SinceYear>,
 }
 
 #[derive(Serialize)]
-pub struct PersonalResponse {}
+pub struct PersonalResponse {
+
+}
 
 #[derive(Deserialize, Default)]
-struct SinceYear(u8); // since 2000 or so
+pub struct SinceYear(u8); // since 2000 or so
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
