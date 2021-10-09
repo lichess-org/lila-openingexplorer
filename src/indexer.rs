@@ -38,7 +38,7 @@ impl IndexerStub {
             )
             .await
             .map_err(|err| match err {
-                SendTimeoutError::Timeout(_) => Error::IndexerTooBusy,
+                SendTimeoutError::Timeout(_) => Error::IndexerQueueFull,
                 SendTimeoutError::Closed(_) => panic!("indexer died"),
             })?;
 

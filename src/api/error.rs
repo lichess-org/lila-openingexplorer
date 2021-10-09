@@ -4,7 +4,7 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum Error {
-    IndexerTooBusy,
+    IndexerQueueFull,
 }
 
 impl StdError for Error {}
@@ -12,7 +12,7 @@ impl StdError for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            Error::IndexerTooBusy => "indexer too busy",
+            Error::IndexerQueueFull => "indexer queue full",
         })
     }
 }
@@ -24,7 +24,7 @@ impl axum::response::IntoResponse for Error {
     fn into_response(self) -> axum::http::Response<Self::Body> {
         axum::http::Response::builder()
             .status(match self {
-                Error::IndexerTooBusy => StatusCode::SERVICE_UNAVAILABLE,
+                Error::IndexerQueueFull => StatusCode::SERVICE_UNAVAILABLE,
             })
             .body(Self::Body::from(self.to_string()))
             .unwrap()
