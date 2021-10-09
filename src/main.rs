@@ -1,11 +1,11 @@
 pub mod api;
-pub mod indexer;
 pub mod db;
+pub mod indexer;
 pub mod lila;
 pub mod model;
 
 use crate::{
-    api::{PersonalQuery, PersonalResponse, Error},
+    api::{Error, PersonalQuery, PersonalResponse},
     db::Database,
     indexer::IndexerStub,
 };
@@ -38,7 +38,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/personal", get(personal))
-        .layer(AddExtensionLayer::new(db));
+        .layer(AddExtensionLayer::new(db))
+        .layer(AddExtensionLayer::new(indexer));
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
@@ -53,7 +54,8 @@ async fn main() {
 
 async fn personal(
     Extension(db): Extension<Arc<Database>>,
+    Extension(indexer): Extension<IndexerStub>,
     Query(query): Query<PersonalQuery>,
 ) -> Result<Json<PersonalResponse>, Error> {
-    Err(Error::IndexerTooBusy)
+    indexer.index_player(query.player).await.map(|_| Json(PersonalResponse { }))
 }

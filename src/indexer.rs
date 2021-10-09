@@ -1,8 +1,17 @@
-use std::sync::Arc;
-use tokio::{sync::{mpsc, oneshot}, task::JoinHandle};
+use crate::api::{Error, UserName};
 use crate::db::Database;
-use crate::api::UserName;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::{
+    sync::{
+        mpsc::{self, error::SendTimeoutError},
+        oneshot,
+    },
+    task::JoinHandle,
+    time::timeout,
+};
 
+#[derive(Clone)]
 pub struct IndexerStub {
     tx: mpsc::Sender<IndexerMessage>,
 }
@@ -10,16 +19,34 @@ pub struct IndexerStub {
 impl IndexerStub {
     pub fn spawn(db: Arc<Database>) -> (IndexerStub, JoinHandle<()>) {
         let (tx, rx) = mpsc::channel(100);
-        (IndexerStub { tx }, tokio::spawn(IndexerActor { rx, db }.run()))
+        (
+            IndexerStub { tx },
+            tokio::spawn(IndexerActor { rx, db }.run()),
+        )
     }
 
-    /* XXX pub async fn index_player(&self) -> Result<(), ()> {
+    pub async fn index_player(&self, player: UserName) -> Result<IndexerStatus, Error> {
         let (req, res) = oneshot::channel();
-        self.tx.send(IndexerMessage::IndexPlayer {
-            callback: req
-        }).expect("indexer actor alive");
-        res.await;
-    } */
+        self.tx
+            .send_timeout(
+                IndexerMessage::IndexPlayer {
+                    player,
+                    callback: req,
+                },
+                Duration::from_secs(2),
+            )
+            .await
+            .map_err(|err| match err {
+                SendTimeoutError::Timeout(_) => Error::IndexerTooBusy,
+                SendTimeoutError::Closed(_) => panic!("indexer died"),
+            })?;
+
+        Ok(match timeout(Duration::from_secs(7), res).await {
+            Ok(Ok(res)) => IndexerStatus::Completed,
+            Ok(Err(_)) => IndexerStatus::Failed,
+            Err(_) => IndexerStatus::Ongoing,
+        })
+    }
 }
 
 struct IndexerActor {
@@ -45,5 +72,11 @@ enum IndexerMessage {
     IndexPlayer {
         player: UserName,
         callback: oneshot::Sender<()>,
-    }
+    },
+}
+
+pub enum IndexerStatus {
+    Ongoing,
+    Completed,
+    Failed,
 }

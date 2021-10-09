@@ -1,5 +1,5 @@
-use crate::model::{GameId, Speed};
 use crate::api::UserName;
+use crate::model::{GameId, Speed};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};

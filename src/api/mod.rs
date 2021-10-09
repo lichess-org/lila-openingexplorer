@@ -1,14 +1,14 @@
 use crate::lila::LilaVariant;
 use crate::model::{Mode, Speed};
+use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, FromInto, StringWithSeparator};
 use shakmaty::fen::{Fen, ParseFenError};
 use shakmaty::uci::Uci;
 use shakmaty::Color;
-use std::str::FromStr;
 use std::error::Error as StdError;
 use std::fmt;
-use axum::http::StatusCode;
+use std::str::FromStr;
 
 #[serde_as]
 #[derive(Deserialize)]
@@ -22,7 +22,7 @@ pub struct PersonalQuery {
     modes: Option<Vec<Mode>>,
     speeds: Option<Vec<Speed>>,
     #[serde_as(as = "DisplayFromStr")]
-    player: UserName,
+    pub player: UserName,
     #[serde_as(as = "FromInto<ColorProxy>")]
     color: Color,
     #[serde(default)]
@@ -106,7 +106,11 @@ impl FromStr for UserName {
     type Err = InvalidUserName;
 
     fn from_str(s: &str) -> Result<UserName, InvalidUserName> {
-        if !s.is_empty() && s.len() <= 30 && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        if !s.is_empty()
+            && s.len() <= 30
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
             Ok(UserName(s.into()))
         } else {
             Err(InvalidUserName)
@@ -124,7 +128,7 @@ impl StdError for Error {}
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            Error::IndexerTooBusy => "indexer too busy"
+            Error::IndexerTooBusy => "indexer too busy",
         })
     }
 }
