@@ -1,4 +1,3 @@
-use crate::lila::LilaVariant;
 use crate::model::{Mode, Speed};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, FromInto, StringWithSeparator};
@@ -10,8 +9,10 @@ use std::fmt;
 use std::str::FromStr;
 
 mod error;
+mod variant;
 
 pub use error::Error;
+pub use variant::LilaVariant;
 
 #[serde_as]
 #[derive(Deserialize)]
@@ -29,7 +30,7 @@ pub struct PersonalQuery {
     #[serde_as(as = "FromInto<ColorProxy>")]
     color: Color,
     #[serde(default)]
-    since: SinceYear,
+    since: Option<SinceYear>,
 }
 
 #[derive(Serialize)]

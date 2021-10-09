@@ -12,6 +12,8 @@ use tokio::{
     time::timeout,
 };
 
+mod lila;
+
 #[derive(Clone)]
 pub struct IndexerStub {
     tx: mpsc::Sender<IndexerMessage>,

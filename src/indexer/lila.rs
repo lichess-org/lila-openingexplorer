@@ -1,4 +1,4 @@
-use crate::api::UserName;
+use crate::api::{UserName, LilaVariant};
 use crate::model::{GameId, Speed};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
@@ -87,21 +87,6 @@ struct Player {
 #[derive(Debug, Deserialize)]
 struct User {
     name: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum LilaVariant {
-    Antichess,
-    Atomic,
-    Chess960,
-    Crazyhouse,
-    FromPosition,
-    Horde,
-    KingOfTheHill,
-    RacingKings,
-    Standard,
-    ThreeCheck,
 }
 
 #[derive(Debug, Deserialize)]
