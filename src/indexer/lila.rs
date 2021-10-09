@@ -1,4 +1,4 @@
-use crate::api::{LilaVariant, UserName};
+use crate::api::{UserName, LilaVariant};
 use crate::model::{GameId, Speed};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
@@ -10,13 +10,13 @@ use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::io::StreamReader;
 
-pub struct Lila {
+pub struct Api {
     client: reqwest::Client,
 }
 
-impl Lila {
-    pub fn new() -> Lila {
-        Lila {
+impl Api {
+    pub fn new() -> Api {
+        Api {
             client: reqwest::Client::builder().build().expect("reqwest client"),
         }
     }

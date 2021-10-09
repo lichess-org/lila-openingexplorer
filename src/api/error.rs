@@ -1,5 +1,5 @@
-use axum::http::StatusCode;
 use std::error::Error as StdError;
+use axum::http::StatusCode;
 use std::fmt;
 
 #[derive(Debug)]
