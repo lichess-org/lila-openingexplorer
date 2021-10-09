@@ -10,13 +10,13 @@ use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::io::StreamReader;
 
-pub struct Api {
+pub struct Lila {
     client: reqwest::Client,
 }
 
-impl Api {
-    pub fn new() -> Api {
-        Api {
+impl Lila {
+    pub fn new() -> Lila {
+        Lila {
             client: reqwest::Client::builder().build().expect("reqwest client"),
         }
     }
