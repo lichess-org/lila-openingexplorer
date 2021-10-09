@@ -1,6 +1,5 @@
 use crate::lila::LilaVariant;
 use crate::model::{Mode, Speed};
-use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, FromInto, StringWithSeparator};
 use shakmaty::fen::{Fen, ParseFenError};
@@ -9,6 +8,10 @@ use shakmaty::Color;
 use std::error::Error as StdError;
 use std::fmt;
 use std::str::FromStr;
+
+mod error;
+
+pub use error::Error;
 
 #[serde_as]
 #[derive(Deserialize)]
@@ -115,34 +118,5 @@ impl FromStr for UserName {
         } else {
             Err(InvalidUserName)
         }
-    }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    IndexerTooBusy,
-}
-
-impl StdError for Error {}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Error::IndexerTooBusy => "indexer too busy",
-        })
-    }
-}
-
-impl axum::response::IntoResponse for Error {
-    type Body = axum::body::Body;
-    type BodyError = <Self::Body as axum::body::HttpBody>::Error;
-
-    fn into_response(self) -> axum::http::Response<Self::Body> {
-        axum::http::Response::builder()
-            .status(match self {
-                Error::IndexerTooBusy => StatusCode::SERVICE_UNAVAILABLE,
-            })
-            .body(Self::Body::from(self.to_string()))
-            .unwrap()
     }
 }
