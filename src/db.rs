@@ -5,7 +5,6 @@ use crate::model::PersonalEntry;
 #[derive(Debug)]
 pub struct Database {
     pub inner: DBWithThreadMode<rocksdb::SingleThreaded>,
-    _debug_drop: DebugDrop,
 }
 
 impl Database {
@@ -26,7 +25,6 @@ impl Database {
 
         Database {
             inner,
-            _debug_drop: DebugDrop,
         }
     }
 }
@@ -55,13 +53,4 @@ fn personal_merge(
     let mut writer = Cursor::new(Vec::with_capacity(size_hint));
     entry.write(&mut writer).expect("write personal entry");
     Some(writer.into_inner())
-}
-
-#[derive(Debug)]
-struct DebugDrop;
-
-impl Drop for DebugDrop {
-    fn drop(&mut self) {
-        println!("dropped");
-    }
 }
