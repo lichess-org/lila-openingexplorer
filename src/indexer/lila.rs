@@ -1,5 +1,5 @@
-use crate::api::{Error, LilaVariant, UserName};
-use crate::model::{GameId, Speed};
+use crate::api::{Error, LilaVariant};
+use crate::model::{GameId, Speed, UserName};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};

@@ -1,4 +1,5 @@
-use crate::api::{Error, UserName};
+use crate::api::Error;
+use crate::model::UserName;
 use crate::db::Database;
 use crate::util::NevermindExt as _;
 use futures_util::StreamExt;
