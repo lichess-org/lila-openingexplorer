@@ -3,11 +3,12 @@ pub mod db;
 pub mod lila;
 pub mod model;
 
-use crate::api::PersonalQuery;
+use crate::api::{PersonalQuery, PersonalResponse};
 use crate::db::Database;
 use axum::{
     extract::{Extension, Query},
     handler::get,
+    response::Json,
     AddExtensionLayer, Router,
 };
 use clap::Clap;
@@ -45,7 +46,6 @@ async fn main() {
 async fn personal(
     Extension(db): Extension<Arc<Database>>,
     Query(query): Query<PersonalQuery>,
-) -> String {
-    db.inner.put("hello", "world").expect("put");
-    String::from_utf8(db.inner.get("hello").expect("get").expect("present")).expect("utf-8")
+) -> Json<PersonalResponse> {
+    Json(PersonalResponse {})
 }

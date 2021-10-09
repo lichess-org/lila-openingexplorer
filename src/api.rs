@@ -1,11 +1,10 @@
 use crate::lila::LilaVariant;
 use crate::model::{Mode, Speed};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, FromInto, StringWithSeparator};
 use shakmaty::fen::{Fen, ParseFenError};
 use shakmaty::uci::Uci;
 use shakmaty::Color;
-use std::fmt;
 use std::str::FromStr;
 
 #[serde_as]
@@ -22,10 +21,15 @@ pub struct PersonalQuery {
     player: String,
     #[serde_as(as = "FromInto<ColorProxy>")]
     color: Color,
-    //since: _SinceYear,
+    #[serde(default)]
+    since: SinceYear,
 }
 
-struct _SinceYear(u8); // since 2000 or so
+#[derive(Serialize)]
+pub struct PersonalResponse {}
+
+#[derive(Deserialize, Default)]
+struct SinceYear(u8); // since 2000 or so
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
