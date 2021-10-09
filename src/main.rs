@@ -77,6 +77,6 @@ async fn personal(
 
     let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color).with_zobrist(pos.zobrist_hash());
     let queryable = db.queryable();
-    dbg!(queryable.db.get_cf(queryable.cf_personal, key.prefix()).expect("get cf personal"));
+    dbg!(queryable.db.get_cf(queryable.cf_personal, dbg!(key.prefix())).expect("get cf personal"));
     Ok(Json(PersonalResponse {}))
 }

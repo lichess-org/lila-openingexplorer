@@ -137,10 +137,10 @@ impl IndexerActor {
                     }
                 };
 
-                pos.play_unchecked(&m);
-
                 let uci = m.to_uci(CastlingMode::Chess960);
                 table.insert(pos.zobrist_hash(), uci);
+
+                pos.play_unchecked(&m);
             }
 
             let queryable = self.db.queryable();
@@ -159,10 +159,10 @@ impl IndexerActor {
                         entry.write(&mut buf).expect("serialize personal entry");
                         queryable
                             .db
-                            .merge_cf(
+                            .put_cf(
                                 queryable.cf_personal,
                                 dbg!(builder.with_zobrist(zobrist).prefix()),
-                                buf.into_inner(),
+                                dbg!(buf.into_inner()),
                             )
                             .expect("merge cf personal");
                     }
