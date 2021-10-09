@@ -39,7 +39,7 @@ struct SinceYear(u8); // since 2000 or so
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-enum ColorProxy {
+pub enum ColorProxy {
     White,
     Black,
 }

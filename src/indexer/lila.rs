@@ -1,10 +1,11 @@
-use crate::api::{Error, LilaVariant};
+use crate::api::{Error, LilaVariant, ColorProxy};
 use crate::model::{GameId, Speed, UserName};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
-use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
+use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator, FromInto};
 use shakmaty::fen::Fen;
 use shakmaty::san::San;
+use shakmaty::Color;
 use std::io;
 use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
@@ -65,8 +66,9 @@ pub struct Game {
     speed: Speed,
     #[serde_as(as = "StringWithSeparator::<SpaceSeparator, San>")]
     moves: Vec<San>,
+    #[serde_as(as = "Option<FromInto<ColorProxy>>")]
     #[serde(default)]
-    winner: Option<WinnerColor>,
+    winner: Option<Color>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     initial_fen: Option<Fen>,
@@ -86,16 +88,11 @@ struct Player {
     rating: Option<u16>,
 }
 
+#[serde_as]
 #[derive(Debug, Deserialize)]
 struct User {
-    name: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum WinnerColor {
-    White,
-    Black,
+    #[serde_as(as = "DisplayFromStr")]
+    name: UserName,
 }
 
 #[derive(Debug, Deserialize)]
