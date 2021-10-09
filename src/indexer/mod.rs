@@ -26,11 +26,14 @@ impl IndexerStub {
         let (tx, rx) = mpsc::channel(2);
         (
             IndexerStub { tx },
-            tokio::spawn(IndexerActor {
-                rx,
-                db,
-                lila: Lila::new(),
-            }.run()),
+            tokio::spawn(
+                IndexerActor {
+                    rx,
+                    db,
+                    lila: Lila::new(),
+                }
+                .run(),
+            ),
         )
     }
 
@@ -72,7 +75,9 @@ impl IndexerActor {
         while let Some(msg) = self.rx.recv().await {
             match msg {
                 IndexerMessage::IndexPlayer { callback, player } => {
-                    callback.send(self.index_player(player).await).nevermind("requester gone away");
+                    callback
+                        .send(self.index_player(player).await)
+                        .nevermind("requester gone away");
                 }
             }
         }

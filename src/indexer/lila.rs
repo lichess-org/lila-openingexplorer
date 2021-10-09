@@ -1,4 +1,4 @@
-use crate::api::{UserName, LilaVariant};
+use crate::api::{Error, LilaVariant, UserName};
 use crate::model::{GameId, Speed};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
@@ -24,14 +24,15 @@ impl Lila {
     pub async fn user_games(
         &self,
         user: UserName,
-    ) -> reqwest::Result<impl Stream<Item = io::Result<Game>>> {
+    ) -> Result<impl Stream<Item = Result<Game, Error>>, Error> {
         let stream = self
             .client
             .get(format!("https://lichess.org/api/games/user/{}", user))
             .header("Accept", "application/x-ndjson")
             .send()
-            .await?
-            .error_for_status()?
+            .await
+            .and_then(|r| r.error_for_status())
+            .map_err(|err| Error::IndexerRequestError(err))?
             .bytes_stream()
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
 
@@ -39,10 +40,11 @@ impl Lila {
             LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {
                 match line {
                     Ok(line) if line.is_empty() => None,
-                    Ok(line) => {
-                        Some(serde_json::from_str::<Game>(&dbg!(line)).map_err(io::Error::from))
-                    }
-                    Err(err) => Some(Err(err)),
+                    Ok(line) => Some(
+                        serde_json::from_str::<Game>(&dbg!(line))
+                            .map_err(|err| Error::IndexerStreamError(err.into())),
+                    ),
+                    Err(err) => Some(Err(Error::IndexerStreamError(err))),
                 }
             }),
         ))
