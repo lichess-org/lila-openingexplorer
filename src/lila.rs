@@ -90,7 +90,7 @@ struct User {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-enum LilaVariant {
+pub enum LilaVariant {
     Antichess,
     Atomic,
     Chess960,

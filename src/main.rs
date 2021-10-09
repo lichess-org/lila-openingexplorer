@@ -1,29 +1,28 @@
 pub mod api;
+pub mod db;
 pub mod lila;
 pub mod model;
-pub mod db;
 
-use clap::Clap;
-use axum::{handler::get, extract::Extension, Router, AddExtensionLayer};
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::path::PathBuf;
 use crate::db::Database;
+use axum::{extract::Extension, handler::get, AddExtensionLayer, Router};
+use clap::Clap;
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Clap)]
 struct Opt {
     #[clap(long = "bind", default_value = "127.0.0.1:9000")]
     bind: SocketAddr,
-
-    #[clap(long = "path", default_value = "_db")]
-    path: PathBuf,
+    #[clap(long = "db", default_value = "_db")]
+    db: PathBuf,
 }
 
 #[tokio::main]
 async fn main() {
     let opt = Opt::parse();
 
-    let db = Arc::new(Database::open(opt.path).expect("db"));
+    let db = Arc::new(Database::open(opt.db).expect("db"));
 
     let app = Router::new()
         .route("/", get(hello_world))

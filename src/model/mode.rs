@@ -1,6 +1,8 @@
+use serde::Deserialize;
 use std::ops::AddAssign;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub enum Mode {
     Rated,
     Casual,

@@ -1,7 +1,7 @@
+use crate::model::PersonalEntry;
 use rocksdb::{ColumnFamilyDescriptor, DBWithThreadMode, MergeOperands, Options};
 use std::io::Cursor;
 use std::path::Path;
-use crate::model::PersonalEntry;
 
 #[derive(Debug)]
 pub struct Database {
@@ -23,9 +23,7 @@ impl Database {
             vec![ColumnFamilyDescriptor::new("personal", personal_opts)],
         )?;
 
-        Ok(Database {
-            inner,
-        })
+        Ok(Database { inner })
     }
 }
 
