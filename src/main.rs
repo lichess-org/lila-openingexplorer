@@ -3,8 +3,13 @@ pub mod db;
 pub mod lila;
 pub mod model;
 
+use crate::api::PersonalQuery;
 use crate::db::Database;
-use axum::{extract::Extension, handler::get, AddExtensionLayer, Router};
+use axum::{
+    extract::{Extension, Query},
+    handler::get,
+    AddExtensionLayer, Router,
+};
 use clap::Clap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -25,7 +30,7 @@ async fn main() {
     let db = Arc::new(Database::open(opt.db).expect("db"));
 
     let app = Router::new()
-        .route("/", get(hello_world))
+        .route("/personal", get(personal))
         .layer(AddExtensionLayer::new(db));
 
     axum::Server::bind(&opt.bind)
@@ -37,7 +42,10 @@ async fn main() {
         .expect("bind");
 }
 
-async fn hello_world(Extension(db): Extension<Arc<Database>>) -> String {
+async fn personal(
+    Extension(db): Extension<Arc<Database>>,
+    Query(query): Query<PersonalQuery>,
+) -> String {
     db.inner.put("hello", "world").expect("put");
     String::from_utf8(db.inner.get("hello").expect("get").expect("present")).expect("utf-8")
 }

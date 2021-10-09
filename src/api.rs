@@ -20,7 +20,7 @@ pub struct PersonalQuery {
     modes: Option<Vec<Mode>>,
     speeds: Option<Vec<Speed>>,
     player: String,
-    #[serde_as(as = "FromInto<LaxColor>")]
+    #[serde_as(as = "FromInto<ColorProxy>")]
     color: Color,
     //since: _SinceYear,
 }
@@ -29,27 +29,25 @@ struct _SinceYear(u8); // since 2000 or so
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-enum LaxColor {
-    #[serde(alias = "w")]
+enum ColorProxy {
     White,
-    #[serde(alias = "b")]
     Black,
 }
 
-impl From<Color> for LaxColor {
-    fn from(color: Color) -> LaxColor {
+impl From<Color> for ColorProxy {
+    fn from(color: Color) -> ColorProxy {
         match color {
-            Color::White => LaxColor::White,
-            Color::Black => LaxColor::Black,
+            Color::White => ColorProxy::White,
+            Color::Black => ColorProxy::Black,
         }
     }
 }
 
-impl From<LaxColor> for Color {
-    fn from(color: LaxColor) -> Color {
+impl From<ColorProxy> for Color {
+    fn from(color: ColorProxy) -> Color {
         match color {
-            LaxColor::White => Color::White,
-            LaxColor::Black => Color::Black,
+            ColorProxy::White => Color::White,
+            ColorProxy::Black => Color::Black,
         }
     }
 }
