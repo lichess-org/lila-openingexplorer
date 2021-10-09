@@ -192,6 +192,23 @@ impl PersonalEntry {
     }
 }
 
+struct PersonalKey {
+    base: u128,
+}
+
+impl PersonalKey {
+    fn with_user_pov(user: UserId, color: Color) -> PersonalKey {
+        let hash = Sha256::new();
+        hash.update(color.fold('w', 'b'));
+        let buf = hash.finalize();
+    }
+
+    fn finalize(self, zobrist: u128, year: SinceYear) -> [u8; 16 + 2] {
+        let buf = [0; 16 + 2];
+
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
