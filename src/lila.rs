@@ -1,4 +1,5 @@
 use crate::model::{GameId, Speed};
+use crate::api::UserName;
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
@@ -22,11 +23,11 @@ impl Api {
 
     pub async fn user_games(
         &self,
-        name: &str, /* XXX */
+        user: UserName,
     ) -> reqwest::Result<impl Stream<Item = io::Result<Game>>> {
         let stream = self
             .client
-            .get(format!("https://lichess.org/api/games/user/{}", name))
+            .get(format!("https://lichess.org/api/games/user/{}", user))
             .header("Accept", "application/x-ndjson")
             .send()
             .await?

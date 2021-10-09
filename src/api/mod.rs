@@ -84,6 +84,12 @@ impl FromStr for LaxFen {
 #[derive(Debug)]
 pub struct UserName(String);
 
+impl fmt::Display for UserName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 #[derive(Debug)]
 pub struct InvalidUserName;
 
