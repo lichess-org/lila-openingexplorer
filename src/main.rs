@@ -5,7 +5,7 @@ pub mod lila;
 pub mod model;
 
 use crate::{
-    api::{PersonalQuery, PersonalResponse},
+    api::{PersonalQuery, PersonalResponse, Error},
     db::Database,
     indexer::IndexerStub,
 };
@@ -54,6 +54,6 @@ async fn main() {
 async fn personal(
     Extension(db): Extension<Arc<Database>>,
     Query(query): Query<PersonalQuery>,
-) -> Json<PersonalResponse> {
-    Json(PersonalResponse {})
+) -> Result<Json<PersonalResponse>, Error> {
+    Err(Error::IndexerTooBusy)
 }

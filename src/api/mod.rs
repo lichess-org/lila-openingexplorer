@@ -6,8 +6,9 @@ use shakmaty::fen::{Fen, ParseFenError};
 use shakmaty::uci::Uci;
 use shakmaty::Color;
 use std::str::FromStr;
-use std::error::Error;
+use std::error::Error as StdError;
 use std::fmt;
+use axum::http::StatusCode;
 
 #[serde_as]
 #[derive(Deserialize)]
@@ -99,7 +100,7 @@ impl fmt::Display for InvalidUserName {
     }
 }
 
-impl Error for InvalidUserName {}
+impl StdError for InvalidUserName {}
 
 impl FromStr for UserName {
     type Err = InvalidUserName;
@@ -110,5 +111,34 @@ impl FromStr for UserName {
         } else {
             Err(InvalidUserName)
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum Error {
+    IndexerTooBusy,
+}
+
+impl StdError for Error {}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Error::IndexerTooBusy => "indexer too busy"
+        })
+    }
+}
+
+impl axum::response::IntoResponse for Error {
+    type Body = axum::body::Body;
+    type BodyError = <Self::Body as axum::body::HttpBody>::Error;
+
+    fn into_response(self) -> axum::http::Response<Self::Body> {
+        axum::http::Response::builder()
+            .status(match self {
+                Error::IndexerTooBusy => StatusCode::INTERNAL_SERVER_ERROR,
+            })
+            .body(Self::Body::from(self.to_string()))
+            .unwrap()
     }
 }
