@@ -16,7 +16,7 @@ impl fmt::Display for InvalidGameId {
 
 impl Error for InvalidGameId {}
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GameId(u64);
 
 impl GameId {

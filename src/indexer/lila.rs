@@ -57,31 +57,46 @@ impl Lila {
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     #[serde_as(as = "DisplayFromStr")]
-    id: GameId,
-    rated: bool,
-    created_at: u64,
-    status: Status,
-    variant: LilaVariant,
-    players: Players,
-    speed: Speed,
+    pub id: GameId,
+    pub rated: bool,
+    pub created_at: u64,
+    pub status: Status,
+    pub variant: LilaVariant,
+    pub players: Players,
+    pub speed: Speed,
     #[serde_as(as = "StringWithSeparator::<SpaceSeparator, San>")]
-    moves: Vec<San>,
+    pub moves: Vec<San>,
     #[serde_as(as = "Option<FromInto<ColorProxy>>")]
     #[serde(default)]
-    winner: Option<Color>,
+    pub winner: Option<Color>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    initial_fen: Option<Fen>,
+    pub initial_fen: Option<Fen>,
+}
+
+impl Game {
+    pub fn user_name(&self, color: Color) -> Option<&UserName> {
+        self.players.by_color(color).user.as_ref().map(|u| &u.name)
+    }
 }
 
 #[derive(Debug, Deserialize)]
-struct Players {
-    white: Player,
-    black: Player,
+pub struct Players {
+    pub white: Player,
+    pub black: Player,
+}
+
+impl Players {
+    fn by_color(&self, color: Color) -> &Player {
+        match color {
+            Color::White => &self.white,
+            Color::Black => &self.black,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
-struct Player {
+pub struct Player {
     #[serde(default)]
     user: Option<User>,
     #[serde(default)]
@@ -90,14 +105,14 @@ struct Player {
 
 #[serde_as]
 #[derive(Debug, Deserialize)]
-struct User {
+pub struct User {
     #[serde_as(as = "DisplayFromStr")]
     name: UserName,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
-enum Status {
+pub enum Status {
     Created,
     Started,
     Aborted,

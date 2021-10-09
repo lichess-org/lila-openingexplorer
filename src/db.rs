@@ -25,6 +25,18 @@ impl Database {
 
         Ok(Database { inner })
     }
+
+    pub fn queryable(&self) -> QueryableDatabase<'_> {
+        QueryableDatabase {
+            db: &self.inner,
+            cf_personal: self.inner.cf_handle("personal").expect("cf personal"),
+        }
+    }
+}
+
+pub struct QueryableDatabase<'a> {
+    pub db: &'a DBWithThreadMode<rocksdb::SingleThreaded>,
+    pub cf_personal: &'a rocksdb::ColumnFamily,
 }
 
 fn personal_merge(

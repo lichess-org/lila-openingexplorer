@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UserName(String);
 
 impl fmt::Display for UserName {

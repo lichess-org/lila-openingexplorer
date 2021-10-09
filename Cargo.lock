@@ -654,6 +654,7 @@ dependencies = [
  "byteorder",
  "clap",
  "futures-util",
+ "log",
  "quickcheck",
  "reqwest",
  "rocksdb",
@@ -1247,8 +1248,6 @@ dependencies = [
 [[package]]
 name = "shakmaty"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "898dda9eaca57a4356b6db6055fda42a5951f5aa968714877d523050b432b477"
 dependencies = [
  "arrayvec",
  "bitflags",

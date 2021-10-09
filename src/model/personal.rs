@@ -5,8 +5,8 @@ use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt a
 use rustc_hash::FxHashMap;
 use sha1::{Digest, Sha1};
 use shakmaty::uci::Uci;
-use shakmaty::Color;
-use smallvec::SmallVec;
+use shakmaty::{Color, Outcome};
+use smallvec::{smallvec, SmallVec};
 use std::cmp::max;
 use std::io::{self, Read, Write};
 use std::ops::AddAssign;
@@ -71,6 +71,32 @@ struct Stats {
     black: u64,
 }
 
+impl From<Outcome> for Stats {
+    fn from(outcome: Outcome) -> Stats {
+        match outcome {
+            Outcome::Decisive {
+                winner: Color::White,
+            } => Stats {
+                white: 1,
+                draw: 0,
+                black: 0,
+            },
+            Outcome::Decisive {
+                winner: Color::Black,
+            } => Stats {
+                white: 0,
+                draw: 0,
+                black: 1,
+            },
+            Outcome::Draw => Stats {
+                white: 0,
+                draw: 1,
+                black: 1,
+            },
+        }
+    }
+}
+
 impl AddAssign for Stats {
     fn add_assign(&mut self, rhs: Stats) {
         self.white += rhs.white;
@@ -115,6 +141,27 @@ pub struct PersonalEntry {
 }
 
 impl PersonalEntry {
+    pub fn new_single(
+        uci: Uci,
+        speed: Speed,
+        mode: Mode,
+        game_id: GameId,
+        outcome: Outcome,
+    ) -> PersonalEntry {
+        let mut sub_entry: BySpeed<ByMode<Group>> = Default::default();
+        *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = Group {
+            stats: outcome.into(),
+            games: smallvec![(0, game_id)],
+        };
+        let mut sub_entries = FxHashMap::with_capacity_and_hasher(1, Default::default());
+        sub_entries.insert(uci, sub_entry);
+
+        PersonalEntry {
+            sub_entries,
+            max_game_idx: 0,
+        }
+    }
+
     pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
         loop {
             let uci = match read_uci(reader) {
