@@ -1,11 +1,13 @@
 pub mod api;
+pub mod indexer;
 pub mod db;
 pub mod lila;
 pub mod model;
 
 use crate::{
     api::{PersonalQuery, PersonalResponse},
-    db::{Database, IndexerStub},
+    db::Database,
+    indexer::IndexerStub,
 };
 use axum::{
     extract::{Extension, Query},

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use tokio::{sync::{mpsc, oneshot}, task::JoinHandle};
 use crate::db::Database;
+use crate::api::UserName;
 
 pub struct IndexerStub {
     tx: mpsc::Sender<IndexerMessage>,
@@ -12,9 +13,13 @@ impl IndexerStub {
         (IndexerStub { tx }, tokio::spawn(IndexerActor { rx, db }.run()))
     }
 
-    pub fn index_player(&self) {
-        self.tx.send(); // XXX
-    }
+    /* XXX pub async fn index_player(&self) -> Result<(), ()> {
+        let (req, res) = oneshot::channel();
+        self.tx.send(IndexerMessage::IndexPlayer {
+            callback: req
+        }).expect("indexer actor alive");
+        res.await;
+    } */
 }
 
 struct IndexerActor {
@@ -26,8 +31,9 @@ impl IndexerActor {
     async fn run(mut self) {
         while let Some(msg) = self.rx.recv().await {
             match msg {
-                IndexerMessage::IndexPlayer { callback } => {
-                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                IndexerMessage::IndexPlayer { callback, player } => {
+                    dbg!(player);
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                     callback.send(());
                 }
             }
@@ -37,6 +43,7 @@ impl IndexerActor {
 
 enum IndexerMessage {
     IndexPlayer {
+        player: UserName,
         callback: oneshot::Sender<()>,
     }
 }

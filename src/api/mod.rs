@@ -6,6 +6,8 @@ use shakmaty::fen::{Fen, ParseFenError};
 use shakmaty::uci::Uci;
 use shakmaty::Color;
 use std::str::FromStr;
+use std::error::Error;
+use std::fmt;
 
 #[serde_as]
 #[derive(Deserialize)]
@@ -18,7 +20,8 @@ pub struct PersonalQuery {
     play: Vec<Uci>,
     modes: Option<Vec<Mode>>,
     speeds: Option<Vec<Speed>>,
-    player: String,
+    #[serde_as(as = "DisplayFromStr")]
+    player: UserName,
     #[serde_as(as = "FromInto<ColorProxy>")]
     color: Color,
     #[serde(default)]
@@ -75,5 +78,31 @@ impl FromStr for LaxFen {
 
     fn from_str(s: &str) -> Result<LaxFen, ParseFenError> {
         s.replace("_", " ").parse().map(LaxFen)
+    }
+}
+
+#[derive(Debug)]
+pub struct UserName(String);
+
+#[derive(Debug)]
+pub struct InvalidUserName;
+
+impl fmt::Display for InvalidUserName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid username")
+    }
+}
+
+impl Error for InvalidUserName {}
+
+impl FromStr for UserName {
+    type Err = InvalidUserName;
+
+    fn from_str(s: &str) -> Result<UserName, InvalidUserName> {
+        if !s.is_empty() && s.len() <= 30 && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+            Ok(UserName(s.into()))
+        } else {
+            Err(InvalidUserName)
+        }
     }
 }
