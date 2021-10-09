@@ -13,7 +13,9 @@ keywords = ["chess", "lichess"]
 edition = "2018"
 
 [dependencies]
+axum = "0.2"
 byteorder = "1"
+clap = "3.0.0-beta.4"
 futures-util = "0.3"
 reqwest = { version = "0.11", features = ["stream"] }
 rocksdb = "0.17"

@@ -2,12 +2,15 @@ pub mod api;
 pub mod lila;
 pub mod model;
 
-use shakmaty::Color;
+use clap::Clap;
 use futures_util::stream::StreamExt as _;
+use shakmaty::Color;
 
 use self::model::PersonalEntry;
+use axum::{handler::get, Router};
 use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB};
 use std::io::Cursor;
+use std::net::SocketAddr;
 
 struct _HashKey {
     pos: (),
@@ -41,8 +44,7 @@ fn personal_merge(
     Some(writer.into_inner())
 }
 
-#[tokio::main]
-async fn main() {
+fn foo() {
     let mut db_opts = Options::default();
     db_opts.create_if_missing(true);
     db_opts.create_missing_column_families(true);
@@ -63,8 +65,26 @@ async fn main() {
 
     let api = lila::Api::new();
 
-    let mut games = api.user_games("revoof").await.expect("user games request");
+    /* let mut games = api.user_games("revoof").await.expect("user games request");
     while let Some(game) = games.next().await {
         dbg!(game.expect("next game"));
-    }
+    } */
+}
+
+#[derive(Clap)]
+struct Opt {
+    #[clap(long = "bind", default_value = "127.0.0.1:9000")]
+    bind: SocketAddr,
+}
+
+#[tokio::main]
+async fn main() {
+    let opt = Opt::parse();
+
+    let app = Router::new().route("/", get(|| async { "Hello world!" }));
+
+    axum::Server::bind(&opt.bind)
+        .serve(app.into_make_service())
+        .await
+        .expect("bind");
 }

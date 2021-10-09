@@ -38,7 +38,9 @@ impl Api {
             LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {
                 match line {
                     Ok(line) if line.is_empty() => None,
-                    Ok(line) => Some(serde_json::from_str::<Game>(&dbg!(line)).map_err(io::Error::from)),
+                    Ok(line) => {
+                        Some(serde_json::from_str::<Game>(&dbg!(line)).map_err(io::Error::from))
+                    }
                     Err(err) => Some(Err(err)),
                 }
             }),
