@@ -3,8 +3,10 @@ pub mod db;
 pub mod lila;
 pub mod model;
 
-use crate::api::{PersonalQuery, PersonalResponse};
-use crate::db::Database;
+use crate::{
+    api::{PersonalQuery, PersonalResponse},
+    db::{Database, IndexerStub},
+};
 use axum::{
     extract::{Extension, Query},
     handler::get,
@@ -30,6 +32,8 @@ async fn main() {
 
     let db = Arc::new(Database::open(opt.db).expect("db"));
 
+    let (indexer, join_handle) = IndexerStub::spawn(db.clone());
+
     let app = Router::new()
         .route("/personal", get(personal))
         .layer(AddExtensionLayer::new(db));
@@ -41,6 +45,8 @@ async fn main() {
         })
         .await
         .expect("bind");
+
+    join_handle.await.expect("indexer");
 }
 
 async fn personal(
