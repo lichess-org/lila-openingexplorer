@@ -1,6 +1,6 @@
 use crate::api::Error;
-use crate::model::UserName;
 use crate::db::Database;
+use crate::model::UserName;
 use crate::util::NevermindExt as _;
 use futures_util::StreamExt;
 use std::sync::Arc;

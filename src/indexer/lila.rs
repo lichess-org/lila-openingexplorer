@@ -1,8 +1,8 @@
-use crate::api::{Error, LilaVariant, ColorProxy};
+use crate::api::{ColorProxy, Error, LilaVariant};
 use crate::model::{GameId, Speed, UserName};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
-use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator, FromInto};
+use serde_with::{serde_as, DisplayFromStr, FromInto, SpaceSeparator, StringWithSeparator};
 use shakmaty::fen::Fen;
 use shakmaty::san::San;
 use shakmaty::Color;

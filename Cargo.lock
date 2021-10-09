@@ -661,7 +661,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "sha2",
+ "sha-1",
  "shakmaty",
  "smallvec",
  "tokio",
@@ -1232,10 +1232,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha2"
+name = "sha-1"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b69f9a4c9740d74c5baa3fd2e547f9525fa8088a8a958e0ca2409a514e33f5fa"
+checksum = "99cd6713db3cf16b6c84e06321e049a9b9f699826e16096d23bbcc44d15d51a6"
 dependencies = [
  "block-buffer",
  "cfg-if",

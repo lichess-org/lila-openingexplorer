@@ -1,7 +1,11 @@
-use super::{read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Speed};
-use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use super::{
+    read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Speed, UserId,
+};
+use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
+use sha1::{Digest, Sha1};
 use shakmaty::uci::Uci;
+use shakmaty::Color;
 use smallvec::SmallVec;
 use std::cmp::max;
 use std::io::{self, Read, Write};
@@ -192,20 +196,44 @@ impl PersonalEntry {
     }
 }
 
-struct PersonalKey {
+pub struct PersonalKeyBuilder {
     base: u128,
 }
 
-impl PersonalKey {
-    fn with_user_pov(user: UserId, color: Color) -> PersonalKey {
-        let hash = Sha256::new();
-        hash.update(color.fold('w', 'b'));
+impl PersonalKeyBuilder {
+    pub fn with_user_pov(user: &UserId, color: Color) -> PersonalKeyBuilder {
+        let mut hash = Sha1::new();
+        hash.update(color.fold(b"w", b"b"));
+        hash.update(user.as_str());
         let buf = hash.finalize();
+        PersonalKeyBuilder {
+            base: LittleEndian::read_u128(buf.as_slice()),
+        }
     }
 
-    fn finalize(self, zobrist: u128, year: SinceYear) -> [u8; 16 + 2] {
-        let buf = [0; 16 + 2];
+    pub fn with_zobrist(&self, zobrist: u128) -> PersonalKeyPrefix {
+        PersonalKeyPrefix {
+            prefix: self.base ^ zobrist,
+        }
+    }
+}
 
+pub struct PersonalKeyPrefix {
+    prefix: u128,
+}
+
+impl PersonalKeyPrefix {
+    pub fn prefix(&self) -> [u8; 16] {
+        let mut buf = [0; 16];
+        LittleEndian::write_u128(&mut buf, self.prefix);
+        buf
+    }
+
+    pub fn with_year(&self, year: u8) -> [u8; 17] {
+        let mut buf = [0; 17];
+        LittleEndian::write_u128(&mut buf, self.prefix);
+        buf[16] = year;
+        buf
     }
 }
 

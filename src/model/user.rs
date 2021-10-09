@@ -1,6 +1,6 @@
-use std::str::FromStr;
-use std::fmt;
 use std::error::Error as StdError;
+use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct UserName(String);
@@ -45,5 +45,11 @@ impl From<UserName> for UserId {
     fn from(UserName(mut name): UserName) -> UserId {
         name.make_ascii_lowercase();
         UserId(name)
+    }
+}
+
+impl UserId {
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
