@@ -1,5 +1,6 @@
 use rocksdb::{ColumnFamilyDescriptor, DBWithThreadMode, MergeOperands, Options};
 use std::io::Cursor;
+use std::path::Path;
 use crate::model::PersonalEntry;
 
 #[derive(Debug)]
@@ -8,7 +9,7 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn open() -> Database {
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Database, rocksdb::Error> {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
@@ -18,14 +19,13 @@ impl Database {
 
         let inner = DBWithThreadMode::open_cf_descriptors(
             &db_opts,
-            "_db",
+            path,
             vec![ColumnFamilyDescriptor::new("personal", personal_opts)],
-        )
-        .expect("open db");
+        )?;
 
-        Database {
+        Ok(Database {
             inner,
-        }
+        })
     }
 }
 

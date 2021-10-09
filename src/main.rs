@@ -7,19 +7,23 @@ use clap::Clap;
 use axum::{handler::get, extract::Extension, Router, AddExtensionLayer};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::path::PathBuf;
 use crate::db::Database;
 
 #[derive(Clap)]
 struct Opt {
     #[clap(long = "bind", default_value = "127.0.0.1:9000")]
     bind: SocketAddr,
+
+    #[clap(long = "path", default_value = "_db")]
+    path: PathBuf,
 }
 
 #[tokio::main]
 async fn main() {
     let opt = Opt::parse();
 
-    let db = Arc::new(Database::open());
+    let db = Arc::new(Database::open(opt.path).expect("db"));
 
     let app = Router::new()
         .route("/", get(hello_world))
