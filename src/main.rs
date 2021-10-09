@@ -19,7 +19,7 @@ struct Opt {
 async fn main() {
     let opt = Opt::parse();
 
-    let db: &'static Database = Box::leak(Box::new(Database::open()));
+    let db = Arc::new(Database::open());
 
     let app = Router::new()
         .route("/", get(hello_world))
@@ -27,11 +27,14 @@ async fn main() {
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
+        .with_graceful_shutdown(async {
+            tokio::signal::ctrl_c().await.expect("wait for ctrl-c");
+        })
         .await
         .expect("bind");
 }
 
-async fn hello_world(Extension(db): Extension<&'static Database>) -> String {
+async fn hello_world(Extension(db): Extension<Arc<Database>>) -> String {
     db.inner.put("hello", "world").expect("put");
     String::from_utf8(db.inner.get("hello").expect("get").expect("present")).expect("utf-8")
 }
