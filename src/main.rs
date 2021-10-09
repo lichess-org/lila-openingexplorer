@@ -4,7 +4,7 @@ pub mod model;
 pub mod db;
 
 use clap::Clap;
-use axum::{handler::get, Router};
+use axum::{handler::get, extract::Extension, Router, AddExtensionLayer};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use crate::db::Database;
@@ -19,12 +19,19 @@ struct Opt {
 async fn main() {
     let opt = Opt::parse();
 
-    let db = Arc::new(Database::open());
+    let db: &'static Database = Box::leak(Box::new(Database::open()));
 
-    let app = Router::new().route("/", get(|| async { dbg!(db); "Hello world!" }));
+    let app = Router::new()
+        .route("/", get(hello_world))
+        .layer(AddExtensionLayer::new(db));
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
         .await
         .expect("bind");
+}
+
+async fn hello_world(Extension(db): Extension<&'static Database>) -> String {
+    db.inner.put("hello", "world").expect("put");
+    String::from_utf8(db.inner.get("hello").expect("get").expect("present")).expect("utf-8")
 }
