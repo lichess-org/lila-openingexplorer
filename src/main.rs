@@ -76,7 +76,7 @@ async fn personal(
         None => VariantPosition::new(variant),
     });
 
-    let opening = openings.play_and_classify(&mut pos, query.play)?;
+    let opening = openings.classify_and_play(&mut pos, query.play)?;
 
     let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color)
         .with_zobrist(variant, pos.zobrist_hash());

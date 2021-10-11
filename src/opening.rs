@@ -63,7 +63,7 @@ impl Openings {
         Openings { data }
     }
 
-    pub fn play_and_classify(
+    pub fn classify_and_play(
         &self,
         root: &mut Zobrist<VariantPosition, u128>,
         play: Vec<Uci>,
