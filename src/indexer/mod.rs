@@ -1,7 +1,10 @@
-use crate::api::Error;
-use crate::db::Database;
-use crate::model::{Mode, PersonalEntry, PersonalKeyBuilder, UserName};
-use crate::util::NevermindExt as _;
+use crate::{
+    api::Error,
+    db::Database,
+    model::{Mode, PersonalEntry, PersonalKeyBuilder, UserName},
+    util::NevermindExt as _,
+};
+use clap::Clap;
 use futures_util::StreamExt;
 use rustc_hash::FxHashMap;
 use shakmaty::{
@@ -24,13 +27,19 @@ mod lila;
 
 use lila::Lila;
 
+#[derive(Clap)]
+pub struct IndexerOpt {
+    #[clap(long = "lila", default_value = "https://lichess.org")]
+    lila: String,
+}
+
 #[derive(Clone)]
 pub struct IndexerStub {
     tx: mpsc::Sender<IndexerMessage>,
 }
 
 impl IndexerStub {
-    pub fn spawn(db: Arc<Database>) -> (IndexerStub, JoinHandle<()>) {
+    pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, JoinHandle<()>) {
         let (tx, rx) = mpsc::channel(2);
         (
             IndexerStub { tx },
@@ -38,7 +47,7 @@ impl IndexerStub {
                 IndexerActor {
                     rx,
                     db,
-                    lila: Lila::new(),
+                    lila: Lila::new(opt),
                 }
                 .run(),
             ),

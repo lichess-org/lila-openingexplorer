@@ -8,7 +8,7 @@ pub mod util;
 use crate::{
     api::{Error, PersonalQuery, PersonalResponse},
     db::Database,
-    indexer::IndexerStub,
+    indexer::{IndexerOpt, IndexerStub},
     model::PersonalKeyBuilder,
     opening::Openings,
 };
@@ -30,6 +30,8 @@ struct Opt {
     bind: SocketAddr,
     #[clap(long = "db", default_value = "_db")]
     db: PathBuf,
+    #[clap(flatten)]
+    indexer: IndexerOpt,
 }
 
 #[tokio::main]
@@ -38,7 +40,7 @@ async fn main() {
 
     let openings: &'static Openings = Box::leak(Box::new(Openings::new()));
     let db = Arc::new(Database::open(opt.db).expect("db"));
-    let (indexer, join_handle) = IndexerStub::spawn(db.clone());
+    let (indexer, join_handle) = IndexerStub::spawn(db.clone(), opt.indexer);
 
     let app = Router::new()
         .route("/personal", get(personal))

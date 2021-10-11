@@ -1,5 +1,8 @@
-use crate::api::{ColorProxy, Error, LilaVariant};
-use crate::model::{GameId, Speed, UserName};
+use crate::{
+    api::{ColorProxy, Error, LilaVariant},
+    indexer::IndexerOpt,
+    model::{GameId, Speed, UserName},
+};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr, FromInto, SpaceSeparator, StringWithSeparator};
@@ -13,12 +16,14 @@ use tokio_util::io::StreamReader;
 
 pub struct Lila {
     client: reqwest::Client,
+    opt: IndexerOpt,
 }
 
 impl Lila {
-    pub fn new() -> Lila {
+    pub fn new(opt: IndexerOpt) -> Lila {
         Lila {
             client: reqwest::Client::builder().build().expect("reqwest client"),
+            opt,
         }
     }
 
@@ -28,7 +33,7 @@ impl Lila {
     ) -> Result<impl Stream<Item = Result<Game, Error>>, Error> {
         let stream = self
             .client
-            .get(format!("https://lichess.org/api/games/user/{}", user))
+            .get(format!("{}/api/games/user/{}", self.opt.lila, user))
             .header("Accept", "application/x-ndjson")
             .send()
             .await
