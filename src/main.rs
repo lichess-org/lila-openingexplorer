@@ -6,7 +6,7 @@ pub mod opening;
 pub mod util;
 
 use crate::{
-    api::{Error, PersonalMoveRow, PersonalQuery, PersonalResponse},
+    api::{Error, GameRow, GameRowWithUci, PersonalMoveRow, PersonalQuery, PersonalResponse},
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
     model::{AnnoLichess, PersonalKeyBuilder},
@@ -96,15 +96,26 @@ async fn personal(
                 uci: row.uci,
                 san: row.san,
                 stats: row.stats,
-                game: row
-                    .game
-                    .and_then(|id| queryable.get_game_info(id).expect("get game")),
+                game: row.game.and_then(|id| {
+                    queryable
+                        .get_game_info(id)
+                        .expect("get game")
+                        .map(|info| GameRow { id, info })
+                }),
             })
             .collect(),
         recent_games: filtered
             .recent_games
             .into_iter()
-            .flat_map(|id| queryable.get_game_info(id).expect("get game"))
+            .flat_map(|(uci, id)| {
+                queryable
+                    .get_game_info(id)
+                    .expect("get game")
+                    .map(|info| GameRowWithUci {
+                        uci,
+                        row: GameRow { id, info },
+                    })
+            })
             .collect(),
         opening,
     }))

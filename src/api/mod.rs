@@ -56,7 +56,7 @@ pub struct PersonalResponse {
     #[serde(flatten)]
     pub total: Stats,
     pub moves: Vec<PersonalMoveRow>,
-    pub recent_games: Vec<GameRow>,
+    pub recent_games: Vec<GameRowWithUci>,
     pub opening: Option<&'static Opening>,
 }
 
@@ -70,6 +70,15 @@ pub struct PersonalMoveRow {
     #[serde(flatten)]
     pub stats: Stats,
     pub game: Option<GameRow>,
+}
+
+#[serde_as]
+#[derive(Serialize, Debug)]
+pub struct GameRowWithUci {
+    #[serde_as(as = "DisplayFromStr")]
+    pub uci: Uci,
+    #[serde(flatten)]
+    pub row: GameRow,
 }
 
 #[serde_as]

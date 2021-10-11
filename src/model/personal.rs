@@ -256,7 +256,7 @@ impl PersonalEntry {
     ) -> FilteredPersonalEntry {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(u64, GameId)> = Vec::new();
+        let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
             let san = uci.to_move(&pos).map_or(
@@ -292,7 +292,13 @@ impl PersonalEntry {
                                 }
                             }
 
-                            recent_games.extend(group.games.iter());
+                            recent_games.extend(
+                                group
+                                    .games
+                                    .iter()
+                                    .copied()
+                                    .map(|(idx, game)| (idx, uci.to_owned(), game)),
+                            );
                         }
                     }
                 }
@@ -309,14 +315,14 @@ impl PersonalEntry {
         }
 
         moves.sort_by_key(|row| Reverse(row.stats.total()));
-        recent_games.sort_by_key(|(idx, _game)| Reverse(*idx));
+        recent_games.sort_by_key(|(idx, _, _)| Reverse(*idx));
 
         FilteredPersonalEntry {
             total,
             moves,
             recent_games: recent_games
                 .into_iter()
-                .map(|(_, game)| game)
+                .map(|(_, uci, game)| (uci, game))
                 .take(MAX_PERSONAL_GAMES as usize)
                 .collect(),
         }
@@ -326,7 +332,7 @@ impl PersonalEntry {
 pub struct FilteredPersonalEntry {
     pub total: Stats,
     pub moves: Vec<FilteredPersonalMoveRow>,
-    pub recent_games: Vec<GameId>,
+    pub recent_games: Vec<(Uci, GameId)>,
 }
 
 pub struct FilteredPersonalMoveRow {

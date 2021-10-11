@@ -1,7 +1,4 @@
-use crate::{
-    api::GameRow,
-    model::{AnnoLichess, GameId, GameInfo, PersonalEntry, PersonalKey, PersonalKeyPrefix},
-};
+use crate::model::{AnnoLichess, GameId, GameInfo, PersonalEntry, PersonalKey, PersonalKeyPrefix};
 use rocksdb::{ColumnFamilyDescriptor, DBWithThreadMode, MergeOperands, Options};
 use std::io::Cursor;
 use std::path::Path;
@@ -55,13 +52,10 @@ impl QueryableDatabase<'_> {
             .put_cf(self.cf_game, id.to_bytes(), cursor.into_inner())
     }
 
-    pub fn get_game_info(&self, id: GameId) -> Result<Option<GameRow>, rocksdb::Error> {
+    pub fn get_game_info(&self, id: GameId) -> Result<Option<GameInfo>, rocksdb::Error> {
         Ok(self.db.get_cf(self.cf_game, id.to_bytes())?.map(|buf| {
             let mut cursor = Cursor::new(buf);
-            GameRow {
-                id,
-                info: GameInfo::read(&mut cursor).expect("deserialize game info"),
-            }
+            GameInfo::read(&mut cursor).expect("deserialize game info")
         }))
     }
 
