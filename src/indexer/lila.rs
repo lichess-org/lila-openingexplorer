@@ -29,7 +29,7 @@ impl Lila {
 
     pub async fn user_games(
         &self,
-        user: UserName,
+        user: &UserName,
     ) -> Result<impl Stream<Item = Result<Game, Error>>, Error> {
         let stream = self
             .client

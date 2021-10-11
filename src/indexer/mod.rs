@@ -103,20 +103,27 @@ impl IndexerActor {
     async fn index_player(&self, player: UserName) -> Result<(), Error> {
         log::info!("indexing {}", player);
 
-        let mut games = self.lila.user_games(player).await?;
+        let hash = ByColor::new_with(|color| {
+            PersonalKeyBuilder::with_user_pov(&player.to_owned().into(), color)
+        });
+
+        let mut games = self.lila.user_games(&player).await?;
         while let Some(game) = games.next().await {
             let game = game?;
 
-            if game.status.is_unindexable() {
+            if game.status.is_unindexable() || game.status.is_ongoing() {
                 continue;
             }
 
-            let outcome = Outcome::from_winner(game.winner);
+            let color = if Some(&player) == game.user_name(Color::White) {
+                Color::White
+            } else if Some(&player) == game.user_name(Color::Black) {
+                Color::Black
+            } else {
+                continue;
+            };
 
-            let hash = ByColor::new_with(|color| {
-                game.user_name(color)
-                    .map(|u| PersonalKeyBuilder::with_user_pov(&u.to_owned().into(), color))
-            });
+            let outcome = Outcome::from_winner(game.winner);
 
             let pos = match game.initial_fen {
                 Some(fen) => {
@@ -157,29 +164,25 @@ impl IndexerActor {
             let queryable = self.db.queryable();
 
             for (zobrist, uci) in table {
-                for color in [Color::White, Color::Black] {
-                    if let Some(builder) = hash.by_color(color) {
-                        let entry = PersonalEntry::new_single(
-                            uci.clone(),
-                            game.speed,
-                            Mode::from_rated(game.rated),
-                            game.id,
-                            outcome,
-                        );
+                let entry = PersonalEntry::new_single(
+                    uci.clone(),
+                    game.speed,
+                    Mode::from_rated(game.rated),
+                    game.id,
+                    outcome,
+                );
 
-                        let mut buf = Cursor::new(Vec::new());
-                        entry.write(&mut buf).expect("serialize personal entry");
+                let mut buf = Cursor::new(Vec::new());
+                entry.write(&mut buf).expect("serialize personal entry");
 
-                        queryable
-                            .db
-                            .put_cf(
-                                queryable.cf_personal,
-                                builder.with_zobrist(zobrist).prefix(),
-                                buf.into_inner(),
-                            )
-                            .expect("merge cf personal");
-                    }
-                }
+                queryable
+                    .db
+                    .put_cf(
+                        queryable.cf_personal,
+                        hash.by_color(color).with_zobrist(zobrist).prefix(),
+                        buf.into_inner(),
+                    )
+                    .expect("merge cf personal");
             }
         }
         Ok(())

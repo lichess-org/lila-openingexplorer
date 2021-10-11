@@ -38,7 +38,15 @@ impl FromStr for UserName {
     }
 }
 
-#[derive(Debug)]
+impl PartialEq for UserName {
+    fn eq(&self, other: &UserName) -> bool {
+        self.0.eq_ignore_ascii_case(&other.0)
+    }
+}
+
+impl Eq for UserName {}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct UserId(String);
 
 impl From<UserName> for UserId {
