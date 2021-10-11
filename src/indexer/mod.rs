@@ -126,9 +126,7 @@ impl IndexerActor {
             let outcome = Outcome::from_winner(game.winner);
             let variant = game.variant.into();
             let pos = match game.initial_fen {
-                Some(fen) => {
-                    VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)
-                }
+                Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960),
                 None => Ok(VariantPosition::new(variant)),
             };
 

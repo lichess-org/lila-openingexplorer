@@ -47,11 +47,15 @@ impl Openings {
             let mut tsv = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(tsv);
             for record in tsv.deserialize() {
                 let record: OpeningRecord = record.expect("valid opening tsv");
-                data.insert(
-                    Chess::from_setup(&record.epd, CastlingMode::Chess960)
-                        .expect("legal opening position")
-                        .zobrist_hash(),
-                    Opening::from(record),
+                assert!(
+                    data.insert(
+                        Chess::from_setup(&record.epd, CastlingMode::Chess960)
+                            .expect("legal opening position")
+                            .zobrist_hash(),
+                        Opening::from(record),
+                    )
+                    .is_none(),
+                    "zobrist hash unique on openings"
                 );
             }
         }

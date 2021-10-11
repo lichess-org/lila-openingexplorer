@@ -33,7 +33,10 @@ impl Lila {
     ) -> Result<impl Stream<Item = Result<Game, Error>>, Error> {
         let stream = self
             .client
-            .get(format!("{}/api/games/user/{}?sort=dateAsc&ongoing=true", self.opt.lila, user))
+            .get(format!(
+                "{}/api/games/user/{}?sort=dateAsc&ongoing=true",
+                self.opt.lila, user
+            ))
             .header("Accept", "application/x-ndjson")
             .send()
             .await
