@@ -147,7 +147,7 @@ impl PersonalQueryFilter {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ColorProxy {
     White,

@@ -1,7 +1,7 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::ops::AddAssign;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Speed {
     UltraBullet,
