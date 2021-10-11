@@ -5,7 +5,7 @@ use std::path::Path;
 
 #[derive(Debug)]
 pub struct Database {
-    pub inner: DBWithThreadMode<rocksdb::SingleThreaded>,
+    inner: DBWithThreadMode<rocksdb::SingleThreaded>,
 }
 
 impl Database {
