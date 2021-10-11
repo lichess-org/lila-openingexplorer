@@ -92,6 +92,8 @@ impl IndexerActor {
     }
 
     async fn index_player(&self, player: UserName) -> Result<(), Error> {
+        log::info!("indexing {}", player);
+
         let mut games = self.lila.user_games(player).await?;
         while let Some(game) = games.next().await {
             let game = game?;
@@ -155,14 +157,16 @@ impl IndexerActor {
                             game.id,
                             outcome,
                         );
+
                         let mut buf = Cursor::new(Vec::new());
                         entry.write(&mut buf).expect("serialize personal entry");
+
                         queryable
                             .db
                             .put_cf(
                                 queryable.cf_personal,
-                                dbg!(builder.with_zobrist(zobrist).prefix()),
-                                dbg!(buf.into_inner()),
+                                builder.with_zobrist(zobrist).prefix(),
+                                buf.into_inner(),
                             )
                             .expect("merge cf personal");
                     }
