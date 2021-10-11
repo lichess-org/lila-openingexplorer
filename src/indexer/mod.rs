@@ -124,23 +124,21 @@ impl IndexerActor {
             };
 
             let outcome = Outcome::from_winner(game.winner);
-
+            let variant = game.variant.into();
             let pos = match game.initial_fen {
                 Some(fen) => {
-                    VariantPosition::from_setup(game.variant.into(), &fen, CastlingMode::Chess960)
+                    VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)
                 }
-                None => Ok(VariantPosition::new(game.variant.into())),
+                None => Ok(VariantPosition::new(variant)),
             };
 
-            let pos = match pos {
-                Ok(pos) => pos,
+            let mut pos: Zobrist<_, u128> = match pos {
+                Ok(pos) => Zobrist::new(pos),
                 Err(err) => {
                     log::error!("indexing {}: {}", game.id, err);
                     continue;
                 }
             };
-
-            let mut pos: Zobrist<_, u128> = Zobrist::new(pos);
 
             // Build an intermediate table to remove loops (due to repetitions).
             let mut table: FxHashMap<u128, Uci> =
@@ -179,7 +177,7 @@ impl IndexerActor {
                     .db
                     .put_cf(
                         queryable.cf_personal,
-                        hash.by_color(color).with_zobrist(zobrist).prefix(),
+                        hash.by_color(color).with_zobrist(variant, zobrist).prefix(),
                         buf.into_inner(),
                     )
                     .expect("merge cf personal");

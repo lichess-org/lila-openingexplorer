@@ -1,11 +1,14 @@
-use super::{
+use crate::model::{
     read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Speed, UserId,
 };
 use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
 use sha1::{Digest, Sha1};
-use shakmaty::uci::Uci;
-use shakmaty::{Color, Outcome};
+use shakmaty::{
+    uci::Uci,
+    Color, Outcome,
+    variant::Variant,
+};
 use smallvec::{smallvec, SmallVec};
 use std::cmp::max;
 use std::io::{self, Read, Write};
@@ -259,9 +262,18 @@ impl PersonalKeyBuilder {
         }
     }
 
-    pub fn with_zobrist(&self, zobrist: u128) -> PersonalKeyPrefix {
+    pub fn with_zobrist(&self, variant: Variant, zobrist: u128) -> PersonalKeyPrefix {
         PersonalKeyPrefix {
-            prefix: self.base ^ zobrist,
+            prefix: self.base ^ zobrist ^ (match variant {
+                Variant::Chess => 0,
+                Variant::Antichess => 0x44782fce075483666c81899cb65921c9,
+                Variant::Atomic => 0x66ccbd680f655d562689ca333c5e2a42,
+                Variant::Crazyhouse => 0x9d04db38ca4d923d82ff24eb9530e986,
+                Variant::Horde => 0xc29dfb1076aa15186effd0d34cc60737,
+                Variant::KingOfTheHill => 0xdfb25d5df41fc5961e61f6b4ba613fbe,
+                Variant::RacingKings => 0x8e72f94307f96710b3910cf7e5808e0d,
+                Variant::ThreeCheck => 0xd19242bae967b40e7856bd1c71aa4220,
+            }),
         }
     }
 }

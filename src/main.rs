@@ -69,8 +69,10 @@ async fn personal(
         let status = indexer.index_player(query.player.clone()).await?;
     }
 
+    let variant = query.variant.into();
+
     let mut pos = Zobrist::new(VariantPosition::from_setup(
-        query.variant.into(),
+        variant,
         &Fen::from(query.fen),
         CastlingMode::Chess960,
     )?);
@@ -78,7 +80,7 @@ async fn personal(
     let opening = openings.play_and_classify(&mut pos, query.play)?;
 
     let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color)
-        .with_zobrist(pos.zobrist_hash());
+        .with_zobrist(variant, pos.zobrist_hash());
     let queryable = db.queryable();
     dbg!(queryable
         .db
