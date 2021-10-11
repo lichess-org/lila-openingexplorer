@@ -25,7 +25,7 @@ use tokio::{
 
 mod lila;
 
-use lila::Lila;
+use lila::{Game, Lila};
 
 #[derive(Clap)]
 pub struct IndexerOpt {
@@ -101,90 +101,97 @@ impl IndexerActor {
     }
 
     async fn index_player(&self, player: UserName) -> Result<(), Error> {
-        log::info!("indexing {}", player);
+        log::info!("starting to index {}", player);
 
         let hash = ByColor::new_with(|color| {
             PersonalKeyBuilder::with_user_pov(&player.to_owned().into(), color)
         });
 
+        let mut num_games = 0;
         let mut games = self.lila.user_games(&player).await?;
         while let Some(game) = games.next().await {
             let game = game?;
+            num_games += 1;
+            self.index_game(&player, &hash, game);
+        }
 
-            if game.status.is_unindexable() || game.status.is_ongoing() {
-                continue;
+        log::info!("indexed {} games for {}", num_games, player);
+        Ok(())
+    }
+
+    fn index_game(&self, player: &UserName, hash: &ByColor<PersonalKeyBuilder>, game: Game) {
+        if game.status.is_unindexable() || game.status.is_ongoing() {
+            return;
+        }
+
+        let color = if Some(player) == game.user_name(Color::White) {
+            Color::White
+        } else if Some(player) == game.user_name(Color::Black) {
+            Color::Black
+        } else {
+            return;
+        };
+
+        let year = AnnoLichess::from_time(game.last_move_at);
+        let outcome = Outcome::from_winner(game.winner);
+        let variant = game.variant.into();
+        let pos = match game.initial_fen {
+            Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960),
+            None => Ok(VariantPosition::new(variant)),
+        };
+
+        let mut pos: Zobrist<_, u128> = match pos {
+            Ok(pos) => Zobrist::new(pos),
+            Err(err) => {
+                log::error!("indexing {}: {}", game.id, err);
+                return;
             }
+        };
 
-            let color = if Some(&player) == game.user_name(Color::White) {
-                Color::White
-            } else if Some(&player) == game.user_name(Color::Black) {
-                Color::Black
-            } else {
-                continue;
-            };
+        // Build an intermediate table to remove loops (due to repetitions).
+        let mut table: FxHashMap<u128, Uci> =
+            FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
 
-            let year = AnnoLichess::from_time(game.last_move_at);
-            let outcome = Outcome::from_winner(game.winner);
-            let variant = game.variant.into();
-            let pos = match game.initial_fen {
-                Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960),
-                None => Ok(VariantPosition::new(variant)),
-            };
-
-            let mut pos: Zobrist<_, u128> = match pos {
-                Ok(pos) => Zobrist::new(pos),
+        for (ply, san) in game.moves.into_iter().enumerate() {
+            let m = match san.to_move(&pos) {
+                Ok(m) => m,
                 Err(err) => {
-                    log::error!("indexing {}: {}", game.id, err);
-                    continue;
+                    log::error!("indexing {}: {} ({} at ply {})", game.id, err, san, ply);
+                    return;
                 }
             };
 
-            // Build an intermediate table to remove loops (due to repetitions).
-            let mut table: FxHashMap<u128, Uci> =
-                FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
+            let uci = m.to_uci(CastlingMode::Chess960);
+            table.insert(pos.zobrist_hash(), uci);
 
-            for san in game.moves {
-                let m = match san.to_move(&pos) {
-                    Ok(m) => m,
-                    Err(err) => {
-                        log::error!("indexing {}: {}", game.id, err);
-                        continue;
-                    }
-                };
-
-                let uci = m.to_uci(CastlingMode::Chess960);
-                table.insert(pos.zobrist_hash(), uci);
-
-                pos.play_unchecked(&m);
-            }
-
-            let queryable = self.db.queryable();
-
-            for (zobrist, uci) in table {
-                let entry = PersonalEntry::new_single(
-                    uci.clone(),
-                    game.speed,
-                    Mode::from_rated(game.rated),
-                    game.id,
-                    outcome,
-                );
-
-                let mut buf = Cursor::new(Vec::new());
-                entry.write(&mut buf).expect("serialize personal entry");
-
-                queryable
-                    .db
-                    .put_cf(
-                        queryable.cf_personal,
-                        hash.by_color(color)
-                            .with_zobrist(variant, zobrist)
-                            .with_year(year),
-                        buf.into_inner(),
-                    )
-                    .expect("merge cf personal");
-            }
+            pos.play_unchecked(&m);
         }
-        Ok(())
+
+        let queryable = self.db.queryable();
+
+        for (zobrist, uci) in table {
+            let entry = PersonalEntry::new_single(
+                uci.clone(),
+                game.speed,
+                Mode::from_rated(game.rated),
+                game.id,
+                outcome,
+            );
+
+            let mut buf = Cursor::new(Vec::new());
+            entry.write(&mut buf).expect("serialize personal entry");
+
+            queryable
+                .db
+                .put_cf(
+                    queryable.cf_personal,
+                    hash.by_color(color)
+                        .with_zobrist(variant, zobrist)
+                        .with_year(year),
+                    buf.into_inner(),
+                )
+                .expect("merge cf personal");
+        }
     }
 }
 
