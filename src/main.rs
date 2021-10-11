@@ -2,6 +2,7 @@ pub mod api;
 pub mod db;
 pub mod indexer;
 pub mod model;
+pub mod opening;
 pub mod util;
 
 use crate::{
@@ -16,14 +17,8 @@ use axum::{
     response::Json,
     AddExtensionLayer, Router,
 };
-use shakmaty::{
-    CastlingMode,
-    Position,
-    fen::Fen,
-    variant::VariantPosition,
-    zobrist::ZobristHash,
-};
 use clap::Clap;
+use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::ZobristHash, CastlingMode, Position};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -69,14 +64,22 @@ async fn personal(
         let status = indexer.index_player(query.player.clone()).await?;
     }
 
-    let mut pos = VariantPosition::from_setup(query.variant.into(), &Fen::from(query.fen), CastlingMode::Chess960)?;
+    let mut pos = VariantPosition::from_setup(
+        query.variant.into(),
+        &Fen::from(query.fen),
+        CastlingMode::Chess960,
+    )?;
     for uci in query.play {
         let m = uci.to_move(&pos)?;
         pos.play_unchecked(&m);
     }
 
-    let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color).with_zobrist(pos.zobrist_hash());
+    let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color)
+        .with_zobrist(pos.zobrist_hash());
     let queryable = db.queryable();
-    dbg!(queryable.db.get_cf(queryable.cf_personal, dbg!(key.prefix())).expect("get cf personal"));
+    dbg!(queryable
+        .db
+        .get_cf(queryable.cf_personal, dbg!(key.prefix()))
+        .expect("get cf personal"));
     Ok(Json(PersonalResponse {}))
 }

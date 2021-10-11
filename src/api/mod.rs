@@ -32,9 +32,7 @@ pub struct PersonalQuery {
 }
 
 #[derive(Serialize)]
-pub struct PersonalResponse {
-
-}
+pub struct PersonalResponse {}
 
 #[derive(Deserialize, Default)]
 pub struct SinceYear(u8); // since 2000 or so
