@@ -34,6 +34,8 @@ struct Opt {
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
     let opt = Opt::parse();
 
     let openings: &'static Openings = Box::leak(Box::new(Openings::new()));
