@@ -62,7 +62,7 @@ impl Openings {
     pub fn play_and_classify(
         &self,
         root: &mut Zobrist<VariantPosition, u128>,
-        play: &[Uci],
+        play: Vec<Uci>,
     ) -> Result<Option<&Opening>, Error> {
         let mut opening = None;
 

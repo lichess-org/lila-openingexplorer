@@ -1,4 +1,7 @@
-use crate::model::{Mode, Speed, UserName};
+use crate::{
+    model::{Mode, Speed, UserName},
+    opening::Opening,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, FromInto, StringWithSeparator};
 use shakmaty::fen::{Fen, ParseFenError};
@@ -32,7 +35,9 @@ pub struct PersonalQuery {
 }
 
 #[derive(Serialize)]
-pub struct PersonalResponse {}
+pub struct PersonalResponse {
+    pub opening: Option<&'static Opening>,
+}
 
 #[derive(Deserialize, Default)]
 pub struct SinceYear(u8); // since 2000 or so

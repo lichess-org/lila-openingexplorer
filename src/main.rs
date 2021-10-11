@@ -10,6 +10,7 @@ use crate::{
     db::Database,
     indexer::IndexerStub,
     model::PersonalKeyBuilder,
+    opening::Openings,
 };
 use axum::{
     extract::{Extension, Query},
@@ -18,7 +19,7 @@ use axum::{
     AddExtensionLayer, Router,
 };
 use clap::Clap;
-use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::ZobristHash, CastlingMode, Position};
+use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -35,12 +36,13 @@ struct Opt {
 async fn main() {
     let opt = Opt::parse();
 
+    let openings: &'static Openings = Box::leak(Box::new(Openings::new()));
     let db = Arc::new(Database::open(opt.db).expect("db"));
-
     let (indexer, join_handle) = IndexerStub::spawn(db.clone());
 
     let app = Router::new()
         .route("/personal", get(personal))
+        .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
         .layer(AddExtensionLayer::new(indexer));
 
@@ -56,6 +58,7 @@ async fn main() {
 }
 
 async fn personal(
+    Extension(openings): Extension<&'static Openings>,
     Extension(db): Extension<Arc<Database>>,
     Extension(indexer): Extension<IndexerStub>,
     Query(query): Query<PersonalQuery>,
@@ -64,15 +67,13 @@ async fn personal(
         let status = indexer.index_player(query.player.clone()).await?;
     }
 
-    let mut pos = VariantPosition::from_setup(
+    let mut pos = Zobrist::new(VariantPosition::from_setup(
         query.variant.into(),
         &Fen::from(query.fen),
         CastlingMode::Chess960,
-    )?;
-    for uci in query.play {
-        let m = uci.to_move(&pos)?;
-        pos.play_unchecked(&m);
-    }
+    )?);
+
+    let opening = openings.play_and_classify(&mut pos, query.play)?;
 
     let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color)
         .with_zobrist(pos.zobrist_hash());
@@ -81,5 +82,5 @@ async fn personal(
         .db
         .get_cf(queryable.cf_personal, dbg!(key.prefix()))
         .expect("get cf personal"));
-    Ok(Json(PersonalResponse {}))
+    Ok(Json(PersonalResponse { opening }))
 }
