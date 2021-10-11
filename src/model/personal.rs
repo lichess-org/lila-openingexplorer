@@ -302,6 +302,7 @@ impl PersonalKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shakmaty::Square;
     use std::io::Cursor;
 
     #[test]
@@ -324,5 +325,57 @@ mod tests {
         for header in headers {
             assert_eq!(Header::read(&mut reader).unwrap(), header);
         }
+    }
+
+    #[test]
+    fn test_merge_personal() {
+        let uci = Uci::Normal {
+            from: Square::E2,
+            to: Square::E4,
+            promotion: None,
+        };
+
+        let a = PersonalEntry::new_single(
+            uci.clone(),
+            Speed::Bullet,
+            Mode::Rated,
+            "12345678".parse().unwrap(),
+            Outcome::Decisive {
+                winner: Color::White,
+            },
+        );
+
+        let b = PersonalEntry::new_single(
+            uci.clone(),
+            Speed::Bullet,
+            Mode::Rated,
+            "87654321".parse().unwrap(),
+            Outcome::Decisive {
+                winner: Color::Black,
+            },
+        );
+
+        let mut deserialized = PersonalEntry::default();
+
+        let mut cursor = Cursor::new(Vec::new());
+        a.write(&mut cursor).unwrap();
+        deserialized
+            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .unwrap();
+
+        let mut cursor = Cursor::new(Vec::new());
+        b.write(&mut cursor).unwrap();
+        deserialized
+            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .unwrap();
+
+        let group = deserialized
+            .sub_entries
+            .get(&uci)
+            .unwrap()
+            .by_speed(Speed::Bullet)
+            .by_mode(Mode::Rated);
+        assert_eq!(group.stats.white, 1);
+        assert_eq!(group.stats.black, 1);
     }
 }

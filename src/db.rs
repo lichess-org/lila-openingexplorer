@@ -85,7 +85,7 @@ fn personal_merge(
             .expect("read personal merge operand");
         size_hint += op.len();
     }
-    let mut writer = Cursor::new(Vec::with_capacity(size_hint));
-    entry.write(&mut writer).expect("write personal entry");
-    Some(writer.into_inner())
+    let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
+    entry.write(&mut cursor).expect("write personal entry");
+    Some(cursor.into_inner())
 }
