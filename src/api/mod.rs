@@ -131,7 +131,7 @@ impl PersonalQueryFilter {
             });
         }
 
-        moves.sort_by_key(|row| row.stats.total());
+        moves.sort_by_key(|row| Reverse(row.stats.total()));
         recent_games.sort_by_key(|(idx, _game)| Reverse(*idx));
 
         PersonalResponse {
