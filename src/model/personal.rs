@@ -1,5 +1,6 @@
 use crate::model::{
-    read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Speed, UserId,
+    read_uci, read_uint, write_uci, write_uint, AnnoLichess, ByMode, BySpeed, GameId, Mode, Speed,
+    UserId,
 };
 use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
@@ -120,7 +121,7 @@ impl Stats {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct Group {
     stats: Stats,
     games: SmallVec<[(u64, GameId); 1]>,
@@ -133,7 +134,7 @@ impl AddAssign for Group {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct PersonalEntry {
     sub_entries: FxHashMap<Uci, BySpeed<ByMode<Group>>>,
     max_game_idx: u64,
@@ -288,7 +289,7 @@ impl PersonalKeyPrefix {
         buf
     }
 
-    pub fn with_year(&self, year: u8) -> [u8; 17] {
+    pub fn with_year(&self, AnnoLichess(year): AnnoLichess) -> [u8; 17] {
         let mut buf = [0; 17];
         LittleEndian::write_u128(&mut buf, self.prefix);
         buf[16] = year;

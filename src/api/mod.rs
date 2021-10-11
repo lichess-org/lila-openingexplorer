@@ -31,7 +31,7 @@ pub struct PersonalQuery {
     #[serde_as(as = "FromInto<ColorProxy>")]
     pub color: Color,
     #[serde(default)]
-    pub since: Option<SinceYear>,
+    pub since: u32, // year
     #[serde(default)]
     pub update: bool,
 }
@@ -40,9 +40,6 @@ pub struct PersonalQuery {
 pub struct PersonalResponse {
     pub opening: Option<&'static Opening>,
 }
-
-#[derive(Deserialize, Default, Debug)]
-pub struct SinceYear(u8); // since 2000 or so
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

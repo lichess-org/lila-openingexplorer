@@ -22,7 +22,7 @@ impl Mode {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ByMode<T> {
     pub rated: T,
     pub casual: T,

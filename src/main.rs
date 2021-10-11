@@ -9,7 +9,7 @@ use crate::{
     api::{Error, PersonalQuery, PersonalResponse},
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
-    model::PersonalKeyBuilder,
+    model::{AnnoLichess, PersonalEntry, PersonalKeyBuilder},
     opening::Openings,
 };
 use axum::{
@@ -20,9 +20,7 @@ use axum::{
 };
 use clap::Clap;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
-use std::net::SocketAddr;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{io::Cursor, net::SocketAddr, path::PathBuf, sync::Arc};
 
 #[derive(Clap)]
 struct Opt {
@@ -81,10 +79,27 @@ async fn personal(
 
     let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color)
         .with_zobrist(variant, pos.zobrist_hash());
+
+    let mut entry = PersonalEntry::default();
     let queryable = db.queryable();
-    dbg!(queryable
-        .db
-        .get_cf(queryable.cf_personal, dbg!(key.prefix()))
-        .expect("get cf personal"));
+    let mut end = rocksdb::ReadOptions::default();
+    end.set_iterate_upper_bound(key.with_year(AnnoLichess::MAX));
+    let iterator = queryable.db.iterator_cf_opt(
+        queryable.cf_personal,
+        end,
+        rocksdb::IteratorMode::From(
+            &key.with_year(AnnoLichess::from_year(query.since)),
+            rocksdb::Direction::Forward,
+        ),
+    );
+    for (_key, value) in iterator {
+        let mut cursor = Cursor::new(value);
+        entry
+            .extend_from_reader(&mut cursor)
+            .expect("deserialize personal entry");
+    }
+
+    dbg!(entry);
+
     Ok(Json(PersonalResponse { opening }))
 }

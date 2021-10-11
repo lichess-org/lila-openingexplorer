@@ -1,7 +1,7 @@
 use crate::{
     api::Error,
     db::Database,
-    model::{Mode, PersonalEntry, PersonalKeyBuilder, UserName},
+    model::{AnnoLichess, Mode, PersonalEntry, PersonalKeyBuilder, UserName},
     util::NevermindExt as _,
 };
 use clap::Clap;
@@ -123,6 +123,7 @@ impl IndexerActor {
                 continue;
             };
 
+            let year = AnnoLichess::from_time(game.last_move_at);
             let outcome = Outcome::from_winner(game.winner);
             let variant = game.variant.into();
             let pos = match game.initial_fen {
@@ -175,7 +176,9 @@ impl IndexerActor {
                     .db
                     .put_cf(
                         queryable.cf_personal,
-                        hash.by_color(color).with_zobrist(variant, zobrist).prefix(),
+                        hash.by_color(color)
+                            .with_zobrist(variant, zobrist)
+                            .with_year(year),
                         buf.into_inner(),
                     )
                     .expect("merge cf personal");

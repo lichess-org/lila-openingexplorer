@@ -3,12 +3,13 @@ use crate::{
     indexer::IndexerOpt,
     model::{GameId, Speed, UserName},
 };
+use chrono::{DateTime, Utc};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
-use serde_with::{serde_as, DisplayFromStr, FromInto, SpaceSeparator, StringWithSeparator};
-use shakmaty::fen::Fen;
-use shakmaty::san::San;
-use shakmaty::Color;
+use serde_with::{
+    serde_as, DisplayFromStr, FromInto, SpaceSeparator, StringWithSeparator, TimestampMicroSeconds,
+};
+use shakmaty::{fen::Fen, san::San, Color};
 use std::io;
 use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
@@ -67,7 +68,10 @@ pub struct Game {
     #[serde_as(as = "DisplayFromStr")]
     pub id: GameId,
     pub rated: bool,
-    pub created_at: u64,
+    #[serde_as(as = "TimestampMicroSeconds")]
+    pub created_at: DateTime<Utc>,
+    #[serde_as(as = "TimestampMicroSeconds")]
+    pub last_move_at: DateTime<Utc>,
     pub status: Status,
     pub variant: LilaVariant,
     pub players: Players,
