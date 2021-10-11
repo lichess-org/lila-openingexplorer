@@ -69,11 +69,10 @@ async fn personal(
 
     let variant = query.variant.into();
 
-    let mut pos = Zobrist::new(VariantPosition::from_setup(
-        variant,
-        &Fen::from(query.fen),
-        CastlingMode::Chess960,
-    )?);
+    let mut pos = Zobrist::new(match query.fen {
+        Some(fen) => VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)?,
+        None => VariantPosition::new(variant),
+    });
 
     let opening = openings.play_and_classify(&mut pos, query.play)?;
 

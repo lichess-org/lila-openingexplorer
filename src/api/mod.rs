@@ -18,13 +18,17 @@ pub use variant::LilaVariant;
 #[serde_as]
 #[derive(Deserialize, Debug)]
 pub struct PersonalQuery {
+    #[serde(default)]
     pub variant: LilaVariant,
-    #[serde_as(as = "DisplayFromStr")]
-    pub fen: LaxFen,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub fen: Option<LaxFen>,
     #[serde_as(as = "StringWithSeparator<CommaSeparator, Uci>")]
     #[serde(default)]
     pub play: Vec<Uci>,
+    #[serde(default)]
     pub modes: Option<Vec<Mode>>,
+    #[serde(default)]
     pub speeds: Option<Vec<Speed>>,
     #[serde_as(as = "DisplayFromStr")]
     pub player: UserName,

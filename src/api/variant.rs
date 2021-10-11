@@ -12,8 +12,15 @@ pub enum LilaVariant {
     Horde,
     KingOfTheHill,
     RacingKings,
+    #[serde(alias = "chess")]
     Standard,
     ThreeCheck,
+}
+
+impl Default for LilaVariant {
+    fn default() -> LilaVariant {
+        LilaVariant::Standard
+    }
 }
 
 impl From<LilaVariant> for Variant {
