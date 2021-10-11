@@ -9,6 +9,8 @@ pub enum Mode {
 }
 
 impl Mode {
+    pub const ALL: [Mode; 2] = [Mode::Rated, Mode::Casual];
+
     pub fn from_rated(rated: bool) -> Mode {
         if rated {
             Mode::Rated

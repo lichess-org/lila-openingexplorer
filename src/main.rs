@@ -98,7 +98,5 @@ async fn personal(
             .expect("deserialize personal entry");
     }
 
-    dbg!(entry);
-
-    Ok(Json(PersonalResponse { opening }))
+    Ok(Json(query.filter.respond(entry, opening)))
 }

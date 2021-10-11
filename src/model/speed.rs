@@ -12,6 +12,10 @@ pub enum Speed {
     Correspondence,
 }
 
+impl Speed {
+    pub const ALL: [Speed; 6] = [Speed::UltraBullet, Speed::Bullet, Speed::Blitz, Speed::Rapid, Speed::Classical, Speed::Correspondence];
+}
+
 #[derive(Debug, Default)]
 pub struct BySpeed<T> {
     pub ultra_bullet: T,

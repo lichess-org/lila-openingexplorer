@@ -11,7 +11,7 @@ use shakmaty::{
 };
 use std::collections::HashMap;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct Opening {
     eco: String,
     name: String,

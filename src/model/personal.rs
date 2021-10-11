@@ -7,9 +7,12 @@ use rustc_hash::FxHashMap;
 use sha1::{Digest, Sha1};
 use shakmaty::{uci::Uci, variant::Variant, Color, Outcome};
 use smallvec::{smallvec, SmallVec};
-use std::cmp::max;
-use std::io::{self, Read, Write};
-use std::ops::AddAssign;
+use std::{
+    cmp::max,
+    io::{self, Read, Write},
+    ops::AddAssign,
+};
+use serde::Serialize;
 
 const MAX_GAMES: u64 = 15; // 4 bits
 
@@ -64,35 +67,19 @@ impl Header {
     }
 }
 
-#[derive(Debug, Default)]
-struct Stats {
+#[derive(Debug, Default, Clone, Serialize)]
+pub struct Stats {
     white: u64,
-    draw: u64,
+    draws: u64,
     black: u64,
 }
 
 impl From<Outcome> for Stats {
     fn from(outcome: Outcome) -> Stats {
-        match outcome {
-            Outcome::Decisive {
-                winner: Color::White,
-            } => Stats {
-                white: 1,
-                draw: 0,
-                black: 0,
-            },
-            Outcome::Decisive {
-                winner: Color::Black,
-            } => Stats {
-                white: 0,
-                draw: 0,
-                black: 1,
-            },
-            Outcome::Draw => Stats {
-                white: 0,
-                draw: 1,
-                black: 1,
-            },
+        Stats {
+            white: if outcome.winner() == Some(Color::White) { 1 } else { 0 },
+            black: if outcome.winner() == Some(Color::Black) { 1 } else { 0 },
+            draws: if outcome.winner().is_none() { 1 } else { 0 },
         }
     }
 }
@@ -100,7 +87,7 @@ impl From<Outcome> for Stats {
 impl AddAssign for Stats {
     fn add_assign(&mut self, rhs: Stats) {
         self.white += rhs.white;
-        self.draw += rhs.draw;
+        self.draws += rhs.draws;
         self.black += rhs.black;
     }
 }
@@ -109,22 +96,22 @@ impl Stats {
     fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
         Ok(Stats {
             white: read_uint(reader)?,
-            draw: read_uint(reader)?,
+            draws: read_uint(reader)?,
             black: read_uint(reader)?,
         })
     }
 
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         write_uint(writer, self.white)?;
-        write_uint(writer, self.draw)?;
+        write_uint(writer, self.draws)?;
         write_uint(writer, self.black)
     }
 }
 
 #[derive(Default, Debug)]
-struct Group {
-    stats: Stats,
-    games: SmallVec<[(u64, GameId); 1]>,
+pub struct Group {
+    pub stats: Stats,
+    pub games: SmallVec<[(u64, GameId); 1]>,
 }
 
 impl AddAssign for Group {
@@ -136,7 +123,7 @@ impl AddAssign for Group {
 
 #[derive(Default, Debug)]
 pub struct PersonalEntry {
-    sub_entries: FxHashMap<Uci, BySpeed<ByMode<Group>>>,
+    pub sub_entries: FxHashMap<Uci, BySpeed<ByMode<Group>>>,
     max_game_idx: u64,
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    model::{Mode, Speed, UserName},
+    model::{Mode, Speed, UserName, Stats, PersonalEntry},
     opening::Opening,
 };
 use serde::{Deserialize, Serialize};
@@ -26,23 +26,55 @@ pub struct PersonalQuery {
     #[serde_as(as = "StringWithSeparator<CommaSeparator, Uci>")]
     #[serde(default)]
     pub play: Vec<Uci>,
-    #[serde(default)]
-    pub modes: Option<Vec<Mode>>,
-    #[serde(default)]
-    pub speeds: Option<Vec<Speed>>,
     #[serde_as(as = "DisplayFromStr")]
     pub player: UserName,
     #[serde_as(as = "FromInto<ColorProxy>")]
     pub color: Color,
     #[serde(default)]
     pub since: u32, // year
+    #[serde(flatten)]
+    pub filter: PersonalQueryFilter,
     #[serde(default)]
     pub update: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Debug)]
+pub struct PersonalQueryFilter {
+    #[serde(default)]
+    pub modes: Option<Vec<Mode>>,
+    #[serde(default)]
+    pub speeds: Option<Vec<Speed>>,
+}
+
+#[derive(Serialize, Debug)]
 pub struct PersonalResponse {
+    #[serde(flatten)]
+    pub total: Stats,
     pub opening: Option<&'static Opening>,
+}
+
+impl PersonalQueryFilter {
+    pub fn respond(&self, entry: PersonalEntry, opening: Option<&'static Opening>) -> PersonalResponse {
+        let mut total = Stats::default();
+
+        for (uci, sub_entry) in entry.sub_entries {
+            for speed in Speed::ALL {
+                if self.speeds.as_ref().map_or(true, |speeds| speeds.contains(&speed)) {
+                    for mode in Mode::ALL {
+                        if self.modes.as_ref().map_or(true, |modes| modes.contains(&mode)) {
+                            let group = sub_entry.by_speed(speed).by_mode(mode);
+                            total += group.stats.to_owned();
+                        }
+                    }
+                }
+            }
+        }
+
+        PersonalResponse {
+            total,
+            opening,
+        }
+    }
 }
 
 #[derive(Deserialize)]
