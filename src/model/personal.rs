@@ -4,6 +4,7 @@ use crate::model::{
 };
 use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
+use serde::Serialize;
 use sha1::{Digest, Sha1};
 use shakmaty::{uci::Uci, variant::Variant, Color, Outcome};
 use smallvec::{smallvec, SmallVec};
@@ -12,7 +13,6 @@ use std::{
     io::{self, Read, Write},
     ops::AddAssign,
 };
-use serde::Serialize;
 
 const MAX_GAMES: u64 = 15; // 4 bits
 
@@ -77,8 +77,16 @@ pub struct Stats {
 impl From<Outcome> for Stats {
     fn from(outcome: Outcome) -> Stats {
         Stats {
-            white: if outcome.winner() == Some(Color::White) { 1 } else { 0 },
-            black: if outcome.winner() == Some(Color::Black) { 1 } else { 0 },
+            white: if outcome.winner() == Some(Color::White) {
+                1
+            } else {
+                0
+            },
+            black: if outcome.winner() == Some(Color::Black) {
+                1
+            } else {
+                0
+            },
             draws: if outcome.winner().is_none() { 1 } else { 0 },
         }
     }
@@ -93,6 +101,10 @@ impl AddAssign for Stats {
 }
 
 impl Stats {
+    pub fn total(&self) -> u64 {
+        self.white + self.draws + self.black
+    }
+
     fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
         Ok(Stats {
             white: read_uint(reader)?,
@@ -108,14 +120,14 @@ impl Stats {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct Group {
+#[derive(Default, Debug, Clone)]
+pub struct PersonalGroup {
     pub stats: Stats,
     pub games: SmallVec<[(u64, GameId); 1]>,
 }
 
-impl AddAssign for Group {
-    fn add_assign(&mut self, rhs: Group) {
+impl AddAssign for PersonalGroup {
+    fn add_assign(&mut self, rhs: PersonalGroup) {
         self.stats += rhs.stats;
         self.games.extend(rhs.games);
     }
@@ -123,7 +135,7 @@ impl AddAssign for Group {
 
 #[derive(Default, Debug)]
 pub struct PersonalEntry {
-    pub sub_entries: FxHashMap<Uci, BySpeed<ByMode<Group>>>,
+    pub sub_entries: FxHashMap<Uci, BySpeed<ByMode<PersonalGroup>>>,
     max_game_idx: u64,
 }
 
@@ -135,8 +147,8 @@ impl PersonalEntry {
         game_id: GameId,
         outcome: Outcome,
     ) -> PersonalEntry {
-        let mut sub_entry: BySpeed<ByMode<Group>> = Default::default();
-        *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = Group {
+        let mut sub_entry: BySpeed<ByMode<PersonalGroup>> = Default::default();
+        *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = PersonalGroup {
             stats: outcome.into(),
             games: smallvec![(0, game_id)],
         };
@@ -177,7 +189,7 @@ impl PersonalEntry {
                             games.push((game_idx, game));
                         }
                         let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
-                        *group += Group { stats, games };
+                        *group += PersonalGroup { stats, games };
                     }
                     Header::End => break,
                 }

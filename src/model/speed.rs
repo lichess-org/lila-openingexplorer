@@ -13,7 +13,14 @@ pub enum Speed {
 }
 
 impl Speed {
-    pub const ALL: [Speed; 6] = [Speed::UltraBullet, Speed::Bullet, Speed::Blitz, Speed::Rapid, Speed::Classical, Speed::Correspondence];
+    pub const ALL: [Speed; 6] = [
+        Speed::UltraBullet,
+        Speed::Bullet,
+        Speed::Blitz,
+        Speed::Rapid,
+        Speed::Classical,
+        Speed::Correspondence,
+    ];
 }
 
 #[derive(Debug, Default)]

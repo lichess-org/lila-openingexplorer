@@ -98,5 +98,5 @@ async fn personal(
             .expect("deserialize personal entry");
     }
 
-    Ok(Json(query.filter.respond(entry, opening)))
+    Ok(Json(query.filter.respond(pos.into_inner(), entry, opening)))
 }

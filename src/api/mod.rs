@@ -1,12 +1,16 @@
 use crate::{
-    model::{Mode, Speed, UserName, Stats, PersonalEntry},
+    model::{GameId, Mode, PersonalEntry, PersonalGroup, Speed, Stats, UserName},
     opening::Opening,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, FromInto, StringWithSeparator};
-use shakmaty::fen::{Fen, ParseFenError};
-use shakmaty::uci::Uci;
-use shakmaty::Color;
+use shakmaty::{
+    fen::{Fen, ParseFenError},
+    san::SanPlus,
+    uci::Uci,
+    variant::VariantPosition,
+    Color,
+};
 use std::str::FromStr;
 
 mod error;
@@ -49,29 +53,79 @@ pub struct PersonalQueryFilter {
 #[derive(Serialize, Debug)]
 pub struct PersonalResponse {
     #[serde(flatten)]
-    pub total: Stats,
-    pub opening: Option<&'static Opening>,
+    total: Stats,
+    moves: Vec<PersonalMoveRow>,
+    opening: Option<&'static Opening>,
+}
+
+#[serde_as]
+#[derive(Serialize, Debug)]
+struct PersonalMoveRow {
+    #[serde_as(as = "DisplayFromStr")]
+    uci: Uci,
+    #[serde_as(as = "DisplayFromStr")]
+    san: SanPlus,
+    #[serde(flatten)]
+    stats: Stats,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    game: Option<GameId>,
 }
 
 impl PersonalQueryFilter {
-    pub fn respond(&self, entry: PersonalEntry, opening: Option<&'static Opening>) -> PersonalResponse {
+    pub fn respond(
+        &self,
+        pos: VariantPosition,
+        entry: PersonalEntry,
+        opening: Option<&'static Opening>,
+    ) -> PersonalResponse {
         let mut total = Stats::default();
 
+        let mut moves = Vec::with_capacity(entry.sub_entries.len());
+
         for (uci, sub_entry) in entry.sub_entries {
+            let m = uci.to_move(&pos).expect("legal uci in personal entry");
+            let san = SanPlus::from_move(pos.clone(), &m);
+
+            let mut group = PersonalGroup::default();
+
             for speed in Speed::ALL {
-                if self.speeds.as_ref().map_or(true, |speeds| speeds.contains(&speed)) {
+                if self
+                    .speeds
+                    .as_ref()
+                    .map_or(true, |speeds| speeds.contains(&speed))
+                {
                     for mode in Mode::ALL {
-                        if self.modes.as_ref().map_or(true, |modes| modes.contains(&mode)) {
-                            let group = sub_entry.by_speed(speed).by_mode(mode);
-                            total += group.stats.to_owned();
+                        if self
+                            .modes
+                            .as_ref()
+                            .map_or(true, |modes| modes.contains(&mode))
+                        {
+                            group += sub_entry.by_speed(speed).by_mode(mode).to_owned();
+                            // TODO: Optimize?
                         }
                     }
                 }
             }
+
+            moves.push(PersonalMoveRow {
+                uci,
+                san,
+                stats: group.stats.to_owned(),
+                game: group
+                    .games
+                    .into_iter()
+                    .max_by_key(|(idx, _id)| *idx)
+                    .map(|(_, id)| id),
+            });
+
+            total += group.stats;
         }
+
+        moves.sort_by_key(|row| row.stats.total());
 
         PersonalResponse {
             total,
+            moves,
             opening,
         }
     }
