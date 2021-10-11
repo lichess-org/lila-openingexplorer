@@ -1,11 +1,18 @@
+use crate::api::Error;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
-use shakmaty::{fen::Fen, zobrist::ZobristHash, CastlingMode, Chess, FromSetup};
+use shakmaty::{
+    fen::Fen,
+    uci::Uci,
+    variant::{Variant, VariantPosition},
+    zobrist::{Zobrist, ZobristHash},
+    CastlingMode, Chess, FromSetup, Position,
+};
 use std::collections::HashMap;
 
 #[derive(Serialize)]
-struct Opening {
+pub struct Opening {
     eco: String,
     name: String,
 }
@@ -51,6 +58,25 @@ impl Openings {
 
         Openings { data }
     }
+
+    pub fn play_and_classify(
+        &self,
+        root: &mut Zobrist<VariantPosition, u128>,
+        play: &[Uci],
+    ) -> Result<Option<&Opening>, Error> {
+        let mut opening = None;
+
+        for uci in play {
+            let m = uci.to_move(root)?;
+            root.play_unchecked(&m);
+
+            if opening_sensible(root.as_inner().variant()) {
+                opening = self.data.get(&root.zobrist_hash()).or(opening);
+            }
+        }
+
+        Ok(opening)
+    }
 }
 
 const TSV_DATA: [&[u8]; 5] = [
@@ -60,3 +86,10 @@ const TSV_DATA: [&[u8]; 5] = [
     include_bytes!("../chess-openings/dist/d.tsv"),
     include_bytes!("../chess-openings/dist/e.tsv"),
 ];
+
+fn opening_sensible(variant: Variant) -> bool {
+    matches!(
+        variant,
+        Variant::Chess | Variant::Crazyhouse | Variant::ThreeCheck | Variant::KingOfTheHill
+    )
+}
