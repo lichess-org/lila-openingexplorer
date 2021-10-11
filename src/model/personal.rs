@@ -14,7 +14,7 @@ use std::{
     ops::AddAssign,
 };
 
-const MAX_GAMES: u64 = 15; // 4 bits
+pub const MAX_PERSONAL_GAMES: u64 = 15; // 4 bits
 
 #[derive(Debug, Eq, PartialEq)]
 enum Header {
@@ -198,7 +198,7 @@ impl PersonalEntry {
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        let discarded_game_idx = self.max_game_idx.saturating_sub(MAX_GAMES);
+        let discarded_game_idx = self.max_game_idx.saturating_sub(MAX_PERSONAL_GAMES);
 
         for (uci, sub_entry) in &self.sub_entries {
             write_uci(writer, uci)?;

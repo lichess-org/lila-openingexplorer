@@ -1,5 +1,5 @@
 use crate::{
-    model::{GameId, Mode, PersonalEntry, Speed, Stats, UserName},
+    model::{GameId, Mode, PersonalEntry, Speed, Stats, UserName, MAX_PERSONAL_GAMES},
     opening::Opening,
 };
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use shakmaty::{
     variant::VariantPosition,
     Color,
 };
-use std::str::FromStr;
+use std::{cmp::Reverse, str::FromStr};
 
 mod error;
 mod variant;
@@ -50,11 +50,15 @@ pub struct PersonalQueryFilter {
     pub speeds: Option<Vec<Speed>>,
 }
 
+#[serde_as]
 #[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct PersonalResponse {
     #[serde(flatten)]
     total: Stats,
     moves: Vec<PersonalMoveRow>,
+    #[serde_as(as = "Vec<DisplayFromStr>")]
+    recent_games: Vec<GameId>,
     opening: Option<&'static Opening>,
 }
 
@@ -79,8 +83,8 @@ impl PersonalQueryFilter {
         opening: Option<&'static Opening>,
     ) -> PersonalResponse {
         let mut total = Stats::default();
-
         let mut moves = Vec::with_capacity(entry.sub_entries.len());
+        let mut recent_games: Vec<(u64, GameId)> = Vec::new();
 
         for (uci, sub_entry) in entry.sub_entries {
             let m = uci.to_move(&pos).expect("legal uci in personal entry");
@@ -110,6 +114,8 @@ impl PersonalQueryFilter {
                                     latest_game = Some((idx, game))
                                 }
                             }
+
+                            recent_games.extend(group.games.iter());
                         }
                     }
                 }
@@ -126,10 +132,16 @@ impl PersonalQueryFilter {
         }
 
         moves.sort_by_key(|row| row.stats.total());
+        recent_games.sort_by_key(|(idx, _game)| Reverse(*idx));
 
         PersonalResponse {
             total,
             moves,
+            recent_games: recent_games
+                .into_iter()
+                .map(|(_, game)| game)
+                .take(MAX_PERSONAL_GAMES as usize)
+                .collect(),
             opening,
         }
     }
