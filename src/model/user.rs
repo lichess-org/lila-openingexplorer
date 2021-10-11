@@ -5,6 +5,28 @@ use std::str::FromStr;
 #[derive(Debug, Clone)]
 pub struct UserName(String);
 
+impl UserName {
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<UserName, InvalidUserName> {
+        if !bytes.is_empty()
+            && bytes.len() <= 30
+            && bytes
+                .iter()
+                .copied()
+                .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+        {
+            Ok(UserName(
+                String::from_utf8(bytes.to_owned()).map_err(|_| InvalidUserName)?,
+            ))
+        } else {
+            Err(InvalidUserName)
+        }
+    }
+}
+
 impl fmt::Display for UserName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
@@ -26,15 +48,7 @@ impl FromStr for UserName {
     type Err = InvalidUserName;
 
     fn from_str(s: &str) -> Result<UserName, InvalidUserName> {
-        if !s.is_empty()
-            && s.len() <= 30
-            && s.chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-        {
-            Ok(UserName(s.into()))
-        } else {
-            Err(InvalidUserName)
-        }
+        UserName::from_bytes(s.as_bytes())
     }
 }
 
