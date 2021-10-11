@@ -1,9 +1,10 @@
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
-use std::error::Error;
-use std::fmt::{self, Write as _};
-use std::io;
-use std::io::{Read, Write};
-use std::str::FromStr;
+use std::{
+    error::Error,
+    fmt::{self, Write as _},
+    io::{self, Cursor, Read, Write},
+    str::FromStr,
+};
 
 #[derive(Debug)]
 pub struct InvalidGameId;
@@ -20,6 +21,13 @@ impl Error for InvalidGameId {}
 pub struct GameId(u64);
 
 impl GameId {
+    pub fn to_bytes(&self) -> [u8; 6] {
+        let mut buf = [0; 6];
+        let mut cursor = Cursor::new(&mut buf[..]);
+        self.write(&mut cursor).expect("serialize game id");
+        buf
+    }
+
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_u48::<LittleEndian>(self.0)
     }

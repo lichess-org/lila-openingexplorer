@@ -1,9 +1,12 @@
 use crate::{
     api::Error,
     db::Database,
-    model::{AnnoLichess, Mode, PersonalEntry, PersonalKeyBuilder, UserName},
+    model::{
+        AnnoLichess, GameInfo, GameInfoPlayer, Mode, PersonalEntry, PersonalKeyBuilder, UserName,
+    },
     util::NevermindExt as _,
 };
+use chrono::Datelike as _;
 use clap::Clap;
 use futures_util::StreamExt;
 use rustc_hash::FxHashMap;
@@ -168,6 +171,29 @@ impl IndexerActor {
         }
 
         let queryable = self.db.queryable();
+
+        queryable
+            .put_game_info(
+                game.id,
+                GameInfo {
+                    winner: outcome.winner(),
+                    speed: game.speed,
+                    rated: game.rated,
+                    year: match game.last_move_at.year_ce() {
+                        (true, ce) => ce,
+                        (false, _) => 0,
+                    },
+                    white: GameInfoPlayer {
+                        name: game.players.white.user.map(|p| p.name.to_string()),
+                        rating: game.players.white.rating,
+                    },
+                    black: GameInfoPlayer {
+                        name: game.players.black.user.map(|p| p.name.to_string()),
+                        rating: game.players.black.rating,
+                    },
+                },
+            )
+            .expect("put game info");
 
         for (zobrist, uci) in table {
             let entry = PersonalEntry::new_single(

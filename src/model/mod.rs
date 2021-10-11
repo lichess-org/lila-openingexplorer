@@ -9,7 +9,7 @@ mod user;
 mod year;
 
 pub use game_id::{GameId, InvalidGameId};
-pub use game_info::GameInfo;
+pub use game_info::{GameInfo, GameInfoPlayer};
 pub use mode::{ByMode, Mode};
 pub use personal::{PersonalEntry, PersonalGroup, PersonalKeyBuilder, Stats, MAX_PERSONAL_GAMES};
 pub use speed::{BySpeed, Speed};

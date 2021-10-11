@@ -1,4 +1,4 @@
-use crate::model::PersonalEntry;
+use crate::model::{GameId, GameInfo, PersonalEntry};
 use rocksdb::{ColumnFamilyDescriptor, DBWithThreadMode, MergeOperands, Options};
 use std::io::Cursor;
 use std::path::Path;
@@ -20,7 +20,10 @@ impl Database {
         let inner = DBWithThreadMode::open_cf_descriptors(
             &db_opts,
             path,
-            vec![ColumnFamilyDescriptor::new("personal", personal_opts)],
+            vec![
+                ColumnFamilyDescriptor::new("personal", personal_opts),
+                ColumnFamilyDescriptor::new("game", Options::default()),
+            ],
         )?;
 
         Ok(Database { inner })
@@ -30,6 +33,7 @@ impl Database {
         QueryableDatabase {
             db: &self.inner,
             cf_personal: self.inner.cf_handle("personal").expect("cf personal"),
+            cf_game: self.inner.cf_handle("game").expect("cf game"),
         }
     }
 }
@@ -37,6 +41,16 @@ impl Database {
 pub struct QueryableDatabase<'a> {
     pub db: &'a DBWithThreadMode<rocksdb::SingleThreaded>,
     pub cf_personal: &'a rocksdb::ColumnFamily,
+    pub cf_game: &'a rocksdb::ColumnFamily,
+}
+
+impl QueryableDatabase<'_> {
+    pub fn put_game_info(&self, id: GameId, info: GameInfo) -> Result<(), rocksdb::Error> {
+        let mut cursor = Cursor::new(Vec::new());
+        info.write(&mut cursor).expect("serialize game info");
+        self.db
+            .put_cf(self.cf_game, id.to_bytes(), cursor.into_inner())
+    }
 }
 
 fn personal_merge(

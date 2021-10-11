@@ -110,16 +110,16 @@ impl Players {
 #[derive(Debug, Deserialize)]
 pub struct Player {
     #[serde(default)]
-    user: Option<User>,
+    pub user: Option<User>,
     #[serde(default)]
-    rating: Option<u16>,
+    pub rating: Option<u16>,
 }
 
 #[serde_as]
 #[derive(Debug, Deserialize)]
 pub struct User {
     #[serde_as(as = "DisplayFromStr")]
-    name: UserName,
+    pub name: UserName,
 }
 
 #[derive(Debug, Deserialize, Copy, Clone)]

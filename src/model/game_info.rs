@@ -1,23 +1,26 @@
 use crate::{
     api::ColorProxy,
-    model::{Speed, UserName},
+    model::{read_uint, write_uint, Speed},
 };
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use serde::Serialize;
-use serde_with::{serde_as, DisplayFromStr, FromInto};
+use serde_with::{serde_as, FromInto};
 use shakmaty::Color;
-use std::io::{self, Read, Write};
+use std::{
+    convert::TryFrom,
+    io::{self, Read, Write},
+};
 
 #[serde_as]
 #[derive(Serialize)]
 pub struct GameInfo {
     #[serde_as(as = "Option<FromInto<ColorProxy>>")]
-    winner: Option<Color>,
-    speed: Speed,
-    rated: bool,
-    white: Player,
-    black: Player,
-    year: u16,
+    pub winner: Option<Color>,
+    pub speed: Speed,
+    pub rated: bool,
+    pub white: GameInfoPlayer,
+    pub black: GameInfoPlayer,
+    pub year: u32,
 }
 
 impl GameInfo {
@@ -38,7 +41,7 @@ impl GameInfo {
         writer.write_u8(if self.rated { 1 } else { 0 })?;
         self.white.write(writer)?;
         self.black.write(writer)?;
-        writer.write_u16::<LittleEndian>(self.year)
+        write_uint(writer, u64::from(self.year))
     }
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<GameInfo> {
@@ -62,9 +65,10 @@ impl GameInfo {
             1 => true,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
-        let white = Player::read(reader)?;
-        let black = Player::read(reader)?;
-        let year = reader.read_u16::<LittleEndian>()?;
+        let white = GameInfoPlayer::read(reader)?;
+        let black = GameInfoPlayer::read(reader)?;
+        let year = u32::try_from(read_uint(reader)?)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         Ok(GameInfo {
             winner,
             speed,
@@ -78,26 +82,32 @@ impl GameInfo {
 
 #[serde_as]
 #[derive(Serialize)]
-struct Player {
-    #[serde_as(as = "DisplayFromStr")]
-    name: UserName,
-    rating: u16,
+pub struct GameInfoPlayer {
+    pub name: Option<String>,
+    pub rating: Option<u16>,
 }
 
-impl Player {
+impl GameInfoPlayer {
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_u8(self.name.as_bytes().len() as u8)?;
-        writer.write_all(self.name.as_bytes())?;
-        writer.write_u16::<LittleEndian>(self.rating)
+        write_uint(writer, self.name.as_ref().map_or(0, |s| s.len()) as u64)?;
+        if let Some(name) = &self.name {
+            writer.write_all(name.as_bytes())?;
+        }
+        writer.write_u16::<LittleEndian>(self.rating.unwrap_or(0))
     }
 
-    fn read<R: Read>(reader: &mut R) -> io::Result<Player> {
-        let len = reader.read_u8()?;
+    fn read<R: Read>(reader: &mut R) -> io::Result<GameInfoPlayer> {
+        let len = usize::try_from(read_uint(reader)?)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         let mut buf = vec![0; len as usize];
         reader.read_exact(&mut buf)?;
-        let name = UserName::from_bytes(&buf)
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-        let rating = reader.read_u16::<LittleEndian>()?;
-        Ok(Player { name, rating })
+        Ok(GameInfoPlayer {
+            name: Some(
+                String::from_utf8(buf)
+                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?,
+            )
+            .filter(|s| s.len() != 0),
+            rating: Some(reader.read_u16::<LittleEndian>()?).filter(|r| *r != 0),
+        })
     }
 }
