@@ -65,8 +65,8 @@ async fn personal(
     Extension(indexer): Extension<IndexerStub>,
     Query(query): Query<PersonalQuery>,
 ) -> Result<Json<PersonalResponse>, Error> {
-    if true {
-        let status = indexer.index_player(query.player.clone()).await?;
+    if dbg!(&query).update {
+        let _status = indexer.index_player(query.player.clone()).await?;
     }
 
     let variant = query.variant.into();

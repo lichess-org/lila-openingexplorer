@@ -16,7 +16,7 @@ pub use error::Error;
 pub use variant::LilaVariant;
 
 #[serde_as]
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct PersonalQuery {
     pub variant: LilaVariant,
     #[serde_as(as = "DisplayFromStr")]
@@ -32,6 +32,8 @@ pub struct PersonalQuery {
     pub color: Color,
     #[serde(default)]
     pub since: Option<SinceYear>,
+    #[serde(default)]
+    pub update: bool,
 }
 
 #[derive(Serialize)]
@@ -39,7 +41,7 @@ pub struct PersonalResponse {
     pub opening: Option<&'static Opening>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, Debug)]
 pub struct SinceYear(u8); // since 2000 or so
 
 #[derive(Deserialize)]
@@ -67,6 +69,7 @@ impl From<ColorProxy> for Color {
     }
 }
 
+#[derive(Debug)]
 pub struct LaxFen(Fen);
 
 impl From<Fen> for LaxFen {
