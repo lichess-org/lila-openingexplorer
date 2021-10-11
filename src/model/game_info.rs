@@ -12,7 +12,7 @@ use std::{
 };
 
 #[serde_as]
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct GameInfo {
     #[serde_as(as = "Option<FromInto<ColorProxy>>")]
     pub winner: Option<Color>,
@@ -81,7 +81,7 @@ impl GameInfo {
 }
 
 #[serde_as]
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct GameInfoPlayer {
     pub name: Option<String>,
     pub rating: Option<u16>,

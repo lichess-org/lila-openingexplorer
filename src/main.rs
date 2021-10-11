@@ -6,10 +6,10 @@ pub mod opening;
 pub mod util;
 
 use crate::{
-    api::{Error, PersonalQuery, PersonalResponse},
+    api::{Error, PersonalMoveRow, PersonalQuery, PersonalResponse},
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
-    model::{AnnoLichess, PersonalEntry, PersonalKeyBuilder},
+    model::{AnnoLichess, PersonalKeyBuilder},
     opening::Openings,
 };
 use axum::{
@@ -20,7 +20,7 @@ use axum::{
 };
 use clap::Clap;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
-use std::{io::Cursor, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 #[derive(Clap)]
 struct Opt {
@@ -81,25 +81,31 @@ async fn personal(
     let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color)
         .with_zobrist(variant, pos.zobrist_hash());
 
-    let mut entry = PersonalEntry::default();
     let queryable = db.queryable();
-    let mut end = rocksdb::ReadOptions::default();
-    end.set_iterate_upper_bound(key.with_year(AnnoLichess::MAX).into_bytes());
-    let iterator = queryable.db.iterator_cf_opt(
-        queryable.cf_personal,
-        end,
-        rocksdb::IteratorMode::From(
-            &key.with_year(AnnoLichess::from_year(query.since))
-                .into_bytes(),
-            rocksdb::Direction::Forward,
-        ),
-    );
-    for (_key, value) in iterator {
-        let mut cursor = Cursor::new(value);
-        entry
-            .extend_from_reader(&mut cursor)
-            .expect("deserialize personal entry");
-    }
+    let filtered = queryable
+        .get_personal(key, AnnoLichess::from_year(query.since))
+        .expect("get personal")
+        .prepare(pos.into_inner(), query.filter);
 
-    Ok(Json(query.filter.respond(pos.into_inner(), entry, opening)))
+    Ok(Json(PersonalResponse {
+        total: filtered.total,
+        moves: filtered
+            .moves
+            .into_iter()
+            .map(|row| PersonalMoveRow {
+                uci: row.uci,
+                san: row.san,
+                stats: row.stats,
+                game: row
+                    .game
+                    .and_then(|id| queryable.get_game_info(id).expect("get game")),
+            })
+            .collect(),
+        recent_games: filtered
+            .recent_games
+            .into_iter()
+            .flat_map(|id| queryable.get_game_info(id).expect("get game"))
+            .collect(),
+        opening,
+    }))
 }

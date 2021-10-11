@@ -1,4 +1,7 @@
-use crate::model::{GameId, GameInfo, PersonalEntry, PersonalKey};
+use crate::{
+    api::GameRow,
+    model::{AnnoLichess, GameId, GameInfo, PersonalEntry, PersonalKey, PersonalKeyPrefix},
+};
 use rocksdb::{ColumnFamilyDescriptor, DBWithThreadMode, MergeOperands, Options};
 use std::io::Cursor;
 use std::path::Path;
@@ -52,6 +55,16 @@ impl QueryableDatabase<'_> {
             .put_cf(self.cf_game, id.to_bytes(), cursor.into_inner())
     }
 
+    pub fn get_game_info(&self, id: GameId) -> Result<Option<GameRow>, rocksdb::Error> {
+        Ok(self.db.get_cf(self.cf_game, id.to_bytes())?.map(|buf| {
+            let mut cursor = Cursor::new(buf);
+            GameRow {
+                id,
+                info: GameInfo::read(&mut cursor).expect("deserialize game info"),
+            }
+        }))
+    }
+
     pub fn merge_personal(
         &self,
         key: PersonalKey,
@@ -61,6 +74,34 @@ impl QueryableDatabase<'_> {
         entry.write(&mut cursor).expect("serialize personal entry");
         self.db
             .merge_cf(self.cf_personal, key.into_bytes(), cursor.into_inner())
+    }
+
+    pub fn get_personal(
+        &self,
+        key: PersonalKeyPrefix,
+        since: AnnoLichess,
+    ) -> Result<PersonalEntry, rocksdb::Error> {
+        let mut entry = PersonalEntry::default();
+
+        let mut end = rocksdb::ReadOptions::default();
+        end.set_iterate_upper_bound(key.with_year(AnnoLichess::MAX).into_bytes());
+        let iterator = self.db.iterator_cf_opt(
+            self.cf_personal,
+            end,
+            rocksdb::IteratorMode::From(
+                &key.with_year(since).into_bytes(),
+                rocksdb::Direction::Forward,
+            ),
+        );
+
+        for (_key, value) in iterator {
+            let mut cursor = Cursor::new(value);
+            entry
+                .extend_from_reader(&mut cursor)
+                .expect("deserialize personal entry");
+        }
+
+        Ok(entry)
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    model::{GameId, Mode, PersonalEntry, Speed, Stats, UserName, MAX_PERSONAL_GAMES},
+    model::{GameId, GameInfo, Mode, Speed, Stats, UserName},
     opening::Opening,
 };
 use serde::{Deserialize, Serialize};
@@ -8,10 +8,9 @@ use shakmaty::{
     fen::{Fen, ParseFenError},
     san::SanPlus,
     uci::Uci,
-    variant::VariantPosition,
     Color,
 };
-use std::{cmp::Reverse, str::FromStr};
+use std::str::FromStr;
 
 mod error;
 mod variant;
@@ -55,96 +54,31 @@ pub struct PersonalQueryFilter {
 #[serde(rename_all = "camelCase")]
 pub struct PersonalResponse {
     #[serde(flatten)]
-    total: Stats,
-    moves: Vec<PersonalMoveRow>,
-    #[serde_as(as = "Vec<DisplayFromStr>")]
-    recent_games: Vec<GameId>,
-    opening: Option<&'static Opening>,
+    pub total: Stats,
+    pub moves: Vec<PersonalMoveRow>,
+    pub recent_games: Vec<GameRow>,
+    pub opening: Option<&'static Opening>,
 }
 
 #[serde_as]
 #[derive(Serialize, Debug)]
-struct PersonalMoveRow {
+pub struct PersonalMoveRow {
     #[serde_as(as = "DisplayFromStr")]
-    uci: Uci,
+    pub uci: Uci,
     #[serde_as(as = "DisplayFromStr")]
-    san: SanPlus,
+    pub san: SanPlus,
     #[serde(flatten)]
-    stats: Stats,
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    game: Option<GameId>,
+    pub stats: Stats,
+    pub game: Option<GameRow>,
 }
 
-impl PersonalQueryFilter {
-    pub fn respond(
-        &self,
-        pos: VariantPosition,
-        entry: PersonalEntry,
-        opening: Option<&'static Opening>,
-    ) -> PersonalResponse {
-        let mut total = Stats::default();
-        let mut moves = Vec::with_capacity(entry.sub_entries.len());
-        let mut recent_games: Vec<(u64, GameId)> = Vec::new();
-
-        for (uci, sub_entry) in entry.sub_entries {
-            let m = uci.to_move(&pos).expect("legal uci in personal entry");
-            let san = SanPlus::from_move(pos.clone(), &m);
-
-            let mut latest_game: Option<(u64, GameId)> = None;
-            let mut stats = Stats::default();
-
-            for speed in Speed::ALL {
-                if self
-                    .speeds
-                    .as_ref()
-                    .map_or(true, |speeds| speeds.contains(&speed))
-                {
-                    for mode in Mode::ALL {
-                        if self
-                            .modes
-                            .as_ref()
-                            .map_or(true, |modes| modes.contains(&mode))
-                        {
-                            let group = sub_entry.by_speed(speed).by_mode(mode);
-                            stats += group.stats.to_owned();
-
-                            for (idx, game) in group.games.iter().copied() {
-                                if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
-                                {
-                                    latest_game = Some((idx, game))
-                                }
-                            }
-
-                            recent_games.extend(group.games.iter());
-                        }
-                    }
-                }
-            }
-
-            total += stats.clone();
-
-            moves.push(PersonalMoveRow {
-                uci,
-                san,
-                stats,
-                game: latest_game.map(|(_, id)| id),
-            });
-        }
-
-        moves.sort_by_key(|row| Reverse(row.stats.total()));
-        recent_games.sort_by_key(|(idx, _game)| Reverse(*idx));
-
-        PersonalResponse {
-            total,
-            moves,
-            recent_games: recent_games
-                .into_iter()
-                .map(|(_, game)| game)
-                .take(MAX_PERSONAL_GAMES as usize)
-                .collect(),
-            opening,
-        }
-    }
+#[serde_as]
+#[derive(Serialize, Debug)]
+pub struct GameRow {
+    #[serde_as(as = "DisplayFromStr")]
+    pub id: GameId,
+    #[serde(flatten)]
+    pub info: GameInfo,
 }
 
 #[derive(Serialize, Deserialize)]

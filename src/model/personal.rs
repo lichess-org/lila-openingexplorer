@@ -1,15 +1,23 @@
-use crate::model::{
-    read_uci, read_uint, write_uci, write_uint, AnnoLichess, ByMode, BySpeed, GameId, Mode, Speed,
-    UserId,
+use crate::{
+    api::PersonalQueryFilter,
+    model::{
+        read_uci, read_uint, write_uci, write_uint, AnnoLichess, ByMode, BySpeed, GameId, Mode,
+        Speed, UserId,
+    },
 };
 use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
 use serde::Serialize;
 use sha1::{Digest, Sha1};
-use shakmaty::{uci::Uci, variant::Variant, Color, Outcome};
+use shakmaty::{
+    san::{San, SanPlus},
+    uci::Uci,
+    variant::{Variant, VariantPosition},
+    Color, Outcome,
+};
 use smallvec::{smallvec, SmallVec};
 use std::{
-    cmp::max,
+    cmp::{max, Reverse},
     io::{self, Read, Write},
     ops::AddAssign,
 };
@@ -240,6 +248,92 @@ impl PersonalEntry {
 
         Ok(())
     }
+
+    pub fn prepare(
+        self,
+        pos: VariantPosition,
+        filter: PersonalQueryFilter,
+    ) -> FilteredPersonalEntry {
+        let mut total = Stats::default();
+        let mut moves = Vec::with_capacity(self.sub_entries.len());
+        let mut recent_games: Vec<(u64, GameId)> = Vec::new();
+
+        for (uci, sub_entry) in self.sub_entries {
+            let san = uci.to_move(&pos).map_or(
+                SanPlus {
+                    san: San::Null,
+                    suffix: None,
+                },
+                |m| SanPlus::from_move(pos.clone(), &m),
+            );
+
+            let mut latest_game: Option<(u64, GameId)> = None;
+            let mut stats = Stats::default();
+
+            for speed in Speed::ALL {
+                if filter
+                    .speeds
+                    .as_ref()
+                    .map_or(true, |speeds| speeds.contains(&speed))
+                {
+                    for mode in Mode::ALL {
+                        if filter
+                            .modes
+                            .as_ref()
+                            .map_or(true, |modes| modes.contains(&mode))
+                        {
+                            let group = sub_entry.by_speed(speed).by_mode(mode);
+                            stats += group.stats.to_owned();
+
+                            for (idx, game) in group.games.iter().copied() {
+                                if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
+                                {
+                                    latest_game = Some((idx, game))
+                                }
+                            }
+
+                            recent_games.extend(group.games.iter());
+                        }
+                    }
+                }
+            }
+
+            total += stats.clone();
+
+            moves.push(FilteredPersonalMoveRow {
+                uci,
+                san,
+                stats,
+                game: latest_game.map(|(_, id)| id),
+            });
+        }
+
+        moves.sort_by_key(|row| Reverse(row.stats.total()));
+        recent_games.sort_by_key(|(idx, _game)| Reverse(*idx));
+
+        FilteredPersonalEntry {
+            total,
+            moves,
+            recent_games: recent_games
+                .into_iter()
+                .map(|(_, game)| game)
+                .take(MAX_PERSONAL_GAMES as usize)
+                .collect(),
+        }
+    }
+}
+
+pub struct FilteredPersonalEntry {
+    pub total: Stats,
+    pub moves: Vec<FilteredPersonalMoveRow>,
+    pub recent_games: Vec<GameId>,
+}
+
+pub struct FilteredPersonalMoveRow {
+    pub uci: Uci,
+    pub san: SanPlus,
+    pub stats: Stats,
+    pub game: Option<GameId>,
 }
 
 #[derive(Debug)]
