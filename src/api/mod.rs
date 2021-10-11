@@ -1,5 +1,5 @@
 use crate::{
-    model::{GameId, Mode, PersonalEntry, PersonalGroup, Speed, Stats, UserName},
+    model::{GameId, Mode, PersonalEntry, Speed, Stats, UserName},
     opening::Opening,
 };
 use serde::{Deserialize, Serialize};
@@ -86,7 +86,8 @@ impl PersonalQueryFilter {
             let m = uci.to_move(&pos).expect("legal uci in personal entry");
             let san = SanPlus::from_move(pos.clone(), &m);
 
-            let mut group = PersonalGroup::default();
+            let mut latest_game: Option<(u64, GameId)> = None;
+            let mut stats = Stats::default();
 
             for speed in Speed::ALL {
                 if self
@@ -100,25 +101,28 @@ impl PersonalQueryFilter {
                             .as_ref()
                             .map_or(true, |modes| modes.contains(&mode))
                         {
-                            group += sub_entry.by_speed(speed).by_mode(mode).to_owned();
-                            // TODO: Optimize?
+                            let group = sub_entry.by_speed(speed).by_mode(mode);
+                            stats += group.stats.to_owned();
+
+                            for (idx, game) in group.games.iter().copied() {
+                                if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
+                                {
+                                    latest_game = Some((idx, game))
+                                }
+                            }
                         }
                     }
                 }
             }
 
+            total += stats.clone();
+
             moves.push(PersonalMoveRow {
                 uci,
                 san,
-                stats: group.stats.to_owned(),
-                game: group
-                    .games
-                    .into_iter()
-                    .max_by_key(|(idx, _id)| *idx)
-                    .map(|(_, id)| id),
+                stats,
+                game: latest_game.map(|(_, id)| id),
             });
-
-            total += group.stats;
         }
 
         moves.sort_by_key(|row| row.stats.total());
