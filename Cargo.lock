@@ -1335,7 +1335,7 @@ dependencies = [
 [[package]]
 name = "shakmaty"
 version = "0.20.0"
-source = "git+https://github.com/niklasf/shakmaty.git#7f6a5f2d3843aec35ae51d0f0d4b769d4dad4a95"
+source = "git+https://github.com/niklasf/shakmaty.git#496c935d84be3906fd7d8babf338db662433d86f"
 dependencies = [
  "arrayvec",
  "bitflags",
