@@ -143,7 +143,7 @@ impl IndexerActor {
         let mut pos: Zobrist<_, u128> = match pos {
             Ok(pos) => Zobrist::new(pos),
             Err(err) => {
-                log::error!("indexing {}: {}", game.id, err);
+                log::warn!("not indexing {}: {}", game.id, err);
                 return;
             }
         };
@@ -156,7 +156,7 @@ impl IndexerActor {
             let m = match san.to_move(&pos) {
                 Ok(m) => m,
                 Err(err) => {
-                    log::error!("indexing {}: {} ({} at ply {})", game.id, err, san, ply);
+                    log::error!("not indexing {}: {} ({} at ply {})", game.id, err, san, ply);
                     return;
                 }
             };
