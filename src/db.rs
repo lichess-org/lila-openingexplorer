@@ -1,4 +1,4 @@
-use crate::model::{GameId, GameInfo, PersonalEntry};
+use crate::model::{GameId, GameInfo, PersonalEntry, PersonalKey};
 use rocksdb::{ColumnFamilyDescriptor, DBWithThreadMode, MergeOperands, Options};
 use std::io::Cursor;
 use std::path::Path;
@@ -50,6 +50,17 @@ impl QueryableDatabase<'_> {
         info.write(&mut cursor).expect("serialize game info");
         self.db
             .put_cf(self.cf_game, id.to_bytes(), cursor.into_inner())
+    }
+
+    pub fn merge_personal(
+        &self,
+        key: PersonalKey,
+        entry: PersonalEntry,
+    ) -> Result<(), rocksdb::Error> {
+        let mut cursor = Cursor::new(Vec::new());
+        entry.write(&mut cursor).expect("serialize personal entry");
+        self.db
+            .merge_cf(self.cf_personal, key.into_bytes(), cursor.into_inner())
     }
 }
 

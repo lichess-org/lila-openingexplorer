@@ -14,7 +14,6 @@ use shakmaty::{
     uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Color, Outcome,
     Position,
 };
-use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::{
@@ -196,27 +195,20 @@ impl IndexerActor {
             .expect("put game info");
 
         for (zobrist, uci) in table {
-            let entry = PersonalEntry::new_single(
-                uci.clone(),
-                game.speed,
-                Mode::from_rated(game.rated),
-                game.id,
-                outcome,
-            );
-
-            let mut buf = Cursor::new(Vec::new());
-            entry.write(&mut buf).expect("serialize personal entry");
-
             queryable
-                .db
-                .put_cf(
-                    queryable.cf_personal,
+                .merge_personal(
                     hash.by_color(color)
                         .with_zobrist(variant, zobrist)
                         .with_year(year),
-                    buf.into_inner(),
+                    PersonalEntry::new_single(
+                        uci.clone(),
+                        game.speed,
+                        Mode::from_rated(game.rated),
+                        game.id,
+                        outcome,
+                    ),
                 )
-                .expect("merge cf personal");
+                .expect("merge personal");
         }
     }
 }

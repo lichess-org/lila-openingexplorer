@@ -84,12 +84,13 @@ async fn personal(
     let mut entry = PersonalEntry::default();
     let queryable = db.queryable();
     let mut end = rocksdb::ReadOptions::default();
-    end.set_iterate_upper_bound(key.with_year(AnnoLichess::MAX));
+    end.set_iterate_upper_bound(key.with_year(AnnoLichess::MAX).into_bytes());
     let iterator = queryable.db.iterator_cf_opt(
         queryable.cf_personal,
         end,
         rocksdb::IteratorMode::From(
-            &key.with_year(AnnoLichess::from_year(query.since)),
+            &key.with_year(AnnoLichess::from_year(query.since))
+                .into_bytes(),
             rocksdb::Direction::Forward,
         ),
     );

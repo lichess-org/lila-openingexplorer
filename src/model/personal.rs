@@ -282,17 +282,20 @@ pub struct PersonalKeyPrefix {
 }
 
 impl PersonalKeyPrefix {
-    pub fn prefix(&self) -> [u8; 16] {
-        let mut buf = [0; 16];
-        LittleEndian::write_u128(&mut buf, self.prefix);
-        buf
-    }
-
-    pub fn with_year(&self, AnnoLichess(year): AnnoLichess) -> [u8; 17] {
+    pub fn with_year(&self, AnnoLichess(year): AnnoLichess) -> PersonalKey {
         let mut buf = [0; 17];
         LittleEndian::write_u128(&mut buf, self.prefix);
         buf[16] = year;
-        buf
+        PersonalKey(buf)
+    }
+}
+
+#[derive(Debug)]
+pub struct PersonalKey([u8; 17]);
+
+impl PersonalKey {
+    pub fn into_bytes(self) -> [u8; 17] {
+        self.0
     }
 }
 
