@@ -2,12 +2,11 @@ use crate::{
     api::PersonalQueryFilter,
     model::{
         read_uci, read_uint, write_uci, write_uint, AnnoLichess, ByMode, BySpeed, GameId, Mode,
-        Speed, UserId,
+        Speed, Stats, UserId,
     },
 };
 use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
-use serde::Serialize;
 use sha1::{Digest, Sha1};
 use shakmaty::{
     san::{San, SanPlus},
@@ -73,59 +72,6 @@ impl Header {
                     | ((num_games as u8) << 4)
             }
         })
-    }
-}
-
-#[derive(Debug, Default, Clone, Serialize)]
-pub struct Stats {
-    white: u64,
-    draws: u64,
-    black: u64,
-}
-
-impl From<Outcome> for Stats {
-    fn from(outcome: Outcome) -> Stats {
-        Stats {
-            white: if outcome.winner() == Some(Color::White) {
-                1
-            } else {
-                0
-            },
-            black: if outcome.winner() == Some(Color::Black) {
-                1
-            } else {
-                0
-            },
-            draws: if outcome.winner().is_none() { 1 } else { 0 },
-        }
-    }
-}
-
-impl AddAssign for Stats {
-    fn add_assign(&mut self, rhs: Stats) {
-        self.white += rhs.white;
-        self.draws += rhs.draws;
-        self.black += rhs.black;
-    }
-}
-
-impl Stats {
-    pub fn total(&self) -> u64 {
-        self.white + self.draws + self.black
-    }
-
-    fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
-        Ok(Stats {
-            white: read_uint(reader)?,
-            draws: read_uint(reader)?,
-            black: read_uint(reader)?,
-        })
-    }
-
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_uint(writer, self.white)?;
-        write_uint(writer, self.draws)?;
-        write_uint(writer, self.black)
     }
 }
 
