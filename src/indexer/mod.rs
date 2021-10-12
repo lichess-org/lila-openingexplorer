@@ -190,6 +190,7 @@ impl IndexerActor {
                         name: game.players.black.user.map(|p| p.name.to_string()),
                         rating: game.players.black.rating,
                     },
+                    indexed: ByColor::new_with(|c| color == c),
                 },
             )
             .expect("put game info");
