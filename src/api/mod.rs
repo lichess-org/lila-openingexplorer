@@ -4,19 +4,15 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator};
-use shakmaty::{
-    san::SanPlus,
-    uci::Uci,
-    Color,
-};
+use shakmaty::{san::SanPlus, uci::Uci, Color};
 
 mod error;
-mod variant;
 mod fen;
+mod variant;
 
 pub use error::Error;
-pub use variant::LilaVariant;
 pub use fen::LaxFen;
+pub use variant::LilaVariant;
 
 #[serde_as]
 #[derive(Deserialize, Debug)]

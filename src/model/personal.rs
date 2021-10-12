@@ -129,8 +129,8 @@ impl Stats {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct PersonalGroup {
+#[derive(Default, Debug)]
+struct PersonalGroup {
     pub stats: Stats,
     pub games: SmallVec<[(u64, GameId); 1]>,
 }
@@ -144,7 +144,7 @@ impl AddAssign for PersonalGroup {
 
 #[derive(Default, Debug)]
 pub struct PersonalEntry {
-    pub sub_entries: FxHashMap<Uci, BySpeed<ByMode<PersonalGroup>>>,
+    sub_entries: FxHashMap<Uci, BySpeed<ByMode<PersonalGroup>>>,
     max_game_idx: u64,
 }
 
@@ -255,7 +255,8 @@ impl PersonalEntry {
     ) -> FilteredPersonalEntry {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::with_capacity(MAX_PERSONAL_GAMES as usize);
+        let mut recent_games: Vec<(u64, Uci, GameId)> =
+            Vec::with_capacity(MAX_PERSONAL_GAMES as usize);
 
         for (uci, sub_entry) in self.sub_entries {
             let san = uci.to_move(&pos).map_or(
@@ -524,7 +525,11 @@ mod tests {
 
         let mut cursor = Cursor::new(Vec::new());
         a.write(&mut cursor).unwrap();
-        assert_eq!(cursor.position() as usize, PersonalEntry::SIZE_HINT, "optimized for single entries");
+        assert_eq!(
+            cursor.position() as usize,
+            PersonalEntry::SIZE_HINT,
+            "optimized for single entries"
+        );
         deserialized
             .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
             .unwrap();
