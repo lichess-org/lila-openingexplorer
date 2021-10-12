@@ -48,7 +48,15 @@ pub struct QueryableDatabase<'a> {
 }
 
 impl QueryableDatabase<'_> {
-    pub fn property(&self, name: &str) -> Result<Option<String>, rocksdb::Error> {
+    pub fn db_property(&self, name: &str) -> Result<Option<String>, rocksdb::Error> {
+        self.db.property_value(name)
+    }
+
+    pub fn game_property(&self, name: &str) -> Result<Option<String>, rocksdb::Error> {
+        self.db.property_value_cf(self.cf_game, name)
+    }
+
+    pub fn personal_property(&self, name: &str) -> Result<Option<String>, rocksdb::Error> {
         self.db.property_value_cf(self.cf_personal, name)
     }
 

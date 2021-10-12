@@ -45,7 +45,9 @@ async fn main() {
 
     let app = Router::new()
         .route("/personal", get(personal))
-        .route("/admin/prop/:prop", get(prop))
+        .route("/admin/game/:prop", get(game_property))
+        .route("/admin/personal/:prop", get(personal_property))
+        .route("/admin/:prop", get(db_property))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
         .layer(AddExtensionLayer::new(indexer));
@@ -61,12 +63,32 @@ async fn main() {
     join_handle.await.expect("indexer");
 }
 
-async fn prop(
+async fn db_property(
     Extension(db): Extension<Arc<Database>>,
     Path(prop): Path<String>,
 ) -> Result<String, StatusCode> {
     db.queryable()
-        .property(&prop)
+        .db_property(&prop)
+        .expect("get property")
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+async fn game_property(
+    Extension(db): Extension<Arc<Database>>,
+    Path(prop): Path<String>,
+) -> Result<String, StatusCode> {
+    db.queryable()
+        .game_property(&prop)
+        .expect("get property")
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+async fn personal_property(
+    Extension(db): Extension<Arc<Database>>,
+    Path(prop): Path<String>,
+) -> Result<String, StatusCode> {
+    db.queryable()
+        .personal_property(&prop)
         .expect("get property")
         .ok_or(StatusCode::NOT_FOUND)
 }
