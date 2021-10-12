@@ -312,7 +312,7 @@ impl PersonalKeyBuilder {
         // switch to a more expensive hash function only once required,
         // and then also stop using SHA1 in with_user_pov().
         PersonalKeyPrefix {
-            prefix: self.base
+            prefix: (self.base
                 ^ zobrist
                 ^ (match variant {
                     Variant::Chess => 0,
@@ -323,14 +323,15 @@ impl PersonalKeyBuilder {
                     Variant::KingOfTheHill => 0xdfb25d5df41fc5961e61f6b4ba613fbe,
                     Variant::RacingKings => 0x8e72f94307f96710b3910cf7e5808e0d,
                     Variant::ThreeCheck => 0xd19242bae967b40e7856bd1c71aa4220,
-                }),
+                }))
+            .to_le_bytes(),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct PersonalKeyPrefix {
-    prefix: u128,
+    prefix: [u8; 16],
 }
 
 impl PersonalKeyPrefix {
@@ -338,8 +339,8 @@ impl PersonalKeyPrefix {
 
     pub fn with_year(&self, AnnoLichess(year): AnnoLichess) -> PersonalKey {
         let mut buf = [0; PersonalKey::SIZE];
-        LittleEndian::write_u128(&mut buf, self.prefix);
-        buf[PersonalKey::SIZE - 1] = year;
+        buf[..PersonalKeyPrefix::SIZE].clone_from_slice(&self.prefix);
+        buf[PersonalKeyPrefix::SIZE] = year;
         PersonalKey(buf)
     }
 }

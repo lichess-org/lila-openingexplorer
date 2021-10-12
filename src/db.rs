@@ -21,7 +21,8 @@ impl Database {
 
         let mut personal_opts = Options::default();
         personal_opts.set_merge_operator_associative("personal merge", personal_merge);
-        personal_opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(PersonalKeyPrefix::SIZE));
+        personal_opts
+            .set_prefix_extractor(SliceTransform::create_fixed_prefix(PersonalKeyPrefix::SIZE));
         let mut personal_block_opts = BlockBasedOptions::default();
         personal_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
         personal_block_opts.set_block_size(4 * 1024);
