@@ -87,7 +87,7 @@ impl QueryableDatabase<'_> {
     }
 
     pub fn merge_game_info(&self, id: GameId, info: GameInfo) -> Result<(), rocksdb::Error> {
-        let mut cursor = Cursor::new(Vec::new());
+        let mut cursor = Cursor::new(Vec::with_capacity(GameInfo::SIZE_HINT));
         info.write(&mut cursor).expect("serialize game info");
         self.db
             .merge_cf(self.cf_game, id.to_bytes(), cursor.into_inner())
@@ -105,7 +105,7 @@ impl QueryableDatabase<'_> {
         key: PersonalKey,
         entry: PersonalEntry,
     ) -> Result<(), rocksdb::Error> {
-        let mut cursor = Cursor::new(Vec::new());
+        let mut cursor = Cursor::new(Vec::with_capacity(PersonalEntry::SIZE_HINT));
         entry.write(&mut cursor).expect("serialize personal entry");
         self.db
             .merge_cf(self.cf_personal, key.into_bytes(), cursor.into_inner())
@@ -141,7 +141,7 @@ impl QueryableDatabase<'_> {
         id: &UserId,
         status: PersonalStatus,
     ) -> Result<(), rocksdb::Error> {
-        let mut cursor = Cursor::new(Vec::new());
+        let mut cursor = Cursor::new(Vec::with_capacity(PersonalStatus::SIZE_HINT));
         status.write(&mut cursor).expect("serialize status");
         self.db
             .put_cf(self.cf_player, id.as_str(), cursor.into_inner())

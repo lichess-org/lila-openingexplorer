@@ -149,6 +149,8 @@ pub struct PersonalEntry {
 }
 
 impl PersonalEntry {
+    pub const SIZE_HINT: usize = 58;
+
     pub fn new_single(
         uci: Uci,
         speed: Speed,
@@ -253,7 +255,7 @@ impl PersonalEntry {
     ) -> FilteredPersonalEntry {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
+        let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::with_capacity(MAX_PERSONAL_GAMES as usize);
 
         for (uci, sub_entry) in self.sub_entries {
             let san = uci.to_move(&pos).map_or(
@@ -396,6 +398,7 @@ impl PersonalKey {
     }
 }
 
+#[derive(Debug)]
 pub struct PersonalStatus {
     pub latest_created_at: u64,
     pub revisit_ongoing_created_at: Option<u64>,
@@ -413,6 +416,8 @@ impl Default for PersonalStatus {
 }
 
 impl PersonalStatus {
+    pub const SIZE_HINT: usize = 3 * 8;
+
     pub fn maybe_revisit_ongoing(&mut self) -> Option<u64> {
         if SystemTime::now()
             .duration_since(self.indexed_at)
@@ -513,6 +518,7 @@ mod tests {
 
         let mut cursor = Cursor::new(Vec::new());
         a.write(&mut cursor).unwrap();
+        assert_eq!(cursor.position() as usize, PersonalEntry::SIZE_HINT, "optimized for single entries");
         deserialized
             .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
             .unwrap();
