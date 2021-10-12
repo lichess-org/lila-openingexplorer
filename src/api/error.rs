@@ -9,6 +9,7 @@ pub enum Error {
     IndexerQueueFull,
     IndexerRequestError(reqwest::Error),
     IndexerStreamError(io::Error),
+    IndexerGameError { err: io::Error, line: String },
     PositionError(PositionError<VariantPosition>),
     IllegalUciError(IllegalUciError),
 }
@@ -33,6 +34,9 @@ impl fmt::Display for Error {
             Error::IndexerQueueFull => f.write_str("indexer queue full"),
             Error::IndexerRequestError(err) => write!(f, "indexer request error: {}", err),
             Error::IndexerStreamError(err) => write!(f, "indexer stream error: {}", err),
+            Error::IndexerGameError { err, line } => {
+                write!(f, "indexer game error: {}: {}", err, line)
+            }
             Error::PositionError(err) => write!(f, "bad request: {}", err),
             Error::IllegalUciError(err) => write!(f, "bad request: {}", err),
         }
@@ -46,9 +50,12 @@ impl axum::response::IntoResponse for Error {
     fn into_response(self) -> axum::http::Response<Self::Body> {
         axum::http::Response::builder()
             .status(match self {
+                Error::IndexerRequestError(ref err) => {
+                    err.status().unwrap_or(StatusCode::SERVICE_UNAVAILABLE)
+                }
                 Error::IndexerQueueFull
-                | Error::IndexerRequestError(_)
-                | Error::IndexerStreamError(_) => StatusCode::SERVICE_UNAVAILABLE,
+                | Error::IndexerStreamError(_)
+                | Error::IndexerGameError { .. } => StatusCode::SERVICE_UNAVAILABLE,
                 Error::PositionError(_) | Error::IllegalUciError(_) => StatusCode::BAD_REQUEST,
             })
             .body(Self::Body::from(self.to_string()))

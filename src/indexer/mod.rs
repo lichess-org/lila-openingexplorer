@@ -111,7 +111,15 @@ impl IndexerActor {
         let mut num_games = 0;
         let mut games = self.lila.user_games(&player).await?;
         while let Some(game) = games.next().await {
-            self.index_game(&player, &hash, game?);
+            let game = match game {
+                Ok(game) => game,
+                Err(err) => {
+                    log::error!("{}", err);
+                    continue;
+                }
+            };
+
+            self.index_game(&player, &hash, game);
 
             num_games += 1;
             if num_games % 1024 == 0 {

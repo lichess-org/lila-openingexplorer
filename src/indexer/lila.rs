@@ -50,14 +50,12 @@ impl Lila {
             LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {
                 match line {
                     Ok(line) if line.is_empty() => None,
-                    Ok(line) => Some(
-                        serde_json::from_str::<Game>(&line)
-                            .map_err(|err| {
-                                let err = Error::IndexerStreamError(err.into());
-                                log::error!("{}: {:?}", err, line);
-                                err
-                            })
-                    ),
+                    Ok(line) => Some(serde_json::from_str::<Game>(&line).map_err(|err| {
+                        Error::IndexerGameError {
+                            err: err.into(),
+                            line,
+                        }
+                    })),
                     Err(err) => Some(Err(Error::IndexerStreamError(err))),
                 }
             }),
