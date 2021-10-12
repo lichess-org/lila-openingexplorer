@@ -182,26 +182,22 @@ impl PersonalEntry {
 
             let base_game_idx = self.max_game_idx + 1;
 
-            loop {
-                match Header::read(reader)? {
-                    Header::Group {
-                        speed,
-                        mode,
-                        num_games,
-                    } => {
-                        let stats = Stats::read(reader)?;
-                        let mut games = SmallVec::with_capacity(num_games);
-                        for _ in 0..num_games {
-                            let game_idx = base_game_idx + read_uint(reader)?;
-                            self.max_game_idx = max(self.max_game_idx, game_idx);
-                            let game = GameId::read(reader)?;
-                            games.push((game_idx, game));
-                        }
-                        let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
-                        *group += PersonalGroup { stats, games };
-                    }
-                    Header::End => break,
+            while let Header::Group {
+                speed,
+                mode,
+                num_games,
+            } = Header::read(reader)?
+            {
+                let stats = Stats::read(reader)?;
+                let mut games = SmallVec::with_capacity(num_games);
+                for _ in 0..num_games {
+                    let game_idx = base_game_idx + read_uint(reader)?;
+                    self.max_game_idx = max(self.max_game_idx, game_idx);
+                    let game = GameId::read(reader)?;
+                    games.push((game_idx, game));
                 }
+                let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
+                *group += PersonalGroup { stats, games };
             }
         }
     }
@@ -420,9 +416,8 @@ impl PersonalStatus {
     pub fn maybe_revisit_ongoing(&mut self) -> Option<u64> {
         if SystemTime::now()
             .duration_since(self.indexed_at)
-            .map_or(false, |cooldown| {
-                cooldown > Duration::from_secs(24 * 60 * 60)
-            })
+            .unwrap_or_default()
+            > Duration::from_secs(24 * 60 * 60)
         {
             self.revisit_ongoing_created_at.take()
         } else {

@@ -45,7 +45,7 @@ impl Lila {
             .send()
             .await
             .and_then(|r| r.error_for_status())
-            .map_err(|err| Error::IndexerRequestError(err))?
+            .map_err(Error::IndexerRequestError)?
             .bytes_stream()
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
 

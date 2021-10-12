@@ -80,7 +80,7 @@ impl IndexerStub {
                 Ok(()) => Ok(IndexerStatus::Completed),
                 Err(err) => Err(err),
             },
-            Err(_) => return Ok(IndexerStatus::Ongoing),
+            Err(_) => Ok(IndexerStatus::Ongoing),
         }
     }
 }

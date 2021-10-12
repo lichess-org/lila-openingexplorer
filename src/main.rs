@@ -43,7 +43,7 @@ async fn main() {
 
     let opt = Opt::parse();
 
-    let openings: &'static Openings = Box::leak(Box::new(Openings::new()));
+    let openings: &'static Openings = Box::leak(Box::new(Openings::build_table()));
     let db = Arc::new(Database::open(opt.db).expect("db"));
     let (indexer, join_handle) = IndexerStub::spawn(db.clone(), opt.indexer);
 

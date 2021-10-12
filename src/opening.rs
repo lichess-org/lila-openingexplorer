@@ -40,7 +40,7 @@ pub struct Openings {
 }
 
 impl Openings {
-    pub fn new() -> Openings {
+    pub fn build_table() -> Openings {
         let mut data = HashMap::with_hasher(Default::default());
 
         for tsv in TSV_DATA {

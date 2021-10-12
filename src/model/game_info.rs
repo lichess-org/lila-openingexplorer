@@ -113,7 +113,7 @@ impl GameInfoPlayer {
                 String::from_utf8(buf)
                     .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?,
             )
-            .filter(|s| s.len() != 0),
+            .filter(|s| !s.is_empty()),
             rating: Some(reader.read_u16::<LittleEndian>()?).filter(|r| *r != 0),
         })
     }
