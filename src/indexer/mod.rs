@@ -172,7 +172,7 @@ impl IndexerActor {
         let queryable = self.db.queryable();
 
         queryable
-            .put_game_info(
+            .merge_game_info(
                 game.id,
                 GameInfo {
                     winner: outcome.winner(),

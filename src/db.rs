@@ -17,12 +17,15 @@ impl Database {
         let mut personal_opts = Options::default();
         personal_opts.set_merge_operator_associative("personal merge", personal_merge);
 
+        let mut game_opts = Options::default();
+        game_opts.set_merge_operator_associative("game merge", game_merge);
+
         let inner = DBWithThreadMode::open_cf_descriptors(
             &db_opts,
             path,
             vec![
                 ColumnFamilyDescriptor::new("personal", personal_opts),
-                ColumnFamilyDescriptor::new("game", Options::default()),
+                ColumnFamilyDescriptor::new("game", game_opts),
             ],
         )?;
 
@@ -45,11 +48,11 @@ pub struct QueryableDatabase<'a> {
 }
 
 impl QueryableDatabase<'_> {
-    pub fn put_game_info(&self, id: GameId, info: GameInfo) -> Result<(), rocksdb::Error> {
+    pub fn merge_game_info(&self, id: GameId, info: GameInfo) -> Result<(), rocksdb::Error> {
         let mut cursor = Cursor::new(Vec::new());
         info.write(&mut cursor).expect("serialize game info");
         self.db
-            .put_cf(self.cf_game, id.to_bytes(), cursor.into_inner())
+            .merge_cf(self.cf_game, id.to_bytes(), cursor.into_inner())
     }
 
     pub fn get_game_info(&self, id: GameId) -> Result<Option<GameInfo>, rocksdb::Error> {
@@ -99,6 +102,29 @@ impl QueryableDatabase<'_> {
     }
 }
 
+fn game_merge(
+    _key: &[u8],
+    existing: Option<&[u8]>,
+    operands: &mut MergeOperands,
+) -> Option<Vec<u8>> {
+    // Take latest game info, but merge index status.
+    let mut info: Option<GameInfo> = None;
+    for op in existing.into_iter().chain(operands.into_iter()) {
+        let mut cursor = Cursor::new(op);
+        let mut new_info = GameInfo::read(&mut cursor).expect("read for game merge");
+        if let Some(old_info) = info {
+            new_info.indexed.white |= old_info.indexed.white;
+            new_info.indexed.black |= old_info.indexed.black;
+        }
+        info = Some(new_info);
+    }
+    info.map(|info| {
+        let mut cursor = Cursor::new(Vec::new());
+        info.write(&mut cursor).expect("write game");
+        cursor.into_inner()
+    })
+}
+
 fn personal_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
@@ -106,18 +132,11 @@ fn personal_merge(
 ) -> Option<Vec<u8>> {
     let mut entry = PersonalEntry::default();
     let mut size_hint = 0;
-    if let Some(existing) = existing {
-        let mut cursor = Cursor::new(existing);
-        entry
-            .extend_from_reader(&mut cursor)
-            .expect("read existing personal entry");
-        size_hint += existing.len();
-    }
-    for op in operands {
+    for op in existing.into_iter().chain(operands.into_iter()) {
         let mut cursor = Cursor::new(op);
         entry
             .extend_from_reader(&mut cursor)
-            .expect("read personal merge operand");
+            .expect("deserialize for personal merge");
         size_hint += op.len();
     }
     let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
