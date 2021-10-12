@@ -5,8 +5,6 @@ use std::convert::TryInto;
 pub struct AnnoLichess(pub u8);
 
 impl AnnoLichess {
-    pub const MAX: AnnoLichess = AnnoLichess(u8::MAX);
-
     pub fn from_year(year: u32) -> AnnoLichess {
         AnnoLichess(year.saturating_sub(2000).try_into().unwrap_or(u8::MAX))
     }

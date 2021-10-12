@@ -18,6 +18,7 @@ impl Database {
 
         let mut personal_opts = Options::default();
         personal_opts.set_merge_operator_associative("personal merge", personal_merge);
+        personal_opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(16));
 
         let mut game_opts = Options::default();
         game_opts.set_merge_operator_associative("game merge", game_merge);
@@ -99,11 +100,11 @@ impl QueryableDatabase<'_> {
     ) -> Result<PersonalEntry, rocksdb::Error> {
         let mut entry = PersonalEntry::default();
 
-        let mut end = ReadOptions::default();
-        end.set_iterate_upper_bound(key.with_year(AnnoLichess::MAX).into_bytes());
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
         let iterator = self.db.iterator_cf_opt(
             self.cf_personal,
-            end,
+            opt,
             IteratorMode::From(&key.with_year(since).into_bytes(), Direction::Forward),
         );
 
