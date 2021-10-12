@@ -1,11 +1,13 @@
 use crate::model::{AnnoLichess, GameId, GameInfo, PersonalEntry, PersonalKey, PersonalKeyPrefix};
-use rocksdb::{ColumnFamilyDescriptor, DBWithThreadMode, MergeOperands, Options};
-use std::io::Cursor;
-use std::path::Path;
+use rocksdb::{
+    BlockBasedIndexType, BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode,
+    Direction, IteratorMode, MergeOperands, Options, ReadOptions, DB,
+};
+use std::{io::Cursor, path::Path};
 
 #[derive(Debug)]
 pub struct Database {
-    inner: DBWithThreadMode<rocksdb::SingleThreaded>,
+    inner: DB,
 }
 
 impl Database {
@@ -19,6 +21,10 @@ impl Database {
 
         let mut game_opts = Options::default();
         game_opts.set_merge_operator_associative("game merge", game_merge);
+        let mut game_block_opts = BlockBasedOptions::default();
+        game_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
+        game_block_opts.set_block_size(1024);
+        game_opts.set_block_based_table_factory(&game_block_opts);
 
         let inner = DBWithThreadMode::open_cf_descriptors(
             &db_opts,
@@ -42,9 +48,9 @@ impl Database {
 }
 
 pub struct QueryableDatabase<'a> {
-    pub db: &'a DBWithThreadMode<rocksdb::SingleThreaded>,
-    pub cf_personal: &'a rocksdb::ColumnFamily,
-    pub cf_game: &'a rocksdb::ColumnFamily,
+    pub db: &'a DB,
+    pub cf_personal: &'a ColumnFamily,
+    pub cf_game: &'a ColumnFamily,
 }
 
 impl QueryableDatabase<'_> {
@@ -92,15 +98,12 @@ impl QueryableDatabase<'_> {
     ) -> Result<PersonalEntry, rocksdb::Error> {
         let mut entry = PersonalEntry::default();
 
-        let mut end = rocksdb::ReadOptions::default();
+        let mut end = ReadOptions::default();
         end.set_iterate_upper_bound(key.with_year(AnnoLichess::MAX).into_bytes());
         let iterator = self.db.iterator_cf_opt(
             self.cf_personal,
             end,
-            rocksdb::IteratorMode::From(
-                &key.with_year(since).into_bytes(),
-                rocksdb::Direction::Forward,
-            ),
+            IteratorMode::From(&key.with_year(since).into_bytes(), Direction::Forward),
         );
 
         for (_key, value) in iterator {
