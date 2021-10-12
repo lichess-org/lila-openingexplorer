@@ -21,8 +21,10 @@ impl Error for InvalidGameId {}
 pub struct GameId(u64);
 
 impl GameId {
-    pub fn to_bytes(&self) -> [u8; 6] {
-        let mut buf = [0; 6];
+    pub const SIZE: usize = 6;
+
+    pub fn to_bytes(&self) -> [u8; Self::SIZE] {
+        let mut buf = [0; Self::SIZE];
         let mut cursor = Cursor::new(&mut buf[..]);
         self.write(&mut cursor).expect("serialize game id");
         buf

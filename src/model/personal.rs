@@ -334,19 +334,23 @@ pub struct PersonalKeyPrefix {
 }
 
 impl PersonalKeyPrefix {
+    pub const SIZE: usize = 16;
+
     pub fn with_year(&self, AnnoLichess(year): AnnoLichess) -> PersonalKey {
-        let mut buf = [0; 17];
+        let mut buf = [0; PersonalKey::SIZE];
         LittleEndian::write_u128(&mut buf, self.prefix);
-        buf[16] = year;
+        buf[PersonalKey::SIZE - 1] = year;
         PersonalKey(buf)
     }
 }
 
 #[derive(Debug)]
-pub struct PersonalKey([u8; 17]);
+pub struct PersonalKey([u8; PersonalKey::SIZE]);
 
 impl PersonalKey {
-    pub fn into_bytes(self) -> [u8; 17] {
+    pub const SIZE: usize = PersonalKeyPrefix::SIZE + 1;
+
+    pub fn into_bytes(self) -> [u8; Self::SIZE] {
         self.0
     }
 }

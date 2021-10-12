@@ -26,7 +26,7 @@ pub struct GameInfo {
 }
 
 impl GameInfo {
-    pub const SIZE_HINT: usize = 1 + 2 * (2 + 20) + 2;
+    pub const SIZE_HINT: usize = 1 + 2 * (1 + 20 + 2) + 2;
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_u8(
