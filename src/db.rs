@@ -19,6 +19,11 @@ impl Database {
         let mut personal_opts = Options::default();
         personal_opts.set_merge_operator_associative("personal merge", personal_merge);
         personal_opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(16));
+        let mut personal_block_opts = BlockBasedOptions::default();
+        personal_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
+        personal_block_opts.set_block_size(4 * 1024);
+        personal_block_opts.set_bloom_filter(10, true);
+        personal_opts.set_block_based_table_factory(&personal_block_opts);
 
         let mut game_opts = Options::default();
         game_opts.set_merge_operator_associative("game merge", game_merge);
