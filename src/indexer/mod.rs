@@ -202,8 +202,8 @@ impl IndexerActor {
             let m = match san.to_move(&pos) {
                 Ok(m) => m,
                 Err(err) => {
-                    log::error!("not indexing {}: {} ({} at ply {})", game.id, err, san, ply);
-                    return;
+                    log::warn!("cutting off {} at ply {}: {}: {}", game.id, ply, err, san);
+                    break;
                 }
             };
 
