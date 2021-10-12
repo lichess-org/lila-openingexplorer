@@ -29,8 +29,8 @@ fen | string | *starting position of variant* | FEN of the root position
 play | string | *empty* | Comma separated moves in UCI notation. Play additional moves starting from *fen*. Required to find an opening name, if *fen* is not an exact match for a named position.
 player | string | *required* | Username to filter for
 color | string | *required* | Filter for games where *player* is `white` or `black`
-modes | string | `rated,casual` | Filter for these game modes
-speeds | string | `ultraBullet,bullet,blitz,rapid,classical,correspondence` | Filter for these speeds
+modes | string | *all* | Comma separated list of game modes (`rated`, `casual`) to filter for
+speeds | string | *all* | Comma separated list of speeds (`ultraBullet`, `bullet`, `blitz`, `rapid`, `classical`, `correspondence`) to filter for
 since | integer | `2000` | Year. Filter for games played in this year or later
 update | bool | `false` | Stream and index new games from lila. The response will be delayed up to 9 seconds, or until all games have been indexed, whichever comes first. Will be ignored if within one minute of the last reindexing. Previously ongoing games will be revisited only once every 24h.
 
