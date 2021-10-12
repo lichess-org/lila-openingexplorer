@@ -52,7 +52,11 @@ impl Lila {
                     Ok(line) if line.is_empty() => None,
                     Ok(line) => Some(
                         serde_json::from_str::<Game>(&line)
-                            .map_err(|err| Error::IndexerStreamError(err.into())),
+                            .map_err(|err| {
+                                let err = Error::IndexerStreamError(err.into());
+                                log::error!("{}: {:?}", err, line);
+                                err
+                            })
                     ),
                     Err(err) => Some(Err(Error::IndexerStreamError(err))),
                 }
