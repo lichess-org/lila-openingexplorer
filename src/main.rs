@@ -44,10 +44,10 @@ async fn main() {
     let (indexer, join_handle) = IndexerStub::spawn(db.clone(), opt.indexer);
 
     let app = Router::new()
-        .route("/personal", get(personal))
+        .route("/admin/:prop", get(db_property))
         .route("/admin/game/:prop", get(game_property))
         .route("/admin/personal/:prop", get(personal_property))
-        .route("/admin/:prop", get(db_property))
+        .route("/personal", get(personal))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
         .layer(AddExtensionLayer::new(indexer));
