@@ -132,7 +132,7 @@ Column families
     * Speed
       * Mode
         * Stats
-        * Games with sequence number
+        * Game IDs with sequence number
 
 License
 -------
