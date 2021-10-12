@@ -8,9 +8,9 @@ use std::{
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Stats {
-    white: u64,
-    draws: u64,
-    black: u64,
+    pub white: u64,
+    pub draws: u64,
+    pub black: u64,
 }
 
 impl From<Outcome> for Stats {
