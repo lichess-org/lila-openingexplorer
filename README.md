@@ -111,16 +111,14 @@ able to stream games from lila.
 Column families
 ---------------
 
-`game`
-------
+### `game`
 
 * Key
   * Game ID
 * Value
   * Game information
 
-`personal`
-----------
+### `personal`
 
 * Key
   * Hash
