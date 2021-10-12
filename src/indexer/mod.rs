@@ -44,7 +44,7 @@ pub struct IndexerStub {
 
 impl IndexerStub {
     pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, JoinHandle<()>) {
-        let (tx, rx) = mpsc::channel(2);
+        let (tx, rx) = mpsc::channel(2); // TODO: Use much higher limit
         (
             IndexerStub { tx },
             tokio::spawn(
