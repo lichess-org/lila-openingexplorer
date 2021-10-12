@@ -55,7 +55,7 @@ Response:
             "black": 9,
             "game": { // latest game for this move.
                       // perhaps useful to show when it is the only game
-                      // for the position
+                      // for the move
                 "id": "uPdCG6Ts",
                 "winner": "black",
                 "speed": "correspondence",
@@ -131,7 +131,7 @@ Column families
     * Date
 * Value
   * Move
-    * Mode
-      * Speed
+    * Speed
+      * Mode
         * Stats
         * Games with sequence number
