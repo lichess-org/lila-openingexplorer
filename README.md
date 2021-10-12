@@ -114,18 +114,18 @@ Column families
 ### `game`
 
 * Key
-  * Game ID
+  * Game ID (6 bytes)
 * Value
   * Game information
 
 ### `personal`
 
 * Key
-  * Hash
+  * Hash (16 bytes)
     * Player
     * Color
     * Zobrist hash of position and variant
-  * Tree
+  * Tree (1 byte)
     * Date
 * Value
   * Move
