@@ -162,6 +162,7 @@ fn game_merge(
 ) -> Option<Vec<u8>> {
     // Take latest game info, but merge index status.
     let mut info: Option<GameInfo> = None;
+    let mut size_hint = 0;
     for op in existing.into_iter().chain(operands.into_iter()) {
         let mut cursor = Cursor::new(op);
         let mut new_info = GameInfo::read(&mut cursor).expect("read for game merge");
@@ -170,9 +171,10 @@ fn game_merge(
             new_info.indexed.black |= old_info.indexed.black;
         }
         info = Some(new_info);
+        size_hint = op.len();
     }
     info.map(|info| {
-        let mut cursor = Cursor::new(Vec::new());
+        let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
         info.write(&mut cursor).expect("write game");
         cursor.into_inner()
     })
