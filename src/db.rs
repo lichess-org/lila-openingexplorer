@@ -1,7 +1,7 @@
 use crate::model::{AnnoLichess, GameId, GameInfo, PersonalEntry, PersonalKey, PersonalKeyPrefix};
 use rocksdb::{
     BlockBasedIndexType, BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode,
-    Direction, IteratorMode, MergeOperands, Options, ReadOptions, DB,
+    Direction, IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform, DB,
 };
 use std::{io::Cursor, path::Path};
 
@@ -21,6 +21,7 @@ impl Database {
 
         let mut game_opts = Options::default();
         game_opts.set_merge_operator_associative("game merge", game_merge);
+        game_opts.set_prefix_extractor(SliceTransform::create_noop());
         let mut game_block_opts = BlockBasedOptions::default();
         game_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
         game_block_opts.set_block_size(1024);
