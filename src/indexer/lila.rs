@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{
-    serde_as, DisplayFromStr, FromInto, SpaceSeparator, StringWithSeparator, TimestampMicroSeconds,
+    serde_as, DisplayFromStr, FromInto, SpaceSeparator, StringWithSeparator, TimestampMilliSeconds,
 };
 use shakmaty::{fen::Fen, san::San, Color};
 use std::io;
@@ -68,9 +68,9 @@ pub struct Game {
     #[serde_as(as = "DisplayFromStr")]
     pub id: GameId,
     pub rated: bool,
-    #[serde_as(as = "TimestampMicroSeconds")]
+    #[serde_as(as = "TimestampMilliSeconds")]
     pub created_at: DateTime<Utc>,
-    #[serde_as(as = "TimestampMicroSeconds")]
+    #[serde_as(as = "TimestampMilliSeconds")]
     pub last_move_at: DateTime<Utc>,
     pub status: Status,
     pub variant: LilaVariant,
