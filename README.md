@@ -17,7 +17,7 @@ HTTP API
 Example:
 
 ```
-curl http://localhost:9000/personal?player=foo&color=white&update=true
+curl http://localhost:9000/personal?player=foo&color=white&play=e2e4&update=true
 ```
 
 Query parameters:
@@ -34,49 +34,104 @@ speeds | string | `ultraBullet,bullet,blitz,rapid,classical,correspondence` | Fi
 since | integer | `2000` | Year. Filter for games played in this year or later
 update | bool | `false` | Stream and index new games from lila. The response will be delayed up to 9 seconds, or until all games have been indexed, whichever comes first.
 
-Likely cause of status codes:
+Likely cause of errors:
 
 * 404: Player not found
 * 503: Too busy or otherwise unable to index games
 
-Data
-----
+Response:
 
-### Explorer
+```js
+{
+    "white": 10, // total number of white wins from this position
+    "draws": 1,
+    "black": 22,
+    "moves": [
+        {
+            "uci": "e7e5",
+            "san": "e5",
+            "white": 6,
+            "draws": 1,
+            "black": 9,
+            "game": { // latest game for this move.
+                      // perhaps useful to show when it is the only game
+                      // for the position
+                "id": "uPdCG6Ts",
+                "winner": "black",
+                "speed": "correspondence",
+                "rated": false,
+                "white": {
+                    "name": "foo",
+                    "rating": 1500
+                },
+                "black": {
+                    "name": null,
+                    "rating": null
+                },
+                "year": 2015
+            }
+        },
+        // ...
+    ],
+    "recentGames": [ // currently up to 15 recent games.
+                     // limit is up to discussion.
+        {
+            "uci": "e7e5",
+            "id": "uPdCG6Ts",
+            "winner": "black",
+            "speed": "correspondence",
+            "rated": false,
+            "white": {
+                "name": "foo",
+                "rating": 1500
+            },
+            "black": {
+                "name": null,
+                "rating": null
+            },
+            "year": 2015
+        },
+        // ...
+    ],
+    "opening": {
+        "eco": "B00",
+        "name": "King's Pawn"
+    }
+}
+```
 
-#### Hashed
+Indexing process
+----------------
 
-* Position (incl. variant)
-* Player
-* White/Black
+Currently all indexing requests are queued and performed sequentially.
+So players with many games could occupy the queue for a long time. Whether this
+will be fine in practice depends on the rate at which the indexer will be
+able to stream games from lila.
 
-#### Lexicographic
+Column families
+---------------
 
-* Date
-* Move
+`game`
+------
 
-#### Multiple select
+* Key
+  * Game ID
+* Value
+  * Game information
 
-* Speed
-* Rated/Casual
+`personal`
+----------
 
-#### Value
-
-* Win/Draw/Loss
-* Rating
-* Games: IDs, Opponents with ratings
-
-### Player
-
-* Last game ID
-* Last pulled
-* Name
-* Title
-* Erased
-
-### Game
-
-* White player
-* White rating
-* Black player
-* Black rating
+* Key
+  * Hash
+    * Player
+    * Color
+    * Zobrist hash of position and variant
+  * Tree
+    * Date
+* Value
+  * Move
+    * Mode
+      * Speed
+        * Stats
+        * Games with sequence number
