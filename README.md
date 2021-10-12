@@ -32,7 +32,7 @@ color | string | *required* | Filter for games where *player* is `white` or `bla
 modes | string | `rated,casual` | Filter for these game modes
 speeds | string | `ultraBullet,bullet,blitz,rapid,classical,correspondence` | Filter for these speeds
 since | integer | `2000` | Year. Filter for games played in this year or later
-update | bool | `false` | Stream and index new games from lila. The response will be delayed up to 9 seconds, or until all games have been indexed, whichever comes first.
+update | bool | `false` | Stream and index new games from lila. The response will be delayed up to 9 seconds, or until all games have been indexed, whichever comes first. Will be ignored if within one minute of the last reindexing. Previously ongoing games will be revisited only once every 24h.
 
 Likely cause of errors:
 

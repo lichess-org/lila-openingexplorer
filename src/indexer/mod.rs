@@ -105,8 +105,6 @@ impl IndexerActor {
     }
 
     async fn index_player(&self, player: UserName) -> Result<(), Error> {
-        log::info!("starting to index {}", player);
-
         let player_id = UserId::from(player.clone());
         let mut status = self
             .db
@@ -126,6 +124,11 @@ impl IndexerActor {
             }
         };
 
+        log::info!(
+            "starting to index {} (created_at >= {})",
+            player,
+            since_created_at
+        );
         let mut games = self.lila.user_games(&player, since_created_at).await?;
 
         let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(&player_id, color));
