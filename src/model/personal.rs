@@ -20,9 +20,10 @@ use std::{
     cmp::{max, Reverse},
     io::{self, Read, Write},
     ops::AddAssign,
+    time::{Duration, SystemTime},
 };
 
-pub const MAX_PERSONAL_GAMES: u64 = 15; // 4 bits
+const MAX_PERSONAL_GAMES: u64 = 15; // 4 bits
 
 #[derive(Debug, Eq, PartialEq)]
 enum Header {
@@ -396,6 +397,64 @@ pub struct PersonalKey([u8; 17]);
 impl PersonalKey {
     pub fn into_bytes(self) -> [u8; 17] {
         self.0
+    }
+}
+
+pub struct PersonalStatus {
+    pub latest_created_at: u64,
+    pub revisit_ongoing_created_at: Option<u64>,
+    pub indexed_at: SystemTime,
+}
+
+impl Default for PersonalStatus {
+    fn default() -> PersonalStatus {
+        PersonalStatus {
+            latest_created_at: 0,
+            revisit_ongoing_created_at: None,
+            indexed_at: SystemTime::UNIX_EPOCH,
+        }
+    }
+}
+
+impl PersonalStatus {
+    pub fn maybe_revisit_ongoing(&mut self) -> Option<u64> {
+        if SystemTime::now()
+            .duration_since(self.indexed_at)
+            .map_or(false, |cooldown| {
+                cooldown > Duration::from_secs(24 * 60 * 60)
+            })
+        {
+            self.revisit_ongoing_created_at.take()
+        } else {
+            None
+        }
+    }
+
+    pub fn maybe_index(&self) -> Option<u64> {
+        SystemTime::now()
+            .duration_since(self.indexed_at)
+            .map_or(false, |cooldown| cooldown > Duration::from_secs(60))
+            .then(|| self.latest_created_at)
+    }
+
+    pub fn read<R: Read>(reader: &mut R) -> io::Result<PersonalStatus> {
+        Ok(PersonalStatus {
+            latest_created_at: read_uint(reader)?,
+            revisit_ongoing_created_at: Some(read_uint(reader)?).filter(|t| *t != 0),
+            indexed_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(reader)?),
+        })
+    }
+
+    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        write_uint(writer, self.latest_created_at)?;
+        write_uint(writer, self.revisit_ongoing_created_at.unwrap_or(0))?;
+        write_uint(
+            writer,
+            self.indexed_at
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .expect("duration since unix epoch")
+                .as_secs(),
+        )
     }
 }
 

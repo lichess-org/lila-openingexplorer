@@ -1,4 +1,7 @@
-use crate::model::{AnnoLichess, GameId, GameInfo, PersonalEntry, PersonalKey, PersonalKeyPrefix};
+use crate::model::{
+    AnnoLichess, GameId, GameInfo, PersonalEntry, PersonalKey, PersonalKeyPrefix, PersonalStatus,
+    UserId,
+};
 use rocksdb::{
     BlockBasedIndexType, BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode,
     Direction, IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform, DB,
@@ -33,12 +36,20 @@ impl Database {
         game_block_opts.set_block_size(1024);
         game_opts.set_block_based_table_factory(&game_block_opts);
 
+        let mut player_opts = Options::default();
+        player_opts.set_prefix_extractor(SliceTransform::create_noop());
+        let mut player_block_opts = BlockBasedOptions::default();
+        player_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
+        player_block_opts.set_block_size(1024);
+        player_opts.set_block_based_table_factory(&player_block_opts);
+
         let inner = DBWithThreadMode::open_cf_descriptors(
             &db_opts,
             path,
             vec![
                 ColumnFamilyDescriptor::new("personal", personal_opts),
                 ColumnFamilyDescriptor::new("game", game_opts),
+                ColumnFamilyDescriptor::new("player", player_opts),
             ],
         )?;
 
@@ -50,6 +61,7 @@ impl Database {
             db: &self.inner,
             cf_personal: self.inner.cf_handle("personal").expect("cf personal"),
             cf_game: self.inner.cf_handle("game").expect("cf game"),
+            cf_player: self.inner.cf_handle("player").expect("cf player"),
         }
     }
 }
@@ -58,6 +70,7 @@ pub struct QueryableDatabase<'a> {
     pub db: &'a DB,
     pub cf_personal: &'a ColumnFamily,
     pub cf_game: &'a ColumnFamily,
+    pub cf_player: &'a ColumnFamily,
 }
 
 impl QueryableDatabase<'_> {
@@ -121,6 +134,24 @@ impl QueryableDatabase<'_> {
         }
 
         Ok(entry)
+    }
+
+    pub fn put_player_status(
+        &self,
+        id: &UserId,
+        status: PersonalStatus,
+    ) -> Result<(), rocksdb::Error> {
+        let mut cursor = Cursor::new(Vec::new());
+        status.write(&mut cursor).expect("serialize status");
+        self.db
+            .put_cf(self.cf_player, id.as_str(), cursor.into_inner())
+    }
+
+    pub fn get_player_status(&self, id: &UserId) -> Result<Option<PersonalStatus>, rocksdb::Error> {
+        Ok(self.db.get_cf(self.cf_player, id.as_str())?.map(|buf| {
+            let mut cursor = Cursor::new(buf);
+            PersonalStatus::read(&mut cursor).expect("deserialize status")
+        }))
     }
 }
 
