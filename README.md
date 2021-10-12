@@ -50,7 +50,8 @@ Response:
         {
             "uci": "e7e5",
             "san": "e5",
-            "white": 6,
+            "white": 6, // total number of white wins with this move.
+                        // more may transpose to resulting position.
             "draws": 1,
             "black": 9,
             "game": { // latest game for this move.
