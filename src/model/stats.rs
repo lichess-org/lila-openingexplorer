@@ -44,6 +44,10 @@ impl Stats {
         self.white + self.draws + self.black
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.total() == 0
+    }
+
     pub fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
         Ok(Stats {
             white: read_uint(reader)?,

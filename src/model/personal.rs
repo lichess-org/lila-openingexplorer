@@ -95,7 +95,7 @@ pub struct PersonalEntry {
 }
 
 impl PersonalEntry {
-    pub const SIZE_HINT: usize = 58;
+    pub const SIZE_HINT: usize = 14;
 
     pub fn new_single(
         uci: Uci,
@@ -168,19 +168,21 @@ impl PersonalEntry {
                             .count()
                     };
 
-                    Header::Group {
-                        speed,
-                        mode,
-                        num_games,
-                    }
-                    .write(writer)?;
+                    if num_games > 0 || !group.stats.is_empty() {
+                        Header::Group {
+                            speed,
+                            mode,
+                            num_games,
+                        }
+                        .write(writer)?;
 
-                    group.stats.write(writer)?;
+                        group.stats.write(writer)?;
 
-                    for (game_idx, game) in group.games.iter() {
-                        if *game_idx > discarded_game_idx || group.games.len() == 1 {
-                            write_uint(writer, *game_idx)?;
-                            game.write(writer)?;
+                        for (game_idx, game) in group.games.iter() {
+                            if *game_idx > discarded_game_idx || group.games.len() == 1 {
+                                write_uint(writer, *game_idx)?;
+                                game.write(writer)?;
+                            }
                         }
                     }
 
