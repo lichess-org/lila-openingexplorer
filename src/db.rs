@@ -48,6 +48,10 @@ pub struct QueryableDatabase<'a> {
 }
 
 impl QueryableDatabase<'_> {
+    pub fn property(&self, name: &str) -> Result<Option<String>, rocksdb::Error> {
+        self.db.property_value_cf(self.cf_personal, name)
+    }
+
     pub fn merge_game_info(&self, id: GameId, info: GameInfo) -> Result<(), rocksdb::Error> {
         let mut cursor = Cursor::new(Vec::new());
         info.write(&mut cursor).expect("serialize game info");

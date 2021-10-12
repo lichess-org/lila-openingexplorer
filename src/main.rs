@@ -13,8 +13,9 @@ use crate::{
     opening::Openings,
 };
 use axum::{
-    extract::{Extension, Query},
+    extract::{Extension, Path, Query},
     handler::get,
+    http::StatusCode,
     response::Json,
     AddExtensionLayer, Router,
 };
@@ -44,6 +45,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/personal", get(personal))
+        .route("/admin/prop/:prop", get(prop))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
         .layer(AddExtensionLayer::new(indexer));
@@ -57,6 +59,16 @@ async fn main() {
         .expect("bind");
 
     join_handle.await.expect("indexer");
+}
+
+async fn prop(
+    Extension(db): Extension<Arc<Database>>,
+    Path(prop): Path<String>,
+) -> Result<String, StatusCode> {
+    db.queryable()
+        .property(&prop)
+        .expect("get property")
+        .ok_or(StatusCode::NOT_FOUND)
 }
 
 async fn personal(
