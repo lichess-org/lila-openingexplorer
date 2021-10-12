@@ -134,6 +134,15 @@ Column families
         * Stats
         * Game IDs with sequence number
 
+### `player`
+
+* Key
+  * User ID
+* Value
+  * `createdAt` of last seen game
+  * `createdAt` of oldest seen ongoing game
+  * Time of last index run
+
 License
 -------
 
