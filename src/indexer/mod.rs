@@ -2,7 +2,8 @@ use crate::{
     api::Error,
     db::Database,
     model::{
-        AnnoLichess, GameInfo, GameInfoPlayer, Mode, PersonalEntry, PersonalKeyBuilder, UserName,
+        AnnoLichess, GameInfo, GameInfoPlayer, Mode, PersonalEntry, PersonalKeyBuilder,
+        PersonalStatus, UserId, UserName,
     },
     util::NevermindExt as _,
 };
@@ -13,8 +14,10 @@ use shakmaty::{
     uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Color, Outcome,
     Position,
 };
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 use tokio::{
     sync::{
         mpsc::{self, error::SendTimeoutError},
@@ -104,12 +107,29 @@ impl IndexerActor {
     async fn index_player(&self, player: UserName) -> Result<(), Error> {
         log::info!("starting to index {}", player);
 
-        let hash = ByColor::new_with(|color| {
-            PersonalKeyBuilder::with_user_pov(&player.to_owned().into(), color)
-        });
+        let player_id = UserId::from(player.clone());
+        let mut status = self
+            .db
+            .queryable()
+            .get_player_status(&player_id)
+            .expect("get player status")
+            .unwrap_or_default();
 
+        let since_created_at = match status
+            .maybe_revisit_ongoing()
+            .or_else(|| status.maybe_index())
+        {
+            Some(since) => since,
+            None => {
+                log::debug!("not reindexing {} so soon", player);
+                return Ok(());
+            }
+        };
+
+        let mut games = self.lila.user_games(&player, since_created_at).await?;
+
+        let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(&player_id, color));
         let mut num_games = 0;
-        let mut games = self.lila.user_games(&player).await?;
         while let Some(game) = games.next().await {
             let game = match game {
                 Ok(game) => game,
@@ -119,7 +139,7 @@ impl IndexerActor {
                 }
             };
 
-            self.index_game(&player, &hash, game);
+            self.index_game(&player, &hash, game, &mut status);
 
             num_games += 1;
             if num_games % 1024 == 0 {
@@ -127,12 +147,33 @@ impl IndexerActor {
             }
         }
 
+        status.indexed_at = SystemTime::now();
+        self.db
+            .queryable()
+            .put_player_status(&player_id, status)
+            .expect("put player status");
         log::info!("finished indexing {} games for {}", num_games, player);
         Ok(())
     }
 
-    fn index_game(&self, player: &UserName, hash: &ByColor<PersonalKeyBuilder>, game: Game) {
-        if game.status.is_unindexable() || game.status.is_ongoing() {
+    fn index_game(
+        &self,
+        player: &UserName,
+        hash: &ByColor<PersonalKeyBuilder>,
+        game: Game,
+        status: &mut PersonalStatus,
+    ) {
+        status.latest_created_at = game.created_at;
+
+        if game.status.is_ongoing() {
+            if status.revisit_ongoing_created_at.is_none() {
+                log::debug!("will revisit ongoing game {} eventually", game.id);
+                status.revisit_ongoing_created_at = Some(game.created_at);
+            }
+            return;
+        }
+
+        if game.status.is_unindexable() {
             return;
         }
 

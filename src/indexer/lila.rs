@@ -31,13 +31,16 @@ impl Lila {
     pub async fn user_games(
         &self,
         user: &UserName,
+        since_created_at: u64,
     ) -> Result<impl Stream<Item = Result<Game, Error>>, Error> {
+        // https://lichess.org/api#operation/apiGamesUser
         let stream = self
             .client
             .get(format!(
                 "{}/api/games/user/{}?sort=dateAsc&ongoing=true",
                 self.opt.lila, user
             ))
+            .query(&[("since", since_created_at)])
             .header("Accept", "application/x-ndjson")
             .send()
             .await
@@ -70,8 +73,7 @@ pub struct Game {
     #[serde_as(as = "DisplayFromStr")]
     pub id: GameId,
     pub rated: bool,
-    #[serde_as(as = "TimestampMilliSeconds")]
-    pub created_at: DateTime<Utc>,
+    pub created_at: u64,
     #[serde_as(as = "TimestampMilliSeconds")]
     pub last_move_at: DateTime<Utc>,
     pub status: Status,
