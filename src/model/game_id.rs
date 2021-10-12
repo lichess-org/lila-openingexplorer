@@ -91,7 +91,7 @@ mod tests {
     use quickcheck::{quickcheck, Arbitrary, Gen};
 
     impl Arbitrary for GameId {
-        fn arbitrary(g: &mut Gen) -> Self {
+        fn arbitrary(g: &mut Gen) -> GameId {
             GameId(u64::arbitrary(g) % 62u64.pow(8))
         }
     }

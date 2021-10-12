@@ -6,7 +6,7 @@ use std::{
     ops::AddAssign,
 };
 
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Serialize)]
 pub struct Stats {
     pub white: u64,
     pub draws: u64,
@@ -60,5 +60,32 @@ impl Stats {
         write_uint(writer, self.white)?;
         write_uint(writer, self.draws)?;
         write_uint(writer, self.black)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck::{quickcheck, Arbitrary, Gen};
+    use std::io::Cursor;
+
+    impl Arbitrary for Stats {
+        fn arbitrary(g: &mut Gen) -> Self {
+            Stats {
+                white: u64::arbitrary(g),
+                draws: u64::arbitrary(g),
+                black: u64::arbitrary(g),
+            }
+        }
+    }
+
+    quickcheck! {
+        fn test_stats_roundtrip(stats: Stats) -> bool {
+            let mut cursor = Cursor::new(Vec::new());
+            stats.write(&mut cursor).unwrap();
+
+            let mut cursor = Cursor::new(cursor.into_inner());
+            Stats::read(&mut cursor).unwrap() == stats
+        }
     }
 }

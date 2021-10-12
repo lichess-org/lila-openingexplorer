@@ -493,6 +493,7 @@ mod tests {
             .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
             .unwrap();
 
+        assert_eq!(deserialized.sub_entries.len(), 1);
         let group = deserialized
             .sub_entries
             .get(&uci)
@@ -500,6 +501,8 @@ mod tests {
             .by_speed(Speed::Bullet)
             .by_mode(Mode::Rated);
         assert_eq!(group.stats.white, 1);
+        assert_eq!(group.stats.draws, 0);
         assert_eq!(group.stats.black, 1);
+        assert_eq!(group.games.len(), 2);
     }
 }
