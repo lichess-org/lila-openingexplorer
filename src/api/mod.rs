@@ -3,7 +3,7 @@ use crate::{
     opening::Opening,
 };
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, CommaSeparator, DisplayFromStr, FromInto, StringWithSeparator};
+use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator};
 use shakmaty::{
     fen::{Fen, ParseFenError},
     san::SanPlus,
@@ -31,7 +31,7 @@ pub struct PersonalQuery {
     pub play: Vec<Uci>,
     #[serde_as(as = "DisplayFromStr")]
     pub player: UserName,
-    #[serde_as(as = "FromInto<ColorProxy>")]
+    #[serde_as(as = "DisplayFromStr")]
     pub color: Color,
     #[serde(default)]
     pub since: u32, // year
@@ -88,31 +88,6 @@ pub struct GameRow {
     pub id: GameId,
     #[serde(flatten)]
     pub info: GameInfo,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ColorProxy {
-    White,
-    Black,
-}
-
-impl From<Color> for ColorProxy {
-    fn from(color: Color) -> ColorProxy {
-        match color {
-            Color::White => ColorProxy::White,
-            Color::Black => ColorProxy::Black,
-        }
-    }
-}
-
-impl From<ColorProxy> for Color {
-    fn from(color: ColorProxy) -> Color {
-        match color {
-            ColorProxy::White => Color::White,
-            ColorProxy::Black => Color::Black,
-        }
-    }
 }
 
 #[derive(Debug)]

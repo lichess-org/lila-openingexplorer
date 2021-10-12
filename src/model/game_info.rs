@@ -1,10 +1,7 @@
-use crate::{
-    api::ColorProxy,
-    model::{read_uint, write_uint, Speed},
-};
+use crate::model::{read_uint, write_uint, Speed};
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use serde::Serialize;
-use serde_with::{serde_as, FromInto};
+use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{ByColor, Color};
 use std::{
     convert::TryFrom,
@@ -14,7 +11,7 @@ use std::{
 #[serde_as]
 #[derive(Serialize, Debug)]
 pub struct GameInfo {
-    #[serde_as(as = "Option<FromInto<ColorProxy>>")]
+    #[serde_as(as = "Option<DisplayFromStr>")]
     pub winner: Option<Color>,
     pub speed: Speed,
     pub rated: bool,

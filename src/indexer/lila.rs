@@ -1,5 +1,5 @@
 use crate::{
-    api::{ColorProxy, Error, LilaVariant},
+    api::{Error, LilaVariant},
     indexer::IndexerOpt,
     model::{GameId, Speed, UserName},
 };
@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{
-    serde_as, DisplayFromStr, FromInto, SpaceSeparator, StringWithSeparator, TimestampMilliSeconds,
+    serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator, TimestampMilliSeconds,
 };
 use shakmaty::{fen::Fen, san::San, Color};
 use std::io;
@@ -82,7 +82,7 @@ pub struct Game {
     pub speed: Speed,
     #[serde_as(as = "StringWithSeparator::<SpaceSeparator, San>")]
     pub moves: Vec<San>,
-    #[serde_as(as = "Option<FromInto<ColorProxy>>")]
+    #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     pub winner: Option<Color>,
     #[serde_as(as = "Option<DisplayFromStr>")]
