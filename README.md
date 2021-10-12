@@ -8,7 +8,7 @@ Usage
 -----
 
 ```sh
-EXPLORER_LOG=lila_openingexplorer3=debug cargo run --release --lila https://lichess:***@lichess.dev
+EXPLORER_LOG=lila_openingexplorer3=debug cargo run --release -- --lila https://lichess:***@lichess.dev
 ```
 
 HTTP API
