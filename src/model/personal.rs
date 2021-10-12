@@ -358,6 +358,12 @@ impl PersonalKeyBuilder {
     }
 
     pub fn with_zobrist(&self, variant: Variant, zobrist: u128) -> PersonalKeyPrefix {
+        // Zobrist hashes are the opposite of cryptographically secure. An
+        // attacker could efficiently construct a position such that a record
+        // will appear in the opening explorer of another player. This is not
+        // completely trivial, and theres very little incentive, so we will
+        // switch to a more expensive hash function only once required,
+        // and then also stop using SHA1 in with_user_pov().
         PersonalKeyPrefix {
             prefix: self.base
                 ^ zobrist
