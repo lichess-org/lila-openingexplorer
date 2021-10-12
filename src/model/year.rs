@@ -11,6 +11,10 @@ impl AnnoLichess {
         AnnoLichess(year.saturating_sub(2000).try_into().unwrap_or(u8::MAX))
     }
 
+    pub fn year(self) -> u32 {
+        2000 + u32::from(self.0)
+    }
+
     pub fn from_time(time: DateTime<Utc>) -> AnnoLichess {
         match time.year_ce() {
             (true, ce) => AnnoLichess::from_year(ce),

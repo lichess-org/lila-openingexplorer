@@ -6,7 +6,6 @@ use crate::{
     },
     util::NevermindExt as _,
 };
-use chrono::Datelike as _;
 use clap::Clap;
 use futures_util::StreamExt;
 use rustc_hash::FxHashMap;
@@ -133,9 +132,43 @@ impl IndexerActor {
         } else {
             return;
         };
-
         let year = AnnoLichess::from_time(game.last_move_at);
         let outcome = Outcome::from_winner(game.winner);
+
+        let queryable = self.db.queryable();
+        if queryable
+            .get_game_info(game.id)
+            .expect("get game info")
+            .map_or(false, |info| info.indexed.into_color(color))
+        {
+            log::debug!(
+                "{}/{} already indexed",
+                game.id,
+                color.fold("white", "black")
+            );
+            return;
+        }
+        queryable
+            .merge_game_info(
+                game.id,
+                GameInfo {
+                    winner: outcome.winner(),
+                    speed: game.speed,
+                    rated: game.rated,
+                    year: year.year(),
+                    white: GameInfoPlayer {
+                        name: game.players.white.user.map(|p| p.name.to_string()),
+                        rating: game.players.white.rating,
+                    },
+                    black: GameInfoPlayer {
+                        name: game.players.black.user.map(|p| p.name.to_string()),
+                        rating: game.players.black.rating,
+                    },
+                    indexed: ByColor::new_with(|c| color == c),
+                },
+            )
+            .expect("put game info");
+
         let variant = game.variant.into();
         let pos = match game.initial_fen {
             Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960),
@@ -168,32 +201,6 @@ impl IndexerActor {
 
             pos.play_unchecked(&m);
         }
-
-        let queryable = self.db.queryable();
-
-        queryable
-            .merge_game_info(
-                game.id,
-                GameInfo {
-                    winner: outcome.winner(),
-                    speed: game.speed,
-                    rated: game.rated,
-                    year: match game.last_move_at.year_ce() {
-                        (true, ce) => ce,
-                        (false, _) => 0,
-                    },
-                    white: GameInfoPlayer {
-                        name: game.players.white.user.map(|p| p.name.to_string()),
-                        rating: game.players.white.rating,
-                    },
-                    black: GameInfoPlayer {
-                        name: game.players.black.user.map(|p| p.name.to_string()),
-                        rating: game.players.black.rating,
-                    },
-                    indexed: ByColor::new_with(|c| color == c),
-                },
-            )
-            .expect("put game info");
 
         for (zobrist, uci) in table {
             queryable
