@@ -49,17 +49,29 @@ impl Stats {
     }
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
-        Ok(Stats {
-            white: read_uint(reader)?,
-            draws: read_uint(reader)?,
-            black: read_uint(reader)?,
+        Ok(match read_uint(reader)? {
+            0 => Stats { white: 1, draws: 0, black: 0 },
+            1 => Stats { white: 0, draws: 0, black: 1 },
+            2 => Stats { white: 0, draws: 1, black: 0 },
+            white_plus_three => Stats {
+                white: white_plus_three - 3,
+                draws: read_uint(reader)?,
+                black: read_uint(reader)?,
+            },
         })
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_uint(writer, self.white)?;
-        write_uint(writer, self.draws)?;
-        write_uint(writer, self.black)
+        match *self {
+            Stats { white: 1, draws: 0, black: 0 } => write_uint(writer, 0),
+            Stats { white: 0, draws: 0, black: 1 } => write_uint(writer, 1),
+            Stats { white: 0, draws: 1, black: 0 } => write_uint(writer, 2),
+            Stats { white, draws, black } => {
+                write_uint(writer, white + 3)?;
+                write_uint(writer, draws)?;
+                write_uint(writer, black)
+            },
+        }
     }
 }
 
@@ -72,9 +84,9 @@ mod tests {
     impl Arbitrary for Stats {
         fn arbitrary(g: &mut Gen) -> Self {
             Stats {
-                white: u64::arbitrary(g),
-                draws: u64::arbitrary(g),
-                black: u64::arbitrary(g),
+                white: u64::from(u32::arbitrary(g)),
+                draws: u64::from(u32::arbitrary(g)),
+                black: u64::from(u32::arbitrary(g)),
             }
         }
     }

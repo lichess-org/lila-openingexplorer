@@ -95,7 +95,7 @@ pub struct PersonalEntry {
 }
 
 impl PersonalEntry {
-    pub const SIZE_HINT: usize = 14;
+    pub const SIZE_HINT: usize = 12;
 
     pub fn new_single(
         uci: Uci,
