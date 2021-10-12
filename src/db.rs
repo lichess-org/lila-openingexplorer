@@ -26,7 +26,7 @@ impl Database {
         let mut personal_block_opts = BlockBasedOptions::default();
         personal_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
         personal_block_opts.set_block_size(4 * 1024);
-        personal_block_opts.set_bloom_filter(10, true);
+        personal_block_opts.set_bloom_filter(8, true);
         personal_opts.set_block_based_table_factory(&personal_block_opts);
 
         let mut game_opts = Options::default();
