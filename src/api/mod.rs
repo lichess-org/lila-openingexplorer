@@ -5,18 +5,18 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator};
 use shakmaty::{
-    fen::{Fen, ParseFenError},
     san::SanPlus,
     uci::Uci,
     Color,
 };
-use std::str::FromStr;
 
 mod error;
 mod variant;
+mod fen;
 
 pub use error::Error;
 pub use variant::LilaVariant;
+pub use fen::LaxFen;
 
 #[serde_as]
 #[derive(Deserialize, Debug)]
@@ -88,27 +88,4 @@ pub struct GameRow {
     pub id: GameId,
     #[serde(flatten)]
     pub info: GameInfo,
-}
-
-#[derive(Debug)]
-pub struct LaxFen(Fen);
-
-impl From<Fen> for LaxFen {
-    fn from(fen: Fen) -> LaxFen {
-        LaxFen(fen)
-    }
-}
-
-impl From<LaxFen> for Fen {
-    fn from(LaxFen(fen): LaxFen) -> Fen {
-        fen
-    }
-}
-
-impl FromStr for LaxFen {
-    type Err = ParseFenError;
-
-    fn from_str(s: &str) -> Result<LaxFen, ParseFenError> {
-        s.replace("_", " ").parse().map(LaxFen)
-    }
 }
