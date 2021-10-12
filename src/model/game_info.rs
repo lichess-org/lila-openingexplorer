@@ -1,4 +1,7 @@
-use crate::model::{read_uint, write_uint, Speed};
+use crate::{
+    model::{read_uint, write_uint, Speed},
+    util::ByColorDef,
+};
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -15,8 +18,8 @@ pub struct GameInfo {
     pub winner: Option<Color>,
     pub speed: Speed,
     pub rated: bool,
-    pub white: GameInfoPlayer,
-    pub black: GameInfoPlayer,
+    #[serde(flatten, with = "ByColorDef")]
+    pub players: ByColor<GameInfoPlayer>,
     pub year: u32,
     #[serde(skip)]
     pub indexed: ByColor<bool>,
@@ -41,8 +44,8 @@ impl GameInfo {
                 | (if self.indexed.white { 1 } else { 0 } << 6)
                 | (if self.indexed.black { 1 } else { 0 } << 7),
         )?;
-        self.white.write(writer)?;
-        self.black.write(writer)?;
+        self.players.white.write(writer)?;
+        self.players.black.write(writer)?;
         write_uint(writer, u64::from(self.year))
     }
 
@@ -68,16 +71,17 @@ impl GameInfo {
             white: (byte >> 6) & 1 == 1,
             black: (byte >> 7) & 1 == 1,
         };
-        let white = GameInfoPlayer::read(reader)?;
-        let black = GameInfoPlayer::read(reader)?;
+        let players = ByColor {
+            white: GameInfoPlayer::read(reader)?,
+            black: GameInfoPlayer::read(reader)?,
+        };
         let year = u32::try_from(read_uint(reader)?)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         Ok(GameInfo {
             winner,
             speed,
             rated,
-            white,
-            black,
+            players,
             year,
             indexed,
         })

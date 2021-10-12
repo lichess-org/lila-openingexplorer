@@ -211,14 +211,10 @@ impl IndexerActor {
                     speed: game.speed,
                     rated: game.rated,
                     year: year.year(),
-                    white: GameInfoPlayer {
-                        name: game.players.white.user.map(|p| p.name.to_string()),
-                        rating: game.players.white.rating,
-                    },
-                    black: GameInfoPlayer {
-                        name: game.players.black.user.map(|p| p.name.to_string()),
-                        rating: game.players.black.rating,
-                    },
+                    players: game.players.map(|p| GameInfoPlayer {
+                        name: p.user.map(|p| p.name.to_string()),
+                        rating: p.rating,
+                    }),
                     indexed: ByColor::new_with(|c| color == c),
                 },
             )

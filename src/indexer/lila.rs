@@ -2,6 +2,7 @@ use crate::{
     api::{Error, LilaVariant},
     indexer::IndexerOpt,
     model::{GameId, Speed, UserName},
+    util::ByColorDef,
 };
 use chrono::{DateTime, Utc};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
@@ -9,7 +10,7 @@ use serde::Deserialize;
 use serde_with::{
     serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator, TimestampMilliSeconds,
 };
-use shakmaty::{fen::Fen, san::San, Color};
+use shakmaty::{fen::Fen, san::San, ByColor, Color};
 use std::io;
 use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
@@ -78,7 +79,8 @@ pub struct Game {
     pub last_move_at: DateTime<Utc>,
     pub status: Status,
     pub variant: LilaVariant,
-    pub players: Players,
+    #[serde(with = "ByColorDef")]
+    pub players: ByColor<Player>,
     pub speed: Speed,
     #[serde_as(as = "StringWithSeparator::<SpaceSeparator, San>")]
     pub moves: Vec<San>,
@@ -93,21 +95,6 @@ pub struct Game {
 impl Game {
     pub fn user_name(&self, color: Color) -> Option<&UserName> {
         self.players.by_color(color).user.as_ref().map(|u| &u.name)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Players {
-    pub white: Player,
-    pub black: Player,
-}
-
-impl Players {
-    fn by_color(&self, color: Color) -> &Player {
-        match color {
-            Color::White => &self.white,
-            Color::Black => &self.black,
-        }
     }
 }
 
