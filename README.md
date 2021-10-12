@@ -122,7 +122,7 @@ Column families
 ### `personal`
 
 * Key
-  * Hash (16 bytes)
+  * Hash (12 bytes)
     * Player
     * Color
     * Zobrist hash of position and variant

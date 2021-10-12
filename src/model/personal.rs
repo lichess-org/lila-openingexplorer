@@ -335,11 +335,11 @@ pub struct PersonalKeyPrefix {
 }
 
 impl PersonalKeyPrefix {
-    pub const SIZE: usize = 16;
+    pub const SIZE: usize = 12;
 
     pub fn with_year(&self, AnnoLichess(year): AnnoLichess) -> PersonalKey {
         let mut buf = [0; PersonalKey::SIZE];
-        buf[..PersonalKeyPrefix::SIZE].clone_from_slice(&self.prefix);
+        buf[..PersonalKeyPrefix::SIZE].clone_from_slice(&self.prefix[..PersonalKeyPrefix::SIZE]);
         buf[PersonalKeyPrefix::SIZE] = year;
         PersonalKey(buf)
     }
