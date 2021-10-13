@@ -50,9 +50,21 @@ impl Stats {
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
         Ok(match read_uint(reader)? {
-            0 => Stats { white: 1, draws: 0, black: 0 },
-            1 => Stats { white: 0, draws: 0, black: 1 },
-            2 => Stats { white: 0, draws: 1, black: 0 },
+            0 => Stats {
+                white: 1,
+                draws: 0,
+                black: 0,
+            },
+            1 => Stats {
+                white: 0,
+                draws: 0,
+                black: 1,
+            },
+            2 => Stats {
+                white: 0,
+                draws: 1,
+                black: 0,
+            },
             white_plus_three => Stats {
                 white: white_plus_three - 3,
                 draws: read_uint(reader)?,
@@ -63,14 +75,30 @@ impl Stats {
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         match *self {
-            Stats { white: 1, draws: 0, black: 0 } => write_uint(writer, 0),
-            Stats { white: 0, draws: 0, black: 1 } => write_uint(writer, 1),
-            Stats { white: 0, draws: 1, black: 0 } => write_uint(writer, 2),
-            Stats { white, draws, black } => {
+            Stats {
+                white: 1,
+                draws: 0,
+                black: 0,
+            } => write_uint(writer, 0),
+            Stats {
+                white: 0,
+                draws: 0,
+                black: 1,
+            } => write_uint(writer, 1),
+            Stats {
+                white: 0,
+                draws: 1,
+                black: 0,
+            } => write_uint(writer, 2),
+            Stats {
+                white,
+                draws,
+                black,
+            } => {
                 write_uint(writer, white + 3)?;
                 write_uint(writer, draws)?;
                 write_uint(writer, black)
-            },
+            }
         }
     }
 }
