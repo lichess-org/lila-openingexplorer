@@ -1,8 +1,9 @@
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
-use shakmaty::uci::Uci;
-use shakmaty::{Role, Square};
-use std::convert::TryFrom;
-use std::io::{self, Read, Write};
+use shakmaty::{uci::Uci, Role, Square};
+use std::{
+    convert::TryFrom,
+    io::{self, Read, Write},
+};
 
 pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     let n = reader.read_u16::<LittleEndian>()?;

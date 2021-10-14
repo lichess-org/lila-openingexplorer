@@ -1,8 +1,6 @@
 use axum::http::StatusCode;
 use shakmaty::{uci::IllegalUciError, variant::VariantPosition, PositionError};
-use std::error::Error as StdError;
-use std::fmt;
-use std::io;
+use std::{error::Error as StdError, fmt, io};
 
 #[derive(Debug)]
 pub enum Error {

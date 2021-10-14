@@ -1,6 +1,4 @@
-use std::error::Error as StdError;
-use std::fmt;
-use std::str::FromStr;
+use std::{error::Error as StdError, fmt, str::FromStr};
 
 #[derive(Debug, Clone)]
 pub struct UserName(String);
