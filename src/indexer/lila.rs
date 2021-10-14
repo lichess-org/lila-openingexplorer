@@ -41,7 +41,7 @@ impl Lila {
                 "{}/api/games/user/{}?sort=dateAsc&ongoing=true",
                 self.opt.lila, user
             ))
-            .query(&[("since", since_created_at.saturating_sub(1))])
+            .query(&[("since", since_created_at)])
             .header("Accept", "application/x-ndjson")
             .send()
             .await
