@@ -16,7 +16,9 @@ use shakmaty::{
 };
 use std::{
     sync::Arc,
+    hash::{Hash, Hasher, BuildHasher},
     time::{Duration, SystemTime},
+    collections::hash_map::{RandomState},
 };
 use tokio::{
     sync::{
@@ -42,6 +44,7 @@ pub struct IndexerOpt {
 
 #[derive(Clone)]
 pub struct IndexerStub {
+    random_state: RandomState,
     txs: Vec<mpsc::Sender<IndexerMessage>>,
 }
 
@@ -62,14 +65,18 @@ impl IndexerStub {
                     .run(),
                 ));
         }
-        (IndexerStub { txs }, join_handles)
+        let random_state = RandomState::new();
+        (IndexerStub { txs, random_state }, join_handles)
     }
 
     pub async fn index_player(&self, player: UserName) -> oneshot::Receiver<()> {
         let (req, res) = oneshot::channel();
 
+        let mut responsible_indexer = self.random_state.build_hasher();
+        UserId::from(player.clone()).hash(&mut responsible_indexer);
+
         match self
-            .txs[{ UserId::from(player.clone()); 0 } % self.txs.len()] // XXX
+            .txs[responsible_indexer.finish() as usize % self.txs.len()]
             .send_timeout(
                 IndexerMessage::IndexPlayer {
                     player,

@@ -58,7 +58,7 @@ impl PartialEq for UserName {
 
 impl Eq for UserName {}
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct UserId(String);
 
 impl From<UserName> for UserId {
