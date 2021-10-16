@@ -1,6 +1,5 @@
 use crate::model::{
-    AnnoLichess, GameId, GameInfo, PersonalEntry, PersonalKey, PersonalKeyPrefix, PersonalStatus,
-    UserId,
+    GameId, GameInfo, Month, PersonalEntry, PersonalKey, PersonalKeyPrefix, PersonalStatus, UserId,
 };
 use rocksdb::{
     BlockBasedIndexType, BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode,
@@ -115,7 +114,7 @@ impl QueryableDatabase<'_> {
     pub fn get_personal(
         &self,
         key: &PersonalKeyPrefix,
-        since: AnnoLichess,
+        since: Month,
     ) -> Result<PersonalEntry, rocksdb::Error> {
         let mut entry = PersonalEntry::default();
 
@@ -124,7 +123,7 @@ impl QueryableDatabase<'_> {
         let iterator = self.db.iterator_cf_opt(
             self.cf_personal,
             opt,
-            IteratorMode::From(&key.with_year(since).into_bytes(), Direction::Forward),
+            IteratorMode::From(&key.with_month(since).into_bytes(), Direction::Forward),
         );
 
         for (_key, value) in iterator {

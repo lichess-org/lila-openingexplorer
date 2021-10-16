@@ -1,8 +1,8 @@
 use crate::{
     db::Database,
     model::{
-        AnnoLichess, GameInfo, GameInfoPlayer, Mode, PersonalEntry, PersonalKeyBuilder,
-        PersonalStatus, UserId, UserName,
+        GameInfo, GameInfoPlayer, Mode, Month, PersonalEntry, PersonalKeyBuilder, PersonalStatus,
+        UserId, UserName,
     },
     util::NevermindExt as _,
 };
@@ -218,7 +218,7 @@ impl IndexerActor {
         } else {
             return;
         };
-        let year = AnnoLichess::from_time(game.last_move_at);
+        let month = Month::from_time_saturating(game.last_move_at);
         let outcome = Outcome::from_winner(game.winner);
 
         let queryable = self.db.queryable();
@@ -241,7 +241,7 @@ impl IndexerActor {
                     winner: outcome.winner(),
                     speed: game.speed,
                     rated: game.rated,
-                    year: year.year(),
+                    month,
                     players: game.players.map(|p| GameInfoPlayer {
                         name: p.user.map(|p| p.name.to_string()),
                         rating: p.rating,
@@ -289,7 +289,7 @@ impl IndexerActor {
                 .merge_personal(
                     hash.by_color(color)
                         .with_zobrist(variant, zobrist)
-                        .with_year(year),
+                        .with_month(month),
                     PersonalEntry::new_single(
                         uci.clone(),
                         game.speed,

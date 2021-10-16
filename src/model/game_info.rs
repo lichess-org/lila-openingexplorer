@@ -1,5 +1,5 @@
 use crate::{
-    model::{read_uint, write_uint, Speed},
+    model::{read_uint, write_uint, Month, Speed},
     util::ByColorDef,
 };
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
@@ -20,7 +20,8 @@ pub struct GameInfo {
     pub rated: bool,
     #[serde(flatten, with = "ByColorDef")]
     pub players: ByColor<GameInfoPlayer>,
-    pub year: u32,
+    #[serde_as(as = "DisplayFromStr")]
+    pub month: Month,
     #[serde(skip)]
     pub indexed: ByColor<bool>,
 }
@@ -48,7 +49,7 @@ impl GameInfo {
         )?;
         self.players.white.write(writer)?;
         self.players.black.write(writer)?;
-        write_uint(writer, u64::from(self.year))
+        writer.write_u16::<LittleEndian>(self.month.0)
     }
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<GameInfo> {
@@ -77,14 +78,13 @@ impl GameInfo {
             white: GameInfoPlayer::read(reader)?,
             black: GameInfoPlayer::read(reader)?,
         };
-        let year = u32::try_from(read_uint(reader)?)
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+        let month = Month(reader.read_u16::<LittleEndian>()?);
         Ok(GameInfo {
             winner,
             speed,
             rated,
             players,
-            year,
+            month,
             indexed,
         })
     }

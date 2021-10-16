@@ -1,8 +1,8 @@
 use crate::{
     api::PersonalQueryFilter,
     model::{
-        read_uci, read_uint, write_uci, write_uint, AnnoLichess, ByMode, BySpeed, GameId, Mode,
-        Speed, Stats, UserId,
+        read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Month, Speed,
+        Stats, UserId,
     },
 };
 use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
@@ -339,10 +339,10 @@ pub struct PersonalKeyPrefix {
 impl PersonalKeyPrefix {
     pub const SIZE: usize = 12;
 
-    pub fn with_year(&self, AnnoLichess(year): AnnoLichess) -> PersonalKey {
+    pub fn with_month(&self, Month(month): Month) -> PersonalKey {
         let mut buf = [0; PersonalKey::SIZE];
         buf[..PersonalKeyPrefix::SIZE].clone_from_slice(&self.prefix[..PersonalKeyPrefix::SIZE]);
-        buf[PersonalKeyPrefix::SIZE] = year;
+        LittleEndian::write_u16(&mut buf[PersonalKeyPrefix::SIZE..], month);
         PersonalKey(buf)
     }
 }
@@ -351,7 +351,7 @@ impl PersonalKeyPrefix {
 pub struct PersonalKey([u8; PersonalKey::SIZE]);
 
 impl PersonalKey {
-    pub const SIZE: usize = PersonalKeyPrefix::SIZE + 1;
+    pub const SIZE: usize = PersonalKeyPrefix::SIZE + 2;
 
     pub fn into_bytes(self) -> [u8; Self::SIZE] {
         self.0

@@ -1,5 +1,5 @@
 use crate::{
-    model::{GameId, GameInfo, Mode, Speed, Stats, UserName},
+    model::{GameId, GameInfo, Mode, Month, Speed, Stats, UserName},
     opening::Opening,
 };
 use serde::{Deserialize, Serialize};
@@ -35,14 +35,16 @@ pub struct PersonalQuery {
     pub update: bool,
 }
 
+#[serde_as]
 #[derive(Deserialize, Debug)]
 pub struct PersonalQueryFilter {
     #[serde(default)]
     pub modes: Option<Vec<Mode>>,
     #[serde(default)]
     pub speeds: Option<Vec<Speed>>,
+    #[serde_as(as = "DisplayFromStr")]
     #[serde(default)]
-    pub since: u32, // year
+    pub since: Month,
 }
 
 #[serde_as]

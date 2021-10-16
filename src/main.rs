@@ -12,7 +12,7 @@ use crate::{
     },
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
-    model::{AnnoLichess, PersonalKeyBuilder, PersonalKeyPrefix},
+    model::{PersonalKeyBuilder, PersonalKeyPrefix},
     opening::{Opening, Openings},
     util::NdJson,
 };
@@ -177,7 +177,7 @@ async fn personal(
             };
             let queryable = state.db.queryable();
             let filtered = queryable
-                .get_personal(&state.key, AnnoLichess::from_year(state.filter.since))
+                .get_personal(&state.key, state.filter.since)
                 .expect("get personal")
                 .prepare(&state.pos, &state.filter);
 
