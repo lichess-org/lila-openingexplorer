@@ -6,6 +6,7 @@ use crate::{
     },
     util::NevermindExt as _,
 };
+use axum::http::StatusCode;
 use clap::Clap;
 use futures_util::StreamExt;
 use rustc_hash::FxHashMap;
@@ -126,9 +127,10 @@ impl IndexerActor {
         );
         let mut games = match self.lila.user_games(&player, since_created_at).await {
             Ok(games) => games,
-            /* TODO: Err(err) if err.status() == Some(StatusCode::NOT_FOUND) => {
+            Err(err) if err.status() == Some(StatusCode::NOT_FOUND) => {
+                log::warn!("indexer did not find player {}", player);
                 return;
-            }, */
+            }
             Err(err) => {
                 log::error!("indexer request failed: {}", err);
                 return;
