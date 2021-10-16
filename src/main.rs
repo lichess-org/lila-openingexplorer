@@ -6,13 +6,15 @@ pub mod opening;
 pub mod util;
 
 use crate::{
-    api::{Error, GameRow, GameRowWithUci, PersonalMoveRow, PersonalQuery, PersonalQueryFilter, PersonalResponse},
+    api::{
+        Error, GameRow, GameRowWithUci, PersonalMoveRow, PersonalQuery, PersonalQueryFilter,
+        PersonalResponse,
+    },
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
     model::{AnnoLichess, PersonalKeyBuilder, PersonalKeyPrefix},
-    opening::Openings,
+    opening::{Opening, Openings},
     util::NdJson,
-    opening::Opening,
 };
 use axum::{
     extract::{Extension, Path, Query},
@@ -23,7 +25,7 @@ use axum::{
 use clap::Clap;
 use futures_util::stream::Stream;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 
 #[derive(Clap)]
@@ -154,9 +156,26 @@ async fn personal(
         done: false,
     };
 
-    Ok(NdJson::new(futures_util::stream::unfold(state,
+    Ok(NdJson::new(futures_util::stream::unfold(
+        state,
         |mut state| async move {
-            if state.done {
+            let first = mem::replace(&mut state.first, false);
+            let done = if state.done {
+                true
+            } else {
+                state.done = match state.indexing {
+                    Some(ref mut indexing) => {
+                        if !first {
+                            tokio::time::sleep(Duration::from_secs(5)).await;
+                        }
+                        indexing.try_recv().is_ok()
+                    }
+                    None => true,
+                };
+                false
+            };
+
+            if done {
                 None
             } else {
                 let queryable = state.db.queryable();
@@ -164,9 +183,6 @@ async fn personal(
                     .get_personal(&state.key, AnnoLichess::from_year(state.filter.since))
                     .expect("get personal")
                     .prepare(&state.pos, &state.filter);
-
-                state.done = true;
-                state.first = false;
 
                 Some((
                     PersonalResponse {
