@@ -133,8 +133,8 @@ Column families
     * Player
     * Color
     * Zobrist hash of position and variant
-  * Tree (1 byte)
-    * Date
+  * Tree (2 byte)
+    * Year and month
 * Value
   * Move
     * Speed
