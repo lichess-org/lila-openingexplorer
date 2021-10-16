@@ -114,7 +114,7 @@ impl QueryableDatabase<'_> {
 
     pub fn get_personal(
         &self,
-        key: PersonalKeyPrefix,
+        key: &PersonalKeyPrefix,
         since: AnnoLichess,
     ) -> Result<PersonalEntry, rocksdb::Error> {
         let mut entry = PersonalEntry::default();

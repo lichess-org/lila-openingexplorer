@@ -6,23 +6,25 @@ pub mod opening;
 pub mod util;
 
 use crate::{
-    api::{Error, GameRow, GameRowWithUci, PersonalMoveRow, PersonalQuery, PersonalResponse},
+    api::{Error, GameRow, GameRowWithUci, PersonalMoveRow, PersonalQuery, PersonalQueryFilter, PersonalResponse},
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
-    model::{AnnoLichess, PersonalKeyBuilder},
+    model::{AnnoLichess, PersonalKeyBuilder, PersonalKeyPrefix},
     opening::Openings,
     util::NdJson,
+    opening::Opening,
 };
 use axum::{
     extract::{Extension, Path, Query},
     handler::get,
     http::StatusCode,
-    response::Json,
     AddExtensionLayer, Router,
 };
 use clap::Clap;
+use futures_util::stream::Stream;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use tokio::sync::oneshot;
 
 #[derive(Clap)]
 struct Opt {
@@ -106,12 +108,23 @@ async fn personal_property(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
+struct PersonalStreamState {
+    indexing: Option<oneshot::Receiver<()>>,
+    key: PersonalKeyPrefix,
+    db: Arc<Database>,
+    filter: PersonalQueryFilter,
+    pos: VariantPosition,
+    opening: Option<&'static Opening>,
+    first: bool,
+    done: bool,
+}
+
 async fn personal(
     Extension(openings): Extension<&'static Openings>,
     Extension(db): Extension<Arc<Database>>,
     Extension(indexer): Extension<IndexerStub>,
     Query(query): Query<PersonalQuery>,
-) -> Result<Json<PersonalResponse>, Error> {
+) -> Result<NdJson<impl Stream<Item = PersonalResponse>>, Error> {
     let indexing = if query.update {
         Some(indexer.index_player(query.player.clone()).await)
     } else {
@@ -130,42 +143,66 @@ async fn personal(
     let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color)
         .with_zobrist(variant, pos.zobrist_hash());
 
-    let queryable = db.queryable();
-    let filtered = queryable
-        .get_personal(key, AnnoLichess::from_year(query.since))
-        .expect("get personal")
-        .prepare(pos.into_inner(), query.filter);
-
-    Ok(Json(PersonalResponse {
-        total: filtered.total,
-        moves: filtered
-            .moves
-            .into_iter()
-            .map(|row| PersonalMoveRow {
-                uci: row.uci,
-                san: row.san,
-                stats: row.stats,
-                game: row.game.and_then(|id| {
-                    queryable
-                        .get_game_info(id)
-                        .expect("get game")
-                        .map(|info| GameRow { id, info })
-                }),
-            })
-            .collect(),
-        recent_games: filtered
-            .recent_games
-            .into_iter()
-            .flat_map(|(uci, id)| {
-                queryable
-                    .get_game_info(id)
-                    .expect("get game")
-                    .map(|info| GameRowWithUci {
-                        uci,
-                        row: GameRow { id, info },
-                    })
-            })
-            .collect(),
+    let state = PersonalStreamState {
+        filter: query.filter,
+        db,
+        indexing,
         opening,
-    }))
+        key,
+        pos: pos.into_inner(),
+        first: true,
+        done: false,
+    };
+
+    Ok(NdJson::new(futures_util::stream::unfold(state,
+        |mut state| async move {
+            if state.done {
+                None
+            } else {
+                let queryable = state.db.queryable();
+                let filtered = queryable
+                    .get_personal(&state.key, AnnoLichess::from_year(state.filter.since))
+                    .expect("get personal")
+                    .prepare(&state.pos, &state.filter);
+
+                state.done = true;
+                state.first = false;
+
+                Some((
+                    PersonalResponse {
+                        total: filtered.total,
+                        moves: filtered
+                            .moves
+                            .into_iter()
+                            .map(|row| PersonalMoveRow {
+                                uci: row.uci,
+                                san: row.san,
+                                stats: row.stats,
+                                game: row.game.and_then(|id| {
+                                    queryable
+                                        .get_game_info(id)
+                                        .expect("get game")
+                                        .map(|info| GameRow { id, info })
+                                }),
+                            })
+                            .collect(),
+                        recent_games: filtered
+                            .recent_games
+                            .into_iter()
+                            .flat_map(|(uci, id)| {
+                                queryable.get_game_info(id).expect("get game").map(|info| {
+                                    GameRowWithUci {
+                                        uci,
+                                        row: GameRow { id, info },
+                                    }
+                                })
+                            })
+                            .collect(),
+                        opening: state.opening,
+                    },
+                    state,
+                ))
+            }
+        },
+    )))
 }

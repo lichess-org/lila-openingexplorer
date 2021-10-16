@@ -29,8 +29,6 @@ pub struct PersonalQuery {
     pub player: UserName,
     #[serde_as(as = "DisplayFromStr")]
     pub color: Color,
-    #[serde(default)]
-    pub since: u32, // year
     #[serde(flatten)]
     pub filter: PersonalQueryFilter,
     #[serde(default)]
@@ -43,6 +41,8 @@ pub struct PersonalQueryFilter {
     pub modes: Option<Vec<Mode>>,
     #[serde(default)]
     pub speeds: Option<Vec<Speed>>,
+    #[serde(default)]
+    pub since: u32, // year
 }
 
 #[serde_as]

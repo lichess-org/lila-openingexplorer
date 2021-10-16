@@ -198,8 +198,8 @@ impl PersonalEntry {
 
     pub fn prepare(
         self,
-        pos: VariantPosition,
-        filter: PersonalQueryFilter,
+        pos: &VariantPosition,
+        filter: &PersonalQueryFilter,
     ) -> FilteredPersonalEntry {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
@@ -207,7 +207,7 @@ impl PersonalEntry {
             Vec::with_capacity(MAX_PERSONAL_GAMES as usize);
 
         for (uci, sub_entry) in self.sub_entries {
-            let san = uci.to_move(&pos).map_or(
+            let san = uci.to_move(pos).map_or(
                 SanPlus {
                     san: San::Null,
                     suffix: None,
