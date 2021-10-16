@@ -15,10 +15,10 @@ use shakmaty::{
     Position,
 };
 use std::{
+    collections::hash_map::RandomState,
+    hash::{BuildHasher, Hash, Hasher},
     sync::Arc,
-    hash::{Hash, Hasher, BuildHasher},
     time::{Duration, SystemTime},
-    collections::hash_map::{RandomState},
 };
 use tokio::{
     sync::{
@@ -56,14 +56,14 @@ impl IndexerStub {
             let (tx, rx) = mpsc::channel(500);
             txs.push(tx);
             join_handles.push(tokio::spawn(
-                    IndexerActor {
-                        idx,
-                        rx,
-                        db: db.clone(),
-                        lila: Lila::new(opt.clone()),
-                    }
-                    .run(),
-                ));
+                IndexerActor {
+                    idx,
+                    rx,
+                    db: db.clone(),
+                    lila: Lila::new(opt.clone()),
+                }
+                .run(),
+            ));
         }
         let random_state = RandomState::new();
         (IndexerStub { txs, random_state }, join_handles)
@@ -75,8 +75,7 @@ impl IndexerStub {
         let mut responsible_indexer = self.random_state.build_hasher();
         UserId::from(player.clone()).hash(&mut responsible_indexer);
 
-        match self
-            .txs[responsible_indexer.finish() as usize % self.txs.len()]
+        match self.txs[responsible_indexer.finish() as usize % self.txs.len()]
             .send_timeout(
                 IndexerMessage::IndexPlayer {
                     player,
@@ -169,7 +168,12 @@ impl IndexerActor {
 
             num_games += 1;
             if num_games % 1024 == 0 {
-                log::info!("indexer {}: indexed {} games for {}", self.idx, num_games, player);
+                log::info!(
+                    "indexer {}: indexed {} games for {}",
+                    self.idx,
+                    num_games,
+                    player
+                );
             }
         }
 
@@ -178,7 +182,12 @@ impl IndexerActor {
             .queryable()
             .put_player_status(&player_id, status)
             .expect("put player status");
-        log::info!("indexer {}: finished indexing {} games for {}", self.idx, num_games, player);
+        log::info!(
+            "indexer {}: finished indexing {} games for {}",
+            self.idx,
+            num_games,
+            player
+        );
     }
 
     fn index_game(
