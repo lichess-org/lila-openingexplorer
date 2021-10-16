@@ -50,7 +50,7 @@ async fn main() {
 
     let openings: &'static Openings = Box::leak(Box::new(Openings::build_table()));
     let db = Arc::new(Database::open(opt.db).expect("db"));
-    let (indexer, join_handle) = IndexerStub::spawn(db.clone(), opt.indexer);
+    let (indexer, join_handles) = IndexerStub::spawn(db.clone(), opt.indexer);
 
     let app = Router::new()
         .route("/admin/:prop", get(db_property))
@@ -70,7 +70,9 @@ async fn main() {
         .await
         .expect("bind");
 
-    join_handle.await.expect("indexer");
+    for join_handle in join_handles {
+        join_handle.await.expect("indexer");
+    }
 }
 
 async fn test() -> NdJson<impl futures_util::stream::Stream<Item = u32>> {

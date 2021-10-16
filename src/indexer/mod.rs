@@ -30,40 +30,45 @@ mod lila;
 
 use lila::{Game, Lila};
 
-#[derive(Clap)]
+#[derive(Clap, Clone)]
 pub struct IndexerOpt {
     #[clap(long = "lila", default_value = "https://lichess.org")]
     lila: String,
     #[clap(long = "bearer")]
     bearer: Option<String>,
+    #[clap(long = "indexers")]
+    indexers: usize,
 }
 
 #[derive(Clone)]
 pub struct IndexerStub {
-    tx: mpsc::Sender<IndexerMessage>,
+    txs: Vec<mpsc::Sender<IndexerMessage>>,
 }
 
 impl IndexerStub {
-    pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, JoinHandle<()>) {
-        let (tx, rx) = mpsc::channel(1000);
-        (
-            IndexerStub { tx },
-            tokio::spawn(
-                IndexerActor {
-                    rx,
-                    db,
-                    lila: Lila::new(opt),
-                }
-                .run(),
-            ),
-        )
+    pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, Vec<JoinHandle<()>>) {
+        let mut txs = Vec::with_capacity(opt.indexers);
+        let mut join_handles = Vec::with_capacity(opt.indexers);
+        for _ in 0..opt.indexers {
+            let (tx, rx) = mpsc::channel(500);
+            txs.push(tx);
+            join_handles.push(tokio::spawn(
+                    IndexerActor {
+                        rx,
+                        db: db.clone(),
+                        lila: Lila::new(opt.clone()),
+                    }
+                    .run(),
+                ));
+        }
+        (IndexerStub { txs }, join_handles)
     }
 
     pub async fn index_player(&self, player: UserName) -> oneshot::Receiver<()> {
         let (req, res) = oneshot::channel();
 
         match self
-            .tx
+            .txs[{ UserId::from(player.clone()); 0 } % self.txs.len()] // XXX
             .send_timeout(
                 IndexerMessage::IndexPlayer {
                     player,
