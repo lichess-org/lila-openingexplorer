@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{ByColor, Color};
 use std::{
-    convert::TryFrom,
+    convert::{TryFrom, TryInto},
     io::{self, Read, Write},
 };
 
@@ -49,7 +49,7 @@ impl GameInfo {
         )?;
         self.players.white.write(writer)?;
         self.players.black.write(writer)?;
-        writer.write_u16::<LittleEndian>(self.month.0)
+        writer.write_u16::<LittleEndian>(u16::from(self.month))
     }
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<GameInfo> {
@@ -78,7 +78,10 @@ impl GameInfo {
             white: GameInfoPlayer::read(reader)?,
             black: GameInfoPlayer::read(reader)?,
         };
-        let month = Month(reader.read_u16::<LittleEndian>()?);
+        let month = reader
+            .read_u16::<LittleEndian>()?
+            .try_into()
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         Ok(GameInfo {
             winner,
             speed,

@@ -45,6 +45,9 @@ pub struct PersonalQueryFilter {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default)]
     pub since: Month,
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default = "Month::max_value")]
+    pub until: Month,
 }
 
 #[serde_as]

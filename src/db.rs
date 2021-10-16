@@ -3,7 +3,7 @@ use crate::model::{
 };
 use rocksdb::{
     BlockBasedIndexType, BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode,
-    Direction, IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform, DB,
+    IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform, DB,
 };
 use std::{io::Cursor, path::Path};
 
@@ -115,17 +115,18 @@ impl QueryableDatabase<'_> {
         &self,
         key: &PersonalKeyPrefix,
         since: Month,
+        until: Month,
     ) -> Result<PersonalEntry, rocksdb::Error> {
-        let mut entry = PersonalEntry::default();
-
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
-        let iterator = self.db.iterator_cf_opt(
-            self.cf_personal,
-            opt,
-            IteratorMode::From(&key.with_month(since).into_bytes(), Direction::Forward),
-        );
+        opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
+        opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
 
+        let iterator = self
+            .db
+            .iterator_cf_opt(self.cf_personal, opt, IteratorMode::Start);
+
+        let mut entry = PersonalEntry::default();
         for (_key, value) in iterator {
             let mut cursor = Cursor::new(value);
             entry

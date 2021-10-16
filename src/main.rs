@@ -177,7 +177,7 @@ async fn personal(
             };
             let queryable = state.db.queryable();
             let filtered = queryable
-                .get_personal(&state.key, state.filter.since)
+                .get_personal(&state.key, state.filter.since, state.filter.until)
                 .expect("get personal")
                 .prepare(&state.pos, &state.filter);
 

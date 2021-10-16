@@ -1,12 +1,16 @@
 use chrono::{DateTime, Datelike as _, Utc};
-use std::{cmp::min, error::Error as StdError, fmt, str::FromStr};
+use std::{cmp::min, convert::TryFrom, error::Error as StdError, fmt, str::FromStr};
 
 const MAX_YEAR: u16 = 3000; // MAX_YEAR * 12 + 12 < 2^16
 
-#[derive(Debug, Copy, Clone, Default)]
-pub struct Month(pub u16);
+#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Month(u16);
 
 impl Month {
+    pub fn max_value() -> Month {
+        Month(MAX_YEAR * 12 + 11)
+    }
+
     pub fn from_time_saturating(time: DateTime<Utc>) -> Month {
         let year = match time.year_ce() {
             (true, ce) => min(u32::from(MAX_YEAR), ce) as u16,
@@ -14,6 +18,28 @@ impl Month {
         };
 
         Month(year * 12 + time.month0() as u16)
+    }
+
+    pub fn add_months_saturating(self, months: u16) -> Month {
+        min(Month(self.0.saturating_add(months)), Month::max_value())
+    }
+}
+
+impl From<Month> for u16 {
+    fn from(Month(month): Month) -> u16 {
+        month
+    }
+}
+
+impl TryFrom<u16> for Month {
+    type Error = InvalidMonth;
+
+    fn try_from(month: u16) -> Result<Month, InvalidMonth> {
+        if month <= Month::max_value().0 {
+            Ok(Month(month))
+        } else {
+            Err(InvalidMonth)
+        }
     }
 }
 

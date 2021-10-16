@@ -339,10 +339,10 @@ pub struct PersonalKeyPrefix {
 impl PersonalKeyPrefix {
     pub const SIZE: usize = 12;
 
-    pub fn with_month(&self, Month(month): Month) -> PersonalKey {
+    pub fn with_month(&self, month: Month) -> PersonalKey {
         let mut buf = [0; PersonalKey::SIZE];
         buf[..PersonalKeyPrefix::SIZE].clone_from_slice(&self.prefix[..PersonalKeyPrefix::SIZE]);
-        LittleEndian::write_u16(&mut buf[PersonalKeyPrefix::SIZE..], month);
+        LittleEndian::write_u16(&mut buf[PersonalKeyPrefix::SIZE..], u16::from(month));
         PersonalKey(buf)
     }
 }
