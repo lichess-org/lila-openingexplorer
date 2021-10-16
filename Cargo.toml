@@ -15,12 +15,14 @@ edition = "2018"
 [dependencies]
 axum = "0.2"
 byteorder = "1"
+bytes = "1"
 chrono = "0.4"
 clap = "3.0.0-beta.4"
 csv = "1"
 env_logger = "0.9"
 futures-util = "0.3"
 log = "0.4"
+pin-project-lite = "0.2"
 reqwest = { version = "0.11", features = ["stream"] }
 rocksdb = { version = "0.17", features = ["snappy"] }
 rustc-hash = "1"
@@ -30,6 +32,7 @@ serde_with = { version = "1", features = ["chrono"] }
 sha-1 = "0.9"
 shakmaty = { version = "0.20.1", features = ["variant"] }
 smallvec = "1"
+sync_wrapper = "0.1"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 tokio-util = { version = "0.6", features = ["io"] }
