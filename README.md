@@ -31,8 +31,8 @@ player | string | *required* | Username to filter for
 color | string | *required* | Filter for games where *player* is `white` or `black`
 modes | string | *all* | Comma separated list of game modes (`rated`, `casual`) to filter for
 speeds | string | *all* | Comma separated list of speeds (`ultraBullet`, `bullet`, `blitz`, `rapid`, `classical`, `correspondence`) to filter for
-since | string | `2000/01` | Year or Year/Month. Filter for games played in this month or later
-until | string | `3000/12` | Year or Year/Month. Filter for games played in this month or earlier
+since | string | `0000/01` | Year/Month. Filter for games played in this month or later
+until | string | `3000/12` | Year/Month. Filter for games played in this month or earlier
 update | bool | `false` | Index new games from lila
 
 Response: Streamed `application/x-ndjson` with rows as follows.

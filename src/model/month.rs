@@ -53,23 +53,18 @@ impl FromStr for Month {
     type Err = InvalidMonth;
 
     fn from_str(s: &str) -> Result<Month, InvalidMonth> {
-        let mut parts = s.splitn(2, '/');
+        match s.split_once(|ch| ch == '/' || ch == '-') {
+            Some((year_part, month_part)) => {
+                let year: u16 = year_part.parse().map_err(|_| InvalidMonth)?;
+                let month_plus_one: u16 = month_part.parse().map_err(|_| InvalidMonth)?;
 
-        let year: u16 = parts
-            .next()
-            .expect("splitn non-empty")
-            .parse()
-            .map_err(|_| InvalidMonth)?;
-
-        let month_plus_one: u16 = match parts.next() {
-            Some(part) => part.parse().map_err(|_| InvalidMonth)?,
-            None => 1,
-        };
-
-        if year <= MAX_YEAR && 1 <= month_plus_one && month_plus_one <= 12 {
-            Ok(Month(year * 12 + month_plus_one - 1))
-        } else {
-            Err(InvalidMonth)
+                if year <= MAX_YEAR && 1 <= month_plus_one && month_plus_one <= 12 {
+                    Ok(Month(year * 12 + month_plus_one - 1))
+                } else {
+                    Err(InvalidMonth)
+                }
+            }
+            None => Err(InvalidMonth),
         }
     }
 }
