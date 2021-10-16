@@ -159,66 +159,60 @@ async fn personal(
     Ok(NdJson::new(futures_util::stream::unfold(
         state,
         |mut state| async move {
-            let first = mem::replace(&mut state.first, false);
-            let done = if state.done {
-                true
-            } else {
-                state.done = match state.indexing {
-                    Some(ref mut indexing) => {
-                        if !first {
-                            tokio::time::sleep(Duration::from_secs(5)).await;
-                        }
-                        indexing.try_recv().is_ok()
-                    }
-                    None => true,
-                };
-                false
-            };
-
-            if done {
-                None
-            } else {
-                let queryable = state.db.queryable();
-                let filtered = queryable
-                    .get_personal(&state.key, AnnoLichess::from_year(state.filter.since))
-                    .expect("get personal")
-                    .prepare(&state.pos, &state.filter);
-
-                Some((
-                    PersonalResponse {
-                        total: filtered.total,
-                        moves: filtered
-                            .moves
-                            .into_iter()
-                            .map(|row| PersonalMoveRow {
-                                uci: row.uci,
-                                san: row.san,
-                                stats: row.stats,
-                                game: row.game.and_then(|id| {
-                                    queryable
-                                        .get_game_info(id)
-                                        .expect("get game")
-                                        .map(|info| GameRow { id, info })
-                                }),
-                            })
-                            .collect(),
-                        recent_games: filtered
-                            .recent_games
-                            .into_iter()
-                            .flat_map(|(uci, id)| {
-                                queryable.get_game_info(id).expect("get game").map(|info| {
-                                    GameRowWithUci {
-                                        uci,
-                                        row: GameRow { id, info },
-                                    }
-                                })
-                            })
-                            .collect(),
-                        opening: state.opening,
-                    },
-                    state,
-                ))
+            if state.done {
+                return None;
             }
+
+            let first = mem::replace(&mut state.first, false);
+            state.done = match state.indexing {
+                Some(ref mut indexing) => {
+                    tokio::select! {
+                        _ = indexing => true,
+                        _ = tokio::time::sleep(if first { Duration::from_millis(200) } else { Duration::from_secs(5) } ) => false,
+                    }
+                }
+                None => true,
+            };
+            let queryable = state.db.queryable();
+            let filtered = queryable
+                .get_personal(&state.key, AnnoLichess::from_year(state.filter.since))
+                .expect("get personal")
+                .prepare(&state.pos, &state.filter);
+
+            Some((
+                PersonalResponse {
+                    total: filtered.total,
+                    moves: filtered
+                        .moves
+                        .into_iter()
+                        .map(|row| PersonalMoveRow {
+                            uci: row.uci,
+                            san: row.san,
+                            stats: row.stats,
+                            game: row.game.and_then(|id| {
+                                queryable
+                                    .get_game_info(id)
+                                    .expect("get game")
+                                    .map(|info| GameRow { id, info })
+                            }),
+                        })
+                        .collect(),
+                    recent_games: filtered
+                        .recent_games
+                        .into_iter()
+                        .flat_map(|(uci, id)| {
+                            queryable.get_game_info(id).expect("get game").map(|info| {
+                                GameRowWithUci {
+                                    uci,
+                                    row: GameRow { id, info },
+                                }
+                            })
+                        })
+                        .collect(),
+                    opening: state.opening,
+                },
+                state,
+            ))
         },
     )))
 }
