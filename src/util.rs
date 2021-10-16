@@ -47,6 +47,7 @@ where
 
     fn into_response(self) -> Response<NdJsonBody<S>> {
         Response::builder()
+            .header("X-Accel-Buffering", "no")
             .header(axum::http::header::CONTENT_TYPE, "application/x-ndjson")
             .body(NdJsonBody {
                 stream: SyncWrapper::new(self.stream),
