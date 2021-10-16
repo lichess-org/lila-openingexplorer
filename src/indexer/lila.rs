@@ -35,14 +35,20 @@ impl Lila {
         since_created_at: u64,
     ) -> Result<impl Stream<Item = Result<Game, io::Error>>, reqwest::Error> {
         // https://lichess.org/api#operation/apiGamesUser
-        let stream = self
+        let mut builder = self
             .client
             .get(format!(
                 "{}/api/games/user/{}?sort=dateAsc&ongoing=true",
                 self.opt.lila, user
             ))
             .query(&[("since", since_created_at)])
-            .header("Accept", "application/x-ndjson")
+            .header("Accept", "application/x-ndjson");
+
+        if let Some(ref bearer) = self.opt.bearer {
+            builder = builder.bearer_auth(bearer);
+        }
+
+        let stream = builder
             .send()
             .await
             .and_then(|r| r.error_for_status())?

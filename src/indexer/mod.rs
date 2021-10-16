@@ -34,6 +34,8 @@ use lila::{Game, Lila};
 pub struct IndexerOpt {
     #[clap(long = "lila", default_value = "https://lichess.org")]
     lila: String,
+    #[clap(long = "bearer")]
+    bearer: Option<String>,
 }
 
 #[derive(Clone)]
