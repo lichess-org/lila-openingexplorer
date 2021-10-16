@@ -309,9 +309,3 @@ enum IndexerMessage {
         callback: oneshot::Sender<()>,
     },
 }
-
-pub enum IndexerStatus {
-    Ongoing,
-    Completed,
-    Failed,
-}
