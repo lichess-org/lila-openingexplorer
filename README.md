@@ -105,16 +105,17 @@ timeouts.
 Indexing process
 ----------------
 
-Indexing requests are ignored if they are submitted within 60 seconds of the
-last indexing request for the same player. Ongoing games are revisited only
-once every 24 hours.
-
-Indexing requests are queued. If the queue is full, backpressure is applied to
-the indexing request. If the indexing request times out due to backpressure,
-it is discarded.
-
 At each point in time, there will never be more than one game stream requested
-for each same player, and no more than `--indexers` in total.
+for each player, and no more than `--indexers` (default 16) in total.
+
+Indexing requests are added to a bounded queue. If the queue is full,
+backpressure is applied to the HTTP request that tried to queue it, eventually
+discarding the request if it takes longer than a timeout.
+
+Indexing requests are ignored if they are submitted within 60 seconds of the
+last indexing request for the same player, but it is ok to have multiple
+concurrent streams watching one indexing process. Ongoing games are revisited
+only once every 24 hours.
 
 Column families
 ---------------
