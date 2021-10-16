@@ -8,7 +8,7 @@ Usage
 -----
 
 ```sh
-EXPLORER_LOG=lila_openingexplorer3=debug cargo run --release -- --lila https://lichess:***@lichess.dev
+EXPLORER_LOG=lila_openingexplorer3=debug cargo run --release -- --lila https://lichess:***@lichess.dev --bearer lip_***
 ```
 
 HTTP API
@@ -32,14 +32,14 @@ color | string | *required* | Filter for games where *player* is `white` or `bla
 modes | string | *all* | Comma separated list of game modes (`rated`, `casual`) to filter for
 speeds | string | *all* | Comma separated list of speeds (`ultraBullet`, `bullet`, `blitz`, `rapid`, `classical`, `correspondence`) to filter for
 since | integer | `2000` | Year. Filter for games played in this year or later
-update | bool | `false` | Stream and index new games from lila. The response will be delayed up to 9 seconds, or until all games have been indexed, whichever comes first. Will be ignored if within one minute of the last reindexing. Previously ongoing games will be revisited only once every 24h.
+update | bool | `false` | Index new games from lila
 
-Likely cause of errors:
+Response: Streamed `application/x-ndjson` with rows as follows.
 
-* 404: Player not found
-* 503: Too busy or otherwise unable to index games
-
-Response:
+If `update` has not been requested the stream immediately terminates after
+the first row. Otherwise updated rows will be streamed until indexing has been
+completed. Updates are throttled. The same row may be repeated to avoid
+timeouts.
 
 ```js
 {
@@ -104,10 +104,16 @@ Response:
 Indexing process
 ----------------
 
-Currently all indexing requests are queued and performed sequentially.
-So players with many games could occupy the queue for a long time. Whether this
-will be fine in practice depends on the rate at which the indexer will be
-able to stream games from lila.
+Indexing requests are ignored if they are submitted within 60 seconds of the
+last indexing request for the same player. Ongoing games are revisited only
+once every 24 hours.
+
+Indexing requests are queued. If the queue is full, backpressure is applied to
+the indexing request. If the indexing request times out due to backpressure,
+it is discarded.
+
+At each point in time, there will never be more than one game stream requested
+for each same player, and no more than `--indexers` in total.
 
 Column families
 ---------------
