@@ -36,7 +36,7 @@ pub struct IndexerOpt {
     lila: String,
     #[clap(long = "bearer")]
     bearer: Option<String>,
-    #[clap(long = "indexers")]
+    #[clap(long = "indexers", default_value = "16")]
     indexers: usize,
 }
 
@@ -49,11 +49,12 @@ impl IndexerStub {
     pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, Vec<JoinHandle<()>>) {
         let mut txs = Vec::with_capacity(opt.indexers);
         let mut join_handles = Vec::with_capacity(opt.indexers);
-        for _ in 0..opt.indexers {
+        for idx in 0..opt.indexers {
             let (tx, rx) = mpsc::channel(500);
             txs.push(tx);
             join_handles.push(tokio::spawn(
                     IndexerActor {
+                        idx,
                         rx,
                         db: db.clone(),
                         lila: Lila::new(opt.clone()),
@@ -90,6 +91,7 @@ impl IndexerStub {
 }
 
 struct IndexerActor {
+    idx: usize,
     rx: mpsc::Receiver<IndexerMessage>,
     db: Arc<Database>,
     lila: Lila,
@@ -128,7 +130,8 @@ impl IndexerActor {
         };
 
         log::info!(
-            "starting to index {} (created_at >= {})",
+            "indexer {} starting {} (created_at >= {})",
+            self.idx,
             player,
             since_created_at
         );
@@ -139,7 +142,7 @@ impl IndexerActor {
                 return;
             }
             Err(err) => {
-                log::error!("indexer request failed: {}", err);
+                log::error!("indexer {}: request failed: {}", self.idx, err);
                 return;
             }
         };
@@ -159,7 +162,7 @@ impl IndexerActor {
 
             num_games += 1;
             if num_games % 1024 == 0 {
-                log::info!("indexed {} games for {}", num_games, player);
+                log::info!("indexer {}: indexed {} games for {}", self.idx, num_games, player);
             }
         }
 
@@ -168,7 +171,7 @@ impl IndexerActor {
             .queryable()
             .put_player_status(&player_id, status)
             .expect("put player status");
-        log::info!("finished indexing {} games for {}", num_games, player);
+        log::info!("indexer {}: finished indexing {} games for {}", self.idx, num_games, player);
     }
 
     fn index_game(
