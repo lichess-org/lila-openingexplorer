@@ -22,6 +22,7 @@ use axum::{
 use clap::Clap;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use crate::util::NdJson;
 
 #[derive(Clap)]
 struct Opt {
@@ -52,6 +53,7 @@ async fn main() {
         .route("/admin/game/:prop", get(game_property))
         .route("/admin/personal/:prop", get(personal_property))
         .route("/personal", get(personal))
+        .route("/test", get(test))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
         .layer(AddExtensionLayer::new(indexer));
@@ -65,6 +67,13 @@ async fn main() {
         .expect("bind");
 
     join_handle.await.expect("indexer");
+}
+
+async fn test() -> NdJson<impl futures_util::stream::Stream<Item = u32>> {
+    NdJson::new(futures_util::stream::unfold(0, |state| async move {
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        Some((state, state + 1))
+    }))
 }
 
 async fn db_property(

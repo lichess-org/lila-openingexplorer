@@ -37,14 +37,13 @@ impl<S> NdJson<S> {
     }
 }
 
-impl<S, T, E> IntoResponse for NdJson<S>
+impl<S, T> IntoResponse for NdJson<S>
 where
-    S: Stream<Item = Result<T, E>> + Send + 'static,
+    S: Stream<Item = T> + Send + 'static,
     T: Serialize,
-    E: Into<axum::BoxError>,
 {
     type Body = NdJsonBody<S>;
-    type BodyError = E;
+    type BodyError = serde_json::Error;
 
     fn into_response(self) -> Response<NdJsonBody<S>> {
         Response::builder()
@@ -63,13 +62,13 @@ pin_project! {
     }
 }
 
-impl<S, T, E> HttpBody for NdJsonBody<S>
+impl<S, T> HttpBody for NdJsonBody<S>
 where
-    S: Stream<Item = Result<T, E>>,
+    S: Stream<Item = T>,
     T: Serialize,
 {
     type Data = Bytes;
-    type Error = E;
+    type Error = serde_json::Error;
 
     fn poll_data(
         self: Pin<&mut Self>,
@@ -79,10 +78,13 @@ where
             .stream
             .get_pin_mut()
             .poll_next(cx)
-            .map_ok(|item| {
-                let mut buf = serde_json::to_vec(&item).expect("serialize ndjson item");
-                buf.push(b'\n');
-                Bytes::from(buf)
+            .map(|item| {
+                item.map(|item| {
+                    serde_json::to_vec(&item).map(|mut buf| {
+                        buf.push(b'\n');
+                        Bytes::from(buf)
+                    })
+                })
             })
     }
 
