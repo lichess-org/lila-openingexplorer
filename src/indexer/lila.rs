@@ -1,5 +1,5 @@
 use crate::{
-    api::{Error, LilaVariant},
+    api::LilaVariant,
     indexer::IndexerOpt,
     model::{GameId, Speed, UserName},
     util::ByColorDef,
@@ -33,7 +33,7 @@ impl Lila {
         &self,
         user: &UserName,
         since_created_at: u64,
-    ) -> Result<impl Stream<Item = Result<Game, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<Game, io::Error>>, reqwest::Error> {
         // https://lichess.org/api#operation/apiGamesUser
         let stream = self
             .client
@@ -45,8 +45,7 @@ impl Lila {
             .header("Accept", "application/x-ndjson")
             .send()
             .await
-            .and_then(|r| r.error_for_status())
-            .map_err(Error::IndexerRequestError)?
+            .and_then(|r| r.error_for_status())?
             .bytes_stream()
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
 
@@ -54,13 +53,11 @@ impl Lila {
             LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {
                 match line {
                     Ok(line) if line.is_empty() => None,
-                    Ok(line) => Some(serde_json::from_str::<Game>(&line).map_err(|err| {
-                        Error::IndexerGameError {
-                            err: err.into(),
-                            line,
-                        }
-                    })),
-                    Err(err) => Some(Err(Error::IndexerStreamError(err))),
+                    Ok(line) => Some(
+                        serde_json::from_str::<Game>(&line)
+                            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err)),
+                    ),
+                    Err(err) => Some(Err(err)),
                 }
             }),
         ))

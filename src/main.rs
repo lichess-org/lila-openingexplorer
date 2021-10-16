@@ -11,6 +11,7 @@ use crate::{
     indexer::{IndexerOpt, IndexerStub},
     model::{AnnoLichess, PersonalKeyBuilder},
     opening::Openings,
+    util::NdJson,
 };
 use axum::{
     extract::{Extension, Path, Query},
@@ -22,7 +23,6 @@ use axum::{
 use clap::Clap;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
-use crate::util::NdJson;
 
 #[derive(Clap)]
 struct Opt {
@@ -112,9 +112,11 @@ async fn personal(
     Extension(indexer): Extension<IndexerStub>,
     Query(query): Query<PersonalQuery>,
 ) -> Result<Json<PersonalResponse>, Error> {
-    if query.update {
-        let _status = indexer.index_player(query.player.clone()).await?;
-    }
+    let indexing = if query.update {
+        Some(indexer.index_player(query.player.clone()).await)
+    } else {
+        None
+    };
 
     let variant = query.variant.into();
 

@@ -1,5 +1,4 @@
 use crate::{
-    api::Error,
     db::Database,
     model::{
         AnnoLichess, GameInfo, GameInfoPlayer, Mode, PersonalEntry, PersonalKeyBuilder,
@@ -24,7 +23,6 @@ use tokio::{
         oneshot,
     },
     task::JoinHandle,
-    time::timeout,
 };
 
 mod lila;
@@ -44,7 +42,7 @@ pub struct IndexerStub {
 
 impl IndexerStub {
     pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, JoinHandle<()>) {
-        let (tx, rx) = mpsc::channel(2); // TODO: Use much higher limit
+        let (tx, rx) = mpsc::channel(1000);
         (
             IndexerStub { tx },
             tokio::spawn(
@@ -58,30 +56,28 @@ impl IndexerStub {
         )
     }
 
-    pub async fn index_player(&self, player: UserName) -> Result<IndexerStatus, Error> {
+    pub async fn index_player(&self, player: UserName) -> oneshot::Receiver<()> {
         let (req, res) = oneshot::channel();
 
-        self.tx
+        match self
+            .tx
             .send_timeout(
                 IndexerMessage::IndexPlayer {
                     player,
                     callback: req,
                 },
-                Duration::from_secs(2),
+                Duration::from_secs(10),
             )
             .await
-            .map_err(|err| match err {
-                SendTimeoutError::Timeout(_) => Error::IndexerQueueFull,
-                SendTimeoutError::Closed(_) => panic!("indexer died"),
-            })?;
+        {
+            Ok(_) => (),
+            Err(SendTimeoutError::Timeout(_)) => {
+                log::error!("indexer queue full for more than 10 seconds")
+            }
+            Err(SendTimeoutError::Closed(_)) => panic!("indexer died"),
+        };
 
-        match timeout(Duration::from_secs(7), res).await {
-            Ok(res) => match res.expect("indexer alive") {
-                Ok(()) => Ok(IndexerStatus::Completed),
-                Err(err) => Err(err),
-            },
-            Err(_) => Ok(IndexerStatus::Ongoing),
-        }
+        res
     }
 }
 
@@ -96,15 +92,14 @@ impl IndexerActor {
         while let Some(msg) = self.rx.recv().await {
             match msg {
                 IndexerMessage::IndexPlayer { callback, player } => {
-                    callback
-                        .send(self.index_player(player).await)
-                        .nevermind("requester gone away");
+                    self.index_player(player).await;
+                    callback.send(()).nevermind("requester gone away");
                 }
             }
         }
     }
 
-    async fn index_player(&self, player: UserName) -> Result<(), Error> {
+    async fn index_player(&self, player: UserName) {
         let player_id = UserId::from(player.clone());
         let mut status = self
             .db
@@ -120,7 +115,7 @@ impl IndexerActor {
             Some(since) => since,
             None => {
                 log::debug!("not reindexing {} so soon", player);
-                return Ok(());
+                return;
             }
         };
 
@@ -129,7 +124,16 @@ impl IndexerActor {
             player,
             since_created_at
         );
-        let mut games = self.lila.user_games(&player, since_created_at).await?;
+        let mut games = match self.lila.user_games(&player, since_created_at).await {
+            Ok(games) => games,
+            /* TODO: Err(err) if err.status() == Some(StatusCode::NOT_FOUND) => {
+                return;
+            }, */
+            Err(err) => {
+                log::error!("indexer request failed: {}", err);
+                return;
+            }
+        };
 
         let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(&player_id, color));
         let mut num_games = 0;
@@ -156,7 +160,6 @@ impl IndexerActor {
             .put_player_status(&player_id, status)
             .expect("put player status");
         log::info!("finished indexing {} games for {}", num_games, player);
-        Ok(())
     }
 
     fn index_game(
@@ -275,7 +278,7 @@ impl IndexerActor {
 enum IndexerMessage {
     IndexPlayer {
         player: UserName,
-        callback: oneshot::Sender<Result<(), Error>>,
+        callback: oneshot::Sender<()>,
     },
 }
 
