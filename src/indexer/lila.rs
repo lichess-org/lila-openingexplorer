@@ -1,9 +1,5 @@
-use crate::{
-    api::LilaVariant,
-    indexer::IndexerOpt,
-    model::{GameId, Speed, UserName},
-    util::ByColorDef,
-};
+use std::io;
+
 use chrono::{DateTime, Utc};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
@@ -11,10 +7,16 @@ use serde_with::{
     serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator, TimestampMilliSeconds,
 };
 use shakmaty::{fen::Fen, san::San, ByColor, Color};
-use std::io;
 use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::io::StreamReader;
+
+use crate::{
+    api::LilaVariant,
+    indexer::IndexerOpt,
+    model::{GameId, Speed, UserName},
+    util::ByColorDef,
+};
 
 pub struct Lila {
     client: reqwest::Client,

@@ -1,5 +1,6 @@
-use serde::Deserialize;
 use std::ops::AddAssign;
+
+use serde::Deserialize;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,10 +1,11 @@
-use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use std::{
     error::Error,
     fmt::{self, Write as _},
     io::{self, Cursor, Read, Write},
     str::FromStr,
 };
+
+use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 
 #[derive(Debug)]
 pub struct InvalidGameId;
@@ -87,8 +88,9 @@ impl fmt::Display for GameId {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck::{quickcheck, Arbitrary, Gen};
+
+    use super::*;
 
     impl Arbitrary for GameId {
         fn arbitrary(g: &mut Gen) -> GameId {

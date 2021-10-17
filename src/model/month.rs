@@ -1,5 +1,6 @@
-use chrono::{DateTime, Datelike as _, Utc};
 use std::{cmp::min, convert::TryFrom, error::Error as StdError, fmt, str::FromStr};
+
+use chrono::{DateTime, Datelike as _, Utc};
 
 const MAX_YEAR: u16 = 3000; // MAX_YEAR * 12 + 12 < 2^16
 

@@ -1,5 +1,6 @@
-use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 use std::io::{self, Read, Write};
+
+use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 
 pub fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
     let mut n = 0;
@@ -25,9 +26,11 @@ pub fn write_uint<W: Write>(writer: &mut W, mut n: u64) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use quickcheck::quickcheck;
     use std::io::Cursor;
+
+    use quickcheck::quickcheck;
+
+    use super::*;
 
     quickcheck! {
         fn test_uint_roundtrip(n: u64) -> bool {

@@ -1,4 +1,5 @@
-use crate::api::Error;
+use std::collections::HashMap;
+
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
@@ -9,7 +10,8 @@ use shakmaty::{
     zobrist::{Zobrist, ZobristHash},
     CastlingMode, Chess, FromSetup, Position,
 };
-use std::collections::HashMap;
+
+use crate::api::Error;
 
 #[derive(Serialize, Debug)]
 pub struct Opening {

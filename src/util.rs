@@ -1,3 +1,8 @@
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
+
 use axum::{
     body::HttpBody,
     http::{HeaderMap, Response},
@@ -8,10 +13,6 @@ use futures_util::stream::Stream;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use shakmaty::ByColor;
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
 use sync_wrapper::SyncWrapper;
 
 #[derive(Serialize, Deserialize)]

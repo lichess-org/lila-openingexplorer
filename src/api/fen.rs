@@ -1,5 +1,6 @@
-use shakmaty::fen::{Fen, ParseFenError};
 use std::str::FromStr;
+
+use shakmaty::fen::{Fen, ParseFenError};
 
 #[derive(Debug)]
 pub struct LaxFen(Fen);

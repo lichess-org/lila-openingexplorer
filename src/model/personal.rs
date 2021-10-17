@@ -1,10 +1,10 @@
-use crate::{
-    api::PersonalQueryFilter,
-    model::{
-        read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Month, Speed,
-        Stats, UserId,
-    },
+use std::{
+    cmp::{max, Reverse},
+    io::{self, Read, Write},
+    ops::AddAssign,
+    time::{Duration, SystemTime},
 };
+
 use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
 use sha1::{Digest, Sha1};
@@ -15,11 +15,13 @@ use shakmaty::{
     Color, Outcome,
 };
 use smallvec::{smallvec, SmallVec};
-use std::{
-    cmp::{max, Reverse},
-    io::{self, Read, Write},
-    ops::AddAssign,
-    time::{Duration, SystemTime},
+
+use crate::{
+    api::PersonalQueryFilter,
+    model::{
+        read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Month, Speed,
+        Stats, UserId,
+    },
 };
 
 const MAX_PERSONAL_GAMES: u64 = 15; // 4 bits
@@ -420,9 +422,11 @@ impl PersonalStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use shakmaty::Square;
     use std::io::Cursor;
+
+    use shakmaty::Square;
+
+    use super::*;
 
     #[test]
     fn test_header_roundtrip() {

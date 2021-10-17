@@ -1,11 +1,10 @@
-use crate::{
-    db::Database,
-    model::{
-        GameInfo, GameInfoPlayer, Mode, Month, PersonalEntry, PersonalKeyBuilder, PersonalStatus,
-        UserId, UserName,
-    },
-    util::NevermindExt as _,
+use std::{
+    collections::hash_map::RandomState,
+    hash::{BuildHasher, Hash, Hasher},
+    sync::Arc,
+    time::{Duration, SystemTime},
 };
+
 use axum::http::StatusCode;
 use clap::Clap;
 use futures_util::StreamExt;
@@ -14,18 +13,21 @@ use shakmaty::{
     uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Color, Outcome,
     Position,
 };
-use std::{
-    collections::hash_map::RandomState,
-    hash::{BuildHasher, Hash, Hasher},
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
 use tokio::{
     sync::{
         mpsc::{self, error::SendTimeoutError},
         oneshot,
     },
     task::JoinHandle,
+};
+
+use crate::{
+    db::Database,
+    model::{
+        GameInfo, GameInfoPlayer, Mode, Month, PersonalEntry, PersonalKeyBuilder, PersonalStatus,
+        UserId, UserName,
+    },
+    util::NevermindExt as _,
 };
 
 mod lila;

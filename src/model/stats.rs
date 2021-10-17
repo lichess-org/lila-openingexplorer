@@ -1,10 +1,12 @@
-use crate::model::{read_uint, write_uint};
-use serde::Serialize;
-use shakmaty::{Color, Outcome};
 use std::{
     io::{self, Read, Write},
     ops::AddAssign,
 };
+
+use serde::Serialize;
+use shakmaty::{Color, Outcome};
+
+use crate::model::{read_uint, write_uint};
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, Serialize)]
 pub struct Stats {
@@ -105,9 +107,11 @@ impl Stats {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use quickcheck::{quickcheck, Arbitrary, Gen};
     use std::io::Cursor;
+
+    use quickcheck::{quickcheck, Arbitrary, Gen};
+
+    use super::*;
 
     impl Arbitrary for Stats {
         fn arbitrary(g: &mut Gen) -> Self {

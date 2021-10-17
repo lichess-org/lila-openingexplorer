@@ -1,14 +1,16 @@
-use crate::{
-    model::{read_uint, write_uint, Month, Speed},
-    util::ByColorDef,
+use std::{
+    convert::{TryFrom, TryInto},
+    io::{self, Read, Write},
 };
+
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{ByColor, Color};
-use std::{
-    convert::{TryFrom, TryInto},
-    io::{self, Read, Write},
+
+use crate::{
+    model::{read_uint, write_uint, Month, Speed},
+    util::ByColorDef,
 };
 
 #[serde_as]

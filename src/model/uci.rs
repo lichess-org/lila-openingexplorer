@@ -1,9 +1,10 @@
-use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
-use shakmaty::{uci::Uci, Role, Square};
 use std::{
     convert::TryFrom,
     io::{self, Read, Write},
 };
+
+use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use shakmaty::{uci::Uci, Role, Square};
 
 pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     let n = reader.read_u16::<LittleEndian>()?;
@@ -41,8 +42,9 @@ pub fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::Cursor;
+
+    use super::*;
 
     #[test]
     fn test_uci_roundtrip() {

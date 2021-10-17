@@ -1,10 +1,11 @@
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator};
+use shakmaty::{san::SanPlus, uci::Uci, Color};
+
 use crate::{
     model::{GameId, GameInfo, Mode, Month, Speed, Stats, UserName},
     opening::Opening,
 };
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator};
-use shakmaty::{san::SanPlus, uci::Uci, Color};
 
 mod error;
 mod fen;

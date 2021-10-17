@@ -1,11 +1,13 @@
-use crate::model::{
-    GameId, GameInfo, Month, PersonalEntry, PersonalKey, PersonalKeyPrefix, PersonalStatus, UserId,
-};
+use std::{io::Cursor, path::Path};
+
 use rocksdb::{
     BlockBasedIndexType, BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode,
     IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform, DB,
 };
-use std::{io::Cursor, path::Path};
+
+use crate::model::{
+    GameId, GameInfo, Month, PersonalEntry, PersonalKey, PersonalKeyPrefix, PersonalStatus, UserId,
+};
 
 #[derive(Debug)]
 pub struct Database {

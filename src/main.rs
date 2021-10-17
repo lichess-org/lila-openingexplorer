@@ -5,6 +5,19 @@ pub mod model;
 pub mod opening;
 pub mod util;
 
+use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+
+use axum::{
+    extract::{Extension, Path, Query},
+    handler::get,
+    http::StatusCode,
+    AddExtensionLayer, Router,
+};
+use clap::Clap;
+use futures_util::stream::Stream;
+use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
+use tokio::sync::oneshot;
+
 use crate::{
     api::{
         Error, GameRow, GameRowWithUci, PersonalMoveRow, PersonalQuery, PersonalQueryFilter,
@@ -16,17 +29,6 @@ use crate::{
     opening::{Opening, Openings},
     util::NdJson,
 };
-use axum::{
-    extract::{Extension, Path, Query},
-    handler::get,
-    http::StatusCode,
-    AddExtensionLayer, Router,
-};
-use clap::Clap;
-use futures_util::stream::Stream;
-use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
-use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
-use tokio::sync::oneshot;
 
 #[derive(Clap)]
 struct Opt {
