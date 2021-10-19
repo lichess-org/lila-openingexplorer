@@ -179,7 +179,7 @@ impl IndexerActor {
         since_created_at: u64,
     ) {
         log::info!(
-            "indexer {} starting {} (created_at >= {})",
+            "indexer {}: starting {} (created_at >= {})",
             self.idx,
             player.as_str(),
             since_created_at
@@ -187,7 +187,11 @@ impl IndexerActor {
         let mut games = match self.lila.user_games(player, since_created_at).await {
             Ok(games) => games,
             Err(err) if err.status() == Some(StatusCode::NOT_FOUND) => {
-                log::warn!("indexer did not find player {}", player.as_str());
+                log::warn!(
+                    "indexer {}: did not find player {}",
+                    self.idx,
+                    player.as_str()
+                );
                 return;
             }
             Err(err) => {
@@ -202,7 +206,7 @@ impl IndexerActor {
             let game = match game {
                 Ok(game) => game,
                 Err(err) => {
-                    log::error!("{}", err);
+                    log::error!("indexer {}: {}", self.idx, err);
                     continue;
                 }
             };
@@ -244,14 +248,23 @@ impl IndexerActor {
 
         if game.status.is_ongoing() {
             if status.revisit_ongoing_created_at.is_none() {
-                log::debug!("will revisit ongoing game {} eventually", game.id);
+                log::debug!(
+                    "indexer {}: will revisit ongoing game {} eventually",
+                    self.idx,
+                    game.id
+                );
                 status.revisit_ongoing_created_at = Some(game.created_at);
             }
             return;
         }
 
         if game.status.is_unindexable() {
-            log::debug!("not indexing {} with status {:?}", game.id, game.status);
+            log::debug!(
+                "indexer {}: not indexing {} with status {:?}",
+                self.idx,
+                game.id,
+                game.status
+            );
             return;
         }
 
@@ -265,7 +278,12 @@ impl IndexerActor {
         {
             Some(color) => color,
             None => {
-                log::error!("{} did not play in {}", player.as_str(), game.id);
+                log::error!(
+                    "indexer {}: {} did not play in {}",
+                    self.idx,
+                    player.as_str(),
+                    game.id
+                );
                 return;
             }
         };
@@ -279,7 +297,12 @@ impl IndexerActor {
             .expect("get game info")
             .map_or(false, |info| info.indexed.into_color(color))
         {
-            log::debug!("{}/{} already indexed", game.id, color);
+            log::debug!(
+                "indexer {}: {}/{} already indexed",
+                self.idx,
+                game.id,
+                color
+            );
             return;
         }
 
@@ -295,7 +318,7 @@ impl IndexerActor {
         let mut pos: Zobrist<_, u128> = match pos {
             Ok(pos) => Zobrist::new(pos),
             Err(err) => {
-                log::warn!("not indexing {}: {}", game.id, err);
+                log::warn!("indexer {}: not indexing {}: {}", self.idx, game.id, err);
                 return;
             }
         };
@@ -308,7 +331,14 @@ impl IndexerActor {
             let m = match san.to_move(&pos) {
                 Ok(m) => m,
                 Err(err) => {
-                    log::warn!("cutting off {} at ply {}: {}: {}", game.id, ply, err, san);
+                    log::warn!(
+                        "indexer {}: cutting off {} at ply {}: {}: {}",
+                        self.idx,
+                        game.id,
+                        ply,
+                        err,
+                        san
+                    );
                     break;
                 }
             };
