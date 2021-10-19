@@ -44,11 +44,13 @@ struct Opt {
 
 #[tokio::main]
 async fn main() {
-    env_logger::init_from_env(
+    env_logger::Builder::from_env(
         env_logger::Env::new()
             .filter("EXPLORER_LOG")
             .write_style("EXPLORER_LOG_STYLE"),
-    );
+    )
+    .format_timestamp(None)
+    .init();
 
     let opt = Opt::parse();
 
