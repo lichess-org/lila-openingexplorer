@@ -1,4 +1,4 @@
-use std::ops::AddAssign;
+use std::{error::Error as StdError, fmt, ops::AddAssign, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
@@ -25,18 +25,31 @@ impl Speed {
 }
 
 impl FromStr for Speed {
+    type Err = InvalidSpeed;
+
     fn from_str(s: &str) -> Result<Speed, InvalidSpeed> {
         Ok(match s {
             "ultraBullet" => Speed::UltraBullet,
             "bullet" => Speed::Bullet,
             "blitz" => Speed::Blitz,
-            "rapid" =>  Speed::Rapid,
+            "rapid" => Speed::Rapid,
             "classical" => Speed::Classical,
             "correspondence" => Speed::Correspondence,
             _ => return Err(InvalidSpeed),
         })
     }
 }
+
+#[derive(Debug)]
+pub struct InvalidSpeed;
+
+impl fmt::Display for InvalidSpeed {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid speed")
+    }
+}
+
+impl StdError for InvalidSpeed {}
 
 #[derive(Debug, Default)]
 pub struct BySpeed<T> {

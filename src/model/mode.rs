@@ -1,4 +1,4 @@
-use std::ops::AddAssign;
+use std::{error::Error as StdError, fmt, ops::AddAssign, str::FromStr};
 
 use serde::Deserialize;
 
@@ -24,6 +24,29 @@ impl Mode {
         self == Mode::Rated
     }
 }
+
+impl FromStr for Mode {
+    type Err = InvalidMode;
+
+    fn from_str(s: &str) -> Result<Mode, InvalidMode> {
+        Ok(match s {
+            "rated" => Mode::Rated,
+            "casual" => Mode::Casual,
+            _ => return Err(InvalidMode),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct InvalidMode;
+
+impl fmt::Display for InvalidMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid mode")
+    }
+}
+
+impl StdError for InvalidMode {}
 
 #[derive(Default, Debug)]
 pub struct ByMode<T> {
