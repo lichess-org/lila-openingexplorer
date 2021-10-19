@@ -11,7 +11,7 @@ use axum::{
     response::IntoResponse,
 };
 use bytes::Bytes;
-use futures_util::stream::Stream;
+use futures_util::{ready, stream::Stream};
 use pin_project_lite::pin_project;
 use serde::Serialize;
 use sync_wrapper::SyncWrapper;
@@ -36,7 +36,7 @@ where
             .header(axum::http::header::CONTENT_TYPE, "application/x-ndjson")
             .body(NdJsonBody {
                 stream: SyncWrapper::new(self.0),
-                keep_alive: time::sleep(Duration::from_secs(8)),
+                keep_alive: KeepAlive::new(Duration::from_secs(8)),
             })
             .unwrap()
     }
@@ -47,7 +47,7 @@ pin_project! {
         #[pin]
         stream: SyncWrapper<S>,
         #[pin]
-        keep_alive: Sleep,
+        keep_alive: KeepAlive,
     }
 }
 
@@ -63,29 +63,27 @@ where
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Self::Data, Self::Error>>> {
-        let mut this = self.project();
-        match this.stream.get_pin_mut().poll_next(cx).map(|item| {
+        let this = self.project();
+
+        let without_keepalive = this.stream.get_pin_mut().poll_next(cx).map(|item| {
             item.map(|item| {
                 serde_json::to_vec(&item).map(|mut buf| {
                     buf.push(b'\n');
                     Bytes::from(buf)
                 })
             })
-        }) {
-            Poll::Pending => match this.keep_alive.as_mut().poll(cx) {
-                Poll::Pending => Poll::Pending,
-                Poll::Ready(_) => {
-                    this.keep_alive
-                        .reset(Instant::now() + Duration::from_secs(8));
-                    Poll::Ready(Some(Ok(Bytes::from("\n"))))
-                }
-            },
+        });
+
+        match without_keepalive {
+            Poll::Pending => {
+                ready!(this.keep_alive.poll_interval(cx));
+                Poll::Ready(Some(Ok(Bytes::from("\n"))))
+            }
             Poll::Ready(Some(Ok(event))) => {
-                this.keep_alive
-                    .reset(Instant::now() + Duration::from_secs(8));
+                this.keep_alive.reset();
                 Poll::Ready(Some(Ok(event)))
             }
-            Poll::Ready(event) => Poll::Ready(event),
+            Poll::Ready(end_or_err) => Poll::Ready(end_or_err),
         }
     }
 
@@ -94,5 +92,34 @@ where
         _cx: &mut Context<'_>,
     ) -> Poll<Result<Option<HeaderMap>, Self::Error>> {
         Poll::Ready(Ok(None))
+    }
+}
+
+pin_project! {
+    struct KeepAlive {
+        interval: Duration,
+        #[pin]
+        sleep: Sleep,
+    }
+}
+
+impl KeepAlive {
+    fn new(interval: Duration) -> KeepAlive {
+        KeepAlive {
+            interval,
+            sleep: time::sleep(interval),
+        }
+    }
+
+    fn reset(self: Pin<&mut Self>) {
+        let this = self.project();
+        this.sleep.reset(Instant::now() + *this.interval);
+    }
+
+    fn poll_interval(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+        let this = self.as_mut().project();
+        ready!(this.sleep.poll(cx));
+        self.reset();
+        Poll::Ready(())
     }
 }

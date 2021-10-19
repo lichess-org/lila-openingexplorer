@@ -22,15 +22,14 @@ use tokio::sync::watch;
 
 use crate::{
     api::{
-        Error, GameRow, GameRowWithUci, PersonalMoveRow, PersonalQuery, PersonalQueryFilter,
-        PersonalResponse,
-        NdJson,
+        Error, GameRow, GameRowWithUci, NdJson, PersonalMoveRow, PersonalQuery,
+        PersonalQueryFilter, PersonalResponse,
     },
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
     model::{PersonalKeyBuilder, PersonalKeyPrefix, UserId},
     opening::{Opening, Openings},
-    util::{DeduplicateStreamExt as _},
+    util::DeduplicateStreamExt as _,
 };
 
 #[derive(Clap)]
