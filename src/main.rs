@@ -18,7 +18,7 @@ use axum::{
 use clap::Clap;
 use futures_util::stream::Stream;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
-use tokio::sync::oneshot;
+use tokio::sync::watch;
 
 use crate::{
     api::{
@@ -27,7 +27,7 @@ use crate::{
     },
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
-    model::{PersonalKeyBuilder, PersonalKeyPrefix},
+    model::{PersonalKeyBuilder, PersonalKeyPrefix, UserId},
     opening::{Opening, Openings},
     util::NdJson,
 };
@@ -109,7 +109,7 @@ async fn personal_property(
 }
 
 struct PersonalStreamState {
-    indexing: Option<oneshot::Receiver<()>>,
+    indexing: Option<watch::Receiver<()>>,
     key: PersonalKeyPrefix,
     db: Arc<Database>,
     filter: PersonalQueryFilter,
@@ -125,11 +125,8 @@ async fn personal(
     Extension(indexer): Extension<IndexerStub>,
     Query(query): Query<PersonalQuery>,
 ) -> Result<NdJson<impl Stream<Item = PersonalResponse>>, Error> {
-    let indexing = if query.update {
-        Some(indexer.index_player(query.player.clone()).await)
-    } else {
-        None
-    };
+    let player = UserId::from(query.player);
+    let indexing = indexer.index_player(&player, query.update).await;
 
     let variant = query.variant.into();
 
@@ -140,7 +137,7 @@ async fn personal(
 
     let opening = openings.classify_and_play(&mut pos, query.play)?;
 
-    let key = PersonalKeyBuilder::with_user_pov(&query.player.into(), query.color)
+    let key = PersonalKeyBuilder::with_user_pov(&player, query.color)
         .with_zobrist(variant, pos.zobrist_hash());
 
     let state = PersonalStreamState {
@@ -165,7 +162,7 @@ async fn personal(
             state.done = match state.indexing {
                 Some(ref mut indexing) => {
                     tokio::select! {
-                        _ = indexing => true,
+                        _ = indexing.changed() => true,
                         _ = tokio::time::sleep(Duration::from_millis(if first { 200 } else { 1000 })) => false,
                     }
                 }

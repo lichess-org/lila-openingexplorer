@@ -14,7 +14,7 @@ use tokio_util::io::StreamReader;
 use crate::{
     api::LilaVariant,
     indexer::IndexerOpt,
-    model::{GameId, Speed, UserName},
+    model::{GameId, Speed, UserId, UserName},
     util::ByColorDef,
 };
 
@@ -33,7 +33,7 @@ impl Lila {
 
     pub async fn user_games(
         &self,
-        user: &UserName,
+        user: &UserId,
         since_created_at: u64,
     ) -> Result<impl Stream<Item = Result<Game, io::Error>>, reqwest::Error> {
         // https://lichess.org/api#operation/apiGamesUser
@@ -41,7 +41,8 @@ impl Lila {
             .client
             .get(format!(
                 "{}/api/games/user/{}?sort=dateAsc&ongoing=true",
-                self.opt.lila, user
+                self.opt.lila,
+                user.as_str()
             ))
             .query(&[("since", since_created_at)])
             .header("Accept", "application/x-ndjson");

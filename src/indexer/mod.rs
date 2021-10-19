@@ -1,8 +1,11 @@
 use std::{
-    collections::hash_map::RandomState,
+    collections::{
+        hash_map::{Entry, RandomState},
+        HashMap,
+    },
     hash::{BuildHasher, Hash, Hasher},
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use axum::http::StatusCode;
@@ -15,8 +18,8 @@ use shakmaty::{
 };
 use tokio::{
     sync::{
-        mpsc::{self, error::SendTimeoutError},
-        oneshot,
+        mpsc::{self, error::TrySendError},
+        watch, RwLock,
     },
     task::JoinHandle,
 };
@@ -25,9 +28,8 @@ use crate::{
     db::Database,
     model::{
         GameInfo, GameInfoPlayer, Mode, Month, PersonalEntry, PersonalKeyBuilder, PersonalStatus,
-        UserId, UserName,
+        UserId,
     },
-    util::NevermindExt as _,
 };
 
 mod lila;
@@ -46,12 +48,15 @@ pub struct IndexerOpt {
 
 #[derive(Clone)]
 pub struct IndexerStub {
+    indexing: Arc<RwLock<HashMap<UserId, watch::Sender<()>>>>,
     random_state: RandomState,
     txs: Vec<mpsc::Sender<IndexerMessage>>,
 }
 
 impl IndexerStub {
     pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, Vec<JoinHandle<()>>) {
+        let random_state = RandomState::new();
+        let indexing = Arc::new(RwLock::new(HashMap::new()));
         let mut txs = Vec::with_capacity(opt.indexers);
         let mut join_handles = Vec::with_capacity(opt.indexers);
         for idx in 0..opt.indexers {
@@ -61,45 +66,71 @@ impl IndexerStub {
                 IndexerActor {
                     idx,
                     rx,
-                    db: db.clone(),
+                    indexing: Arc::clone(&indexing),
+                    db: Arc::clone(&db),
                     lila: Lila::new(opt.clone()),
                 }
                 .run(),
             ));
         }
-        let random_state = RandomState::new();
-        (IndexerStub { txs, random_state }, join_handles)
+        (
+            IndexerStub {
+                random_state,
+                indexing,
+                txs,
+            },
+            join_handles,
+        )
     }
 
-    pub async fn index_player(&self, player: UserName) -> oneshot::Receiver<()> {
-        let (req, res) = oneshot::channel();
-
-        let mut responsible_indexer = self.random_state.build_hasher();
-        UserId::from(player.clone()).hash(&mut responsible_indexer);
-
-        match self.txs[responsible_indexer.finish() as usize % self.txs.len()]
-            .send_timeout(
-                IndexerMessage::IndexPlayer {
-                    player,
-                    callback: req,
-                },
-                Duration::from_secs(10),
-            )
-            .await
+    pub async fn index_player(&self, player: &UserId, force: bool) -> Option<watch::Receiver<()>> {
+        // Optimization: First try subscribing to an existing indexing run,
+        // without acquiring a write lock.
         {
-            Ok(_) => (),
-            Err(SendTimeoutError::Timeout(_)) => {
-                log::error!("indexer queue full for more than 10 seconds")
-            }
-            Err(SendTimeoutError::Closed(_)) => panic!("indexer died"),
+            let guard = self.indexing.read().await;
+            if let Some(sender) = guard.get(player) {
+                return Some(sender.subscribe());
+            } else if !force {
+                return None;
+            };
+        }
+
+        let responsible_indexer = {
+            let mut hasher = self.random_state.build_hasher();
+            player.hash(&mut hasher);
+            hasher.finish() as usize % self.txs.len()
         };
 
-        res
+        let mut guard = self.indexing.write().await;
+        let entry = match guard.entry(player.to_owned()) {
+            Entry::Occupied(entry) => return Some(entry.get().subscribe()),
+            Entry::Vacant(entry) => entry,
+        };
+
+        match self.txs[responsible_indexer].try_send(IndexerMessage::IndexPlayer {
+            player: player.to_owned(),
+        }) {
+            Ok(_) => {
+                let (sender, receiver) = watch::channel(());
+                entry.insert(sender);
+                Some(receiver)
+            }
+            Err(TrySendError::Full(_)) => {
+                log::error!(
+                    "indexer {}: not queuing {} because indexer queue is full",
+                    responsible_indexer,
+                    player.as_str()
+                );
+                None
+            }
+            Err(TrySendError::Closed(_)) => panic!("indexer {} died", responsible_indexer),
+        }
     }
 }
 
 struct IndexerActor {
     idx: usize,
+    indexing: Arc<RwLock<HashMap<UserId, watch::Sender<()>>>>,
     rx: mpsc::Receiver<IndexerMessage>,
     db: Arc<Database>,
     lila: Lila,
@@ -109,20 +140,21 @@ impl IndexerActor {
     async fn run(mut self) {
         while let Some(msg) = self.rx.recv().await {
             match msg {
-                IndexerMessage::IndexPlayer { callback, player } => {
-                    self.index_player(player).await;
-                    callback.send(()).nevermind("requester gone away");
+                IndexerMessage::IndexPlayer { player } => {
+                    self.index_player(&player).await;
+
+                    let mut guard = self.indexing.write().await;
+                    guard.remove(&player);
                 }
             }
         }
     }
 
-    async fn index_player(&self, player: UserName) {
-        let player_id = UserId::from(player.clone());
+    async fn index_player(&self, player: &UserId) {
         let mut status = self
             .db
             .queryable()
-            .get_player_status(&player_id)
+            .get_player_status(player)
             .expect("get player status")
             .unwrap_or_default();
 
@@ -132,7 +164,7 @@ impl IndexerActor {
         {
             Some(since) => since,
             None => {
-                log::debug!("not reindexing {} so soon", player);
+                log::debug!("not reindexing {} so soon", player.as_str());
                 return;
             }
         };
@@ -140,13 +172,13 @@ impl IndexerActor {
         log::info!(
             "indexer {} starting {} (created_at >= {})",
             self.idx,
-            player,
+            player.as_str(),
             since_created_at
         );
-        let mut games = match self.lila.user_games(&player, since_created_at).await {
+        let mut games = match self.lila.user_games(player, since_created_at).await {
             Ok(games) => games,
             Err(err) if err.status() == Some(StatusCode::NOT_FOUND) => {
-                log::warn!("indexer did not find player {}", player);
+                log::warn!("indexer did not find player {}", player.as_str());
                 return;
             }
             Err(err) => {
@@ -155,7 +187,7 @@ impl IndexerActor {
             }
         };
 
-        let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(&player_id, color));
+        let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(&player, color));
         let mut num_games = 0;
         while let Some(game) = games.next().await {
             let game = match game {
@@ -166,7 +198,7 @@ impl IndexerActor {
                 }
             };
 
-            self.index_game(&player, &hash, game, &mut status);
+            self.index_game(player, &hash, game, &mut status);
 
             num_games += 1;
             if num_games % 1024 == 0 {
@@ -174,7 +206,7 @@ impl IndexerActor {
                     "indexer {}: indexed {} games for {}",
                     self.idx,
                     num_games,
-                    player
+                    player.as_str()
                 );
             }
         }
@@ -182,19 +214,19 @@ impl IndexerActor {
         status.indexed_at = SystemTime::now();
         self.db
             .queryable()
-            .put_player_status(&player_id, status)
+            .put_player_status(player, status)
             .expect("put player status");
         log::info!(
             "indexer {}: finished indexing {} games for {}",
             self.idx,
             num_games,
-            player
+            player.as_str()
         );
     }
 
     fn index_game(
         &self,
-        player: &UserName,
+        player: &UserId,
         hash: &ByColor<PersonalKeyBuilder>,
         game: Game,
         status: &mut PersonalStatus,
@@ -214,12 +246,18 @@ impl IndexerActor {
             return;
         }
 
-        let color = if Some(player) == game.user_name(Color::White) {
+        let color = if game
+            .user_name(Color::White)
+            .map_or(false, |user| player == user)
+        {
             Color::White
-        } else if Some(player) == game.user_name(Color::Black) {
+        } else if game
+            .user_name(Color::Black)
+            .map_or(false, |user| player == user)
+        {
             Color::Black
         } else {
-            log::error!("{} did not play in {}", player, game.id);
+            log::error!("{} did not play in {}", player.as_str(), game.id);
             return;
         };
         let month = Month::from_time_saturating(game.last_move_at);
@@ -308,8 +346,5 @@ impl IndexerActor {
 }
 
 enum IndexerMessage {
-    IndexPlayer {
-        player: UserName,
-        callback: oneshot::Sender<()>,
-    },
+    IndexPlayer { player: UserId },
 }

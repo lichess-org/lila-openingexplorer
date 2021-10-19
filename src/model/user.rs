@@ -56,9 +56,15 @@ impl PartialEq for UserName {
     }
 }
 
+impl PartialEq<UserId> for UserName {
+    fn eq(&self, other: &UserId) -> bool {
+        self.0.eq_ignore_ascii_case(&other.0)
+    }
+}
+
 impl Eq for UserName {}
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct UserId(String);
 
 impl From<UserName> for UserId {
@@ -71,5 +77,11 @@ impl From<UserName> for UserId {
 impl UserId {
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl PartialEq<UserName> for UserId {
+    fn eq(&self, other: &UserName) -> bool {
+        self.0.eq_ignore_ascii_case(&other.0)
     }
 }

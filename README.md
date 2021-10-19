@@ -35,12 +35,9 @@ since | string | `0000/01` | Year/Month. Filter for games played in this month o
 until | string | `3000/12` | Year/Month. Filter for games played in this month or earlier
 update | bool | `false` | Index new games from lila
 
-Response: Streamed `application/x-ndjson` with rows as follows.
-
-If `update` has not been requested the stream immediately terminates after
-the first row. Otherwise updated rows will be streamed until indexing has been
-completed. Updates are throttled. The same row may be repeated to avoid
-timeouts.
+Response: Streamed `application/x-ndjson` with rows as follows. The stream
+terminates as soon as indexing is complete. Updates are throttled. The same row
+may be repeated to avoid timeouts.
 
 ```js
 {
@@ -109,11 +106,10 @@ At each point in time, there will never be more than one game stream requested
 for each player, and no more than `--indexers` (default 16) in total.
 
 Indexing requests are added to a bounded queue. If the queue is full,
-backpressure is applied to the HTTP request that tried to queue it, eventually
-discarding the request if it takes longer than a timeout.
+the indexing request will be ignored.
 
-Indexing requests are ignored if they are submitted within 60 seconds of the
-last indexing request for the same player, but it is ok to have multiple
+Indexing requests are also ignored if they are submitted within 60 seconds of
+the last indexing request for the same player, but it is ok to have multiple
 concurrent streams watching one indexing process. Ongoing games are revisited
 only once every 24 hours.
 
