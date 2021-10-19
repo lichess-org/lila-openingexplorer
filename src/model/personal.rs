@@ -209,14 +209,6 @@ impl PersonalEntry {
             Vec::with_capacity(MAX_PERSONAL_GAMES as usize);
 
         for (uci, sub_entry) in self.sub_entries {
-            let san = uci.to_move(pos).map_or(
-                SanPlus {
-                    san: San::Null,
-                    suffix: None,
-                },
-                |m| SanPlus::from_move(pos.clone(), &m),
-            );
-
             let mut latest_game: Option<(u64, GameId)> = None;
             let mut stats = Stats::default();
 
@@ -254,14 +246,24 @@ impl PersonalEntry {
                 }
             }
 
-            total += stats.clone();
+            if !stats.is_empty() || latest_game.is_some() {
+                let san = uci.to_move(pos).map_or(
+                    SanPlus {
+                        san: San::Null,
+                        suffix: None,
+                    },
+                    |m| SanPlus::from_move(pos.clone(), &m),
+                );
 
-            moves.push(FilteredPersonalMoveRow {
-                uci,
-                san,
-                stats,
-                game: latest_game.map(|(_, id)| id),
-            });
+                moves.push(FilteredPersonalMoveRow {
+                    uci,
+                    san,
+                    stats: stats.clone(),
+                    game: latest_game.map(|(_, id)| id),
+                });
+
+                total += stats;
+            }
         }
 
         moves.sort_by_key(|row| Reverse(row.stats.total()));
