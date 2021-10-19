@@ -270,35 +270,22 @@ impl IndexerActor {
             }
         };
 
-        let month = Month::from_time_saturating(game.last_move_at);
-        let outcome = Outcome::from_winner(game.winner);
-
+        // Skip game if already indexed from this side. This cannot race with
+        // writes, because all writes for the same player are sequenced by
+        // this actor. So making a transaction is not required.
         let queryable = self.db.queryable();
         if queryable
             .get_game_info(game.id)
             .expect("get game info")
             .map_or(false, |info| info.indexed.into_color(color))
         {
-            log::debug!("{}/{} already indexed", game.id, color,);
+            log::debug!("{}/{} already indexed", game.id, color);
             return;
         }
 
-        let mut batch = queryable.batch();
-        batch.merge_game_info(
-            game.id,
-            GameInfo {
-                winner: outcome.winner(),
-                speed: game.speed,
-                rated: game.rated,
-                month,
-                players: game.players.map(|p| GameInfoPlayer {
-                    name: p.user.map(|p| p.name.to_string()),
-                    rating: p.rating,
-                }),
-                indexed: ByColor::new_with(|c| color == c),
-            },
-        );
-
+        // Prepare basic information and setup initial position.
+        let month = Month::from_time_saturating(game.last_move_at);
+        let outcome = Outcome::from_winner(game.winner);
         let variant = game.variant.into();
         let pos = match game.initial_fen {
             Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960),
@@ -332,6 +319,26 @@ impl IndexerActor {
             pos.play_unchecked(&m);
         }
 
+        // Write to database. All writes regarding this game are batched and
+        // atomically committed, so the database will always be in a consistent
+        // state.
+        let mut batch = queryable.batch();
+
+        batch.merge_game_info(
+            game.id,
+            GameInfo {
+                winner: outcome.winner(),
+                speed: game.speed,
+                rated: game.rated,
+                month,
+                players: game.players.map(|p| GameInfoPlayer {
+                    name: p.user.map(|p| p.name.to_string()),
+                    rating: p.rating,
+                }),
+                indexed: ByColor::new_with(|c| color == c),
+            },
+        );
+
         for (zobrist, uci) in table {
             batch.merge_personal(
                 hash.by_color(color)
@@ -347,7 +354,7 @@ impl IndexerActor {
             );
         }
 
-        batch.write().expect("atomically commit game");
+        batch.write().expect("atomically commit game and moves");
     }
 }
 
