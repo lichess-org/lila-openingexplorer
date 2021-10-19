@@ -50,6 +50,7 @@ async fn main() {
             .write_style("EXPLORER_LOG_STYLE"),
     )
     .format_timestamp(None)
+    .format_module_path(false)
     .init();
 
     let opt = Opt::parse();
