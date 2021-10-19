@@ -196,7 +196,7 @@ impl IndexerActor {
             }
         };
 
-        let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(&player, color));
+        let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(player, color));
         let mut num_games = 0;
         while let Some(game) = games.next().await {
             let game = match game {
