@@ -210,7 +210,7 @@ impl IndexerActor {
         }
 
         if game.status.is_unindexable() {
-            log::debug!("{} not indexable", game.id);
+            log::debug!("{} with {:?} not indexable", game.id, game.status);
             return;
         }
 
