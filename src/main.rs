@@ -163,11 +163,12 @@ async fn personal(
                 Some(ref mut indexing) => {
                     tokio::select! {
                         _ = indexing.changed() => true,
-                        _ = tokio::time::sleep(Duration::from_millis(if first { 200 } else { 1000 })) => false,
+                        _ = tokio::time::sleep(Duration::from_millis(if first { 60 } else { 1000 })) => false,
                     }
                 }
                 None => true,
             };
+
             let queryable = state.db.queryable();
             let filtered = queryable
                 .get_personal(&state.key, state.filter.since, state.filter.until)
