@@ -24,12 +24,13 @@ use crate::{
     api::{
         Error, GameRow, GameRowWithUci, PersonalMoveRow, PersonalQuery, PersonalQueryFilter,
         PersonalResponse,
+        NdJson,
     },
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
     model::{PersonalKeyBuilder, PersonalKeyPrefix, UserId},
     opening::{Opening, Openings},
-    util::{DeduplicateStreamExt as _, NdJson},
+    util::{DeduplicateStreamExt as _},
 };
 
 #[derive(Clap)]
