@@ -273,7 +273,7 @@ impl IndexerActor {
             log::debug!(
                 "{}/{} already indexed",
                 game.id,
-                color.fold("white", "black")
+                color,
             );
             return;
         }

@@ -302,7 +302,7 @@ pub struct PersonalKeyBuilder {
 impl PersonalKeyBuilder {
     pub fn with_user_pov(user: &UserId, color: Color) -> PersonalKeyBuilder {
         let mut hash = Sha1::new();
-        hash.update(color.fold(b"w", b"b"));
+        hash.update(&[color.char() as u8]);
         hash.update(user.as_str());
         let buf = hash.finalize();
         PersonalKeyBuilder {
