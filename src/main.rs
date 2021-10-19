@@ -149,7 +149,7 @@ async fn personal(
         done: false,
     };
 
-    Ok(NdJson::new(futures_util::stream::unfold(
+    Ok(NdJson(futures_util::stream::unfold(
         state,
         |mut state| async move {
             if state.done {

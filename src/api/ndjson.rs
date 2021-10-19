@@ -20,15 +20,7 @@ use tokio::{
     time::{Instant, Sleep},
 };
 
-pub struct NdJson<S> {
-    stream: S,
-}
-
-impl<S> NdJson<S> {
-    pub fn new(stream: S) -> NdJson<S> {
-        NdJson { stream }
-    }
-}
+pub struct NdJson<S>(pub S);
 
 impl<S, T> IntoResponse for NdJson<S>
 where
@@ -43,7 +35,7 @@ where
             .header("X-Accel-Buffering", "no")
             .header(axum::http::header::CONTENT_TYPE, "application/x-ndjson")
             .body(NdJsonBody {
-                stream: SyncWrapper::new(self.stream),
+                stream: SyncWrapper::new(self.0),
                 keep_alive: time::sleep(Duration::from_secs(8)),
             })
             .unwrap()
