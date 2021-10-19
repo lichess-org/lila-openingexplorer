@@ -29,7 +29,7 @@ use crate::{
     indexer::{IndexerOpt, IndexerStub},
     model::{PersonalKeyBuilder, PersonalKeyPrefix, UserId},
     opening::{Opening, Openings},
-    util::NdJson,
+    util::{DeduplicateStreamExt as _, NdJson},
 };
 
 #[derive(Clap)]
@@ -163,7 +163,7 @@ async fn personal(
                 Some(ref mut indexing) => {
                     tokio::select! {
                         _ = indexing.changed() => true,
-                        _ = tokio::time::sleep(Duration::from_millis(if first { 60 } else { 1000 })) => false,
+                        _ = tokio::time::sleep(Duration::from_millis(if first { 0 } else { 1000 })) => false,
                     }
                 }
                 None => true,
@@ -210,5 +210,5 @@ async fn personal(
                 state,
             ))
         },
-    )))
+    ).deduplicate_by(|res: &PersonalResponse| res.total.total())))
 }
