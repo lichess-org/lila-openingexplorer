@@ -2,13 +2,15 @@ lila-openingexplorer3
 =====================
 
 Personal opening explorer
-[under development](https://github.com/niklasf/lila-openingexplorer3/projects/1).
+[under development](https://github.com/niklasf/lila-openingexplorer3/projects/1)
+and maybe future replacement for [lila-openingexplorer](https://github.com/niklasf/lila-openingexplorer).
 
 Usage
 -----
 
 ```sh
-EXPLORER_LOG=lila_openingexplorer3=debug cargo run --release -- --lila https://lichess:***@lichess.dev --bearer lip_***
+git submodule update --init
+EXPLORER_LOG=lila_openingexplorer3=debug cargo run -- --lila https://lichess:***@lichess.dev --bearer lip_***
 ```
 
 HTTP API
@@ -17,7 +19,7 @@ HTTP API
 Example:
 
 ```
-curl http://localhost:9000/personal?player=foo&color=white&play=e2e4
+curl https://explorer.lichess.ovh/personal?player=foo&color=white&play=e2e4
 ```
 
 Query parameters:
@@ -34,9 +36,12 @@ speeds | string | *all* | Comma separated list of speeds (`ultraBullet`, `bullet
 since | string | `0000-01` | Year-Month. Filter for games played in this month or later
 until | string | `3000-12` | Year-Month. Filter for games played in this month or earlier
 
-Response: Streamed `application/x-ndjson` with rows as follows. The stream
-terminates as soon as indexing is complete. Updates are throttled. Empty lines
-may be sent to avoid timeouts.
+Response: Streamed [`application/x-ndjson`](http://ndjson.org/)
+with rows as follows.
+
+Will start indexing, immediately respond with the current results,
+and stream more updates until indexing is complete. The stream is throttled
+and deduplicated. Empty lines may be sent to avoid timeouts.
 
 ```js
 {
@@ -107,8 +112,11 @@ for each player, and no more than `--indexers` (default 16) in total.
 Indexing requests are added to a bounded queue. If the queue is full,
 the indexing request will be ignored.
 
+Once started, indexing will run until completed, even if all requesters
+disconnect.
+
 Indexing requests are also ignored if they are submitted within 60 seconds of
-the last indexing request for the same player, but it is ok to have multiple
+the last indexing request for the same player, but there can be multiple
 concurrent streams watching one indexing process. Ongoing games are revisited
 only once every 24 hours.
 
