@@ -47,6 +47,7 @@ pub struct IndexerOpt {
 
 #[derive(Clone)]
 pub struct IndexerStub {
+    db: Arc<Database>,
     indexing: Arc<RwLock<HashMap<UserId, watch::Sender<()>>>>,
     random_state: RandomState,
     txs: Vec<mpsc::Sender<IndexerMessage>>,
@@ -74,6 +75,7 @@ impl IndexerStub {
         }
         (
             IndexerStub {
+                db,
                 random_state,
                 indexing,
                 txs,
@@ -92,6 +94,23 @@ impl IndexerStub {
             }
         }
 
+        // Check player indexing status.
+        let mut status = self
+            .db
+            .queryable()
+            .get_player_status(player)
+            .expect("get player status")
+            .unwrap_or_default();
+
+        let since_created_at = match status
+            .maybe_revisit_ongoing()
+            .or_else(|| status.maybe_index())
+        {
+            Some(since) => since,
+            None => return None, // Do not reindex so soon!
+        };
+
+        // Queue indexing request.
         let responsible_indexer = {
             let mut hasher = self.random_state.build_hasher();
             player.hash(&mut hasher);
@@ -106,6 +125,8 @@ impl IndexerStub {
 
         match self.txs[responsible_indexer].try_send(IndexerMessage::IndexPlayer {
             player: player.to_owned(),
+            status,
+            since_created_at,
         }) {
             Ok(_) => {
                 let (sender, receiver) = watch::channel(());
@@ -137,8 +158,8 @@ impl IndexerActor {
     async fn run(mut self) {
         while let Some(msg) = self.rx.recv().await {
             match msg {
-                IndexerMessage::IndexPlayer { player } => {
-                    self.index_player(&player).await;
+                IndexerMessage::IndexPlayer { player, status, since_created_at } => {
+                    self.index_player(&player, status, since_created_at).await;
 
                     let mut guard = self.indexing.write().await;
                     guard.remove(&player);
@@ -147,25 +168,7 @@ impl IndexerActor {
         }
     }
 
-    async fn index_player(&self, player: &UserId) {
-        let mut status = self
-            .db
-            .queryable()
-            .get_player_status(player)
-            .expect("get player status")
-            .unwrap_or_default();
-
-        let since_created_at = match status
-            .maybe_revisit_ongoing()
-            .or_else(|| status.maybe_index())
-        {
-            Some(since) => since,
-            None => {
-                log::debug!("not reindexing {} so soon", player.as_str());
-                return;
-            }
-        };
-
+    async fn index_player(&self, player: &UserId, mut status: PersonalStatus, since_created_at: u64) {
         log::info!(
             "indexer {} starting {} (created_at >= {})",
             self.idx,
@@ -344,5 +347,5 @@ impl IndexerActor {
 }
 
 enum IndexerMessage {
-    IndexPlayer { player: UserId },
+    IndexPlayer { player: UserId, status: PersonalStatus, since_created_at: u64 },
 }
