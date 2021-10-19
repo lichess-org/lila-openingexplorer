@@ -62,6 +62,7 @@ impl Openings {
             }
         }
 
+        data.shrink_to_fit();
         Openings { data }
     }
 
