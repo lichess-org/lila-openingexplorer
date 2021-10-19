@@ -9,12 +9,12 @@ use crate::{
 
 mod error;
 mod fen;
-mod ndjson;
+mod nd_json;
 mod variant;
 
 pub use error::Error;
 pub use fen::LaxFen;
-pub use ndjson::NdJson;
+pub use nd_json::NdJson;
 pub use variant::LilaVariant;
 
 #[serde_as]
