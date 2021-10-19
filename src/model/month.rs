@@ -46,7 +46,7 @@ impl TryFrom<u16> for Month {
 
 impl fmt::Display for Month {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:04}/{:02}", self.0 / 12, self.0 % 12 + 1)
+        write!(f, "{:04}-{:02}", self.0 / 12, self.0 % 12 + 1)
     }
 }
 
@@ -54,7 +54,7 @@ impl FromStr for Month {
     type Err = InvalidMonth;
 
     fn from_str(s: &str) -> Result<Month, InvalidMonth> {
-        match s.split_once(|ch| ch == '/' || ch == '-') {
+        match s.split_once(|ch| ch == '-' || ch == '/') {
             Some((year_part, month_part)) => {
                 let year: u16 = year_part.parse().map_err(|_| InvalidMonth)?;
                 let month_plus_one: u16 = month_part.parse().map_err(|_| InvalidMonth)?;
