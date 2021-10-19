@@ -67,9 +67,6 @@ async fn main() {
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
-        .with_graceful_shutdown(async {
-            tokio::signal::ctrl_c().await.expect("wait for ctrl-c");
-        })
         .await
         .expect("bind");
 
