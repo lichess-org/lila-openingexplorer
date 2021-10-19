@@ -39,8 +39,10 @@ pub struct PersonalQuery {
 #[serde_as]
 #[derive(Deserialize, Debug)]
 pub struct PersonalQueryFilter {
+    #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, Mode>>")]
     #[serde(default)]
     pub modes: Option<Vec<Mode>>,
+    #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, Speed>>")]
     #[serde(default)]
     pub speeds: Option<Vec<Speed>>,
     #[serde_as(as = "DisplayFromStr")]

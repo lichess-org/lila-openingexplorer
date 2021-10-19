@@ -210,6 +210,7 @@ impl IndexerActor {
         }
 
         if game.status.is_unindexable() {
+            log::debug!("{} not indexable", game.id);
             return;
         }
 
@@ -218,6 +219,7 @@ impl IndexerActor {
         } else if Some(player) == game.user_name(Color::Black) {
             Color::Black
         } else {
+            log::error!("{} did not play in {}", player, game.id);
             return;
         };
         let month = Month::from_time_saturating(game.last_move_at);

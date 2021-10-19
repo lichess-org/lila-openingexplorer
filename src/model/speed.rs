@@ -24,6 +24,20 @@ impl Speed {
     ];
 }
 
+impl FromStr for Speed {
+    fn from_str(s: &str) -> Result<Speed, InvalidSpeed> {
+        Ok(match s {
+            "ultraBullet" => Speed::UltraBullet,
+            "bullet" => Speed::Bullet,
+            "blitz" => Speed::Blitz,
+            "rapid" =>  Speed::Rapid,
+            "classical" => Speed::Classical,
+            "correspondence" => Speed::Correspondence,
+            _ => return Err(InvalidSpeed),
+        })
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct BySpeed<T> {
     pub ultra_bullet: T,
