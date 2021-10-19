@@ -15,12 +15,14 @@ pub struct ByColorDef<T> {
     black: T,
 }
 
-pub trait DeduplicateStreamExt: Stream {
-    fn deduplicate_by<F, T>(self, f: F) -> DeduplicatedStream<Self, F, T>
+pub trait DedupStreamExt: Stream {
+    fn dedup_by_key<F, T>(self, f: F) -> Dedup<Self, F, T>
     where
         Self: Sized,
+        F: FnMut(&Self::Item) -> T,
+        T: PartialEq,
     {
-        DeduplicatedStream {
+        Dedup {
             stream: self,
             f,
             latest: None,
@@ -28,10 +30,10 @@ pub trait DeduplicateStreamExt: Stream {
     }
 }
 
-impl<S> DeduplicateStreamExt for S where S: Stream {}
+impl<S> DedupStreamExt for S where S: Stream {}
 
 pin_project! {
-    pub struct DeduplicatedStream<S, F, T> where S: Stream {
+    pub struct Dedup<S, F, T> where S: Stream {
         #[pin]
         stream: S,
         latest: Option<T>,
@@ -39,7 +41,7 @@ pin_project! {
     }
 }
 
-impl<S, F, T> Stream for DeduplicatedStream<S, F, T>
+impl<S, F, T> Stream for Dedup<S, F, T>
 where
     S: Stream,
     F: FnMut(&S::Item) -> T,

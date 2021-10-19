@@ -29,7 +29,7 @@ use crate::{
     indexer::{IndexerOpt, IndexerStub},
     model::{PersonalKeyBuilder, PersonalKeyPrefix, UserId},
     opening::{Opening, Openings},
-    util::DeduplicateStreamExt as _,
+    util::DedupStreamExt as _,
 };
 
 #[derive(Clap)]
@@ -207,5 +207,5 @@ async fn personal(
                 state,
             ))
         },
-    ).deduplicate_by(|res: &PersonalResponse| res.total.total())))
+    ).dedup_by_key(|res| res.total.total())))
 }
