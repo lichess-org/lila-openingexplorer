@@ -1,6 +1,8 @@
 use std::{
+    future::Future as _,
     pin::Pin,
     task::{Context, Poll},
+    time::Duration,
 };
 
 use axum::{
@@ -14,6 +16,10 @@ use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use shakmaty::ByColor;
 use sync_wrapper::SyncWrapper;
+use tokio::{
+    time,
+    time::{Instant, Sleep},
+};
 
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "ByColor")]
@@ -52,6 +58,7 @@ where
             .header(axum::http::header::CONTENT_TYPE, "application/x-ndjson")
             .body(NdJsonBody {
                 stream: SyncWrapper::new(self.stream),
+                keep_alive: time::sleep(Duration::from_secs(8)),
             })
             .unwrap()
     }
@@ -61,6 +68,8 @@ pin_project! {
     pub struct NdJsonBody<S> {
         #[pin]
         stream: SyncWrapper<S>,
+        #[pin]
+        keep_alive: Sleep,
     }
 }
 
@@ -76,18 +85,30 @@ where
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Self::Data, Self::Error>>> {
-        self.project()
-            .stream
-            .get_pin_mut()
-            .poll_next(cx)
-            .map(|item| {
-                item.map(|item| {
-                    serde_json::to_vec(&item).map(|mut buf| {
-                        buf.push(b'\n');
-                        Bytes::from(buf)
-                    })
+        let mut this = self.project();
+        match this.stream.get_pin_mut().poll_next(cx).map(|item| {
+            item.map(|item| {
+                serde_json::to_vec(&item).map(|mut buf| {
+                    buf.push(b'\n');
+                    Bytes::from(buf)
                 })
             })
+        }) {
+            Poll::Pending => match this.keep_alive.as_mut().poll(cx) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(_) => {
+                    this.keep_alive
+                        .reset(Instant::now() + Duration::from_secs(8));
+                    Poll::Ready(Some(Ok(Bytes::from("\n"))))
+                }
+            },
+            Poll::Ready(Some(Ok(event))) => {
+                this.keep_alive
+                    .reset(Instant::now() + Duration::from_secs(8));
+                Poll::Ready(Some(Ok(event)))
+            }
+            Poll::Ready(event) => Poll::Ready(event),
+        }
     }
 
     fn poll_trailers(

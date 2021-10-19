@@ -36,8 +36,8 @@ until | string | `3000/12` | Year/Month. Filter for games played in this month o
 update | bool | `false` | Index new games from lila
 
 Response: Streamed `application/x-ndjson` with rows as follows. The stream
-terminates as soon as indexing is complete. Updates are throttled. The same row
-may be repeated to avoid timeouts. Indexing will not start without the `update`
+terminates as soon as indexing is complete. Updates are throttled. Empty lines
+may be sent to avoid timeouts. Indexing will not start without the `update`
 flag.
 
 ```js
