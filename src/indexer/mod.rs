@@ -244,7 +244,6 @@ impl IndexerActor {
         }
 
         if game.players.any(|p| p.user.is_none()) {
-            log::debug!("not indexing {} vs anon or ai", game.id);
             return;
         }
 
