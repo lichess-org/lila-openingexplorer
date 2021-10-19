@@ -164,7 +164,7 @@ async fn personal(
                 Some(ref mut indexing) => {
                     tokio::select! {
                         _ = indexing => true,
-                        _ = tokio::time::sleep(Duration::from_millis(if first { 200 } else { 5000 })) => false,
+                        _ = tokio::time::sleep(Duration::from_millis(if first { 200 } else { 1000 })) => false,
                     }
                 }
                 None => true,
