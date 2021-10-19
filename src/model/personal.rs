@@ -424,9 +424,11 @@ impl PersonalStatus {
 mod tests {
     use std::io::Cursor;
 
+    use quickcheck::quickcheck;
     use shakmaty::Square;
 
     use super::*;
+    use crate::model::UserName;
 
     #[test]
     fn test_header_roundtrip() {
@@ -508,5 +510,15 @@ mod tests {
         assert_eq!(group.stats.draws, 0);
         assert_eq!(group.stats.black, 1);
         assert_eq!(group.games.len(), 2);
+    }
+
+    quickcheck! {
+        fn test_key_order(a: Month, b: Month) -> bool {
+            let user_id = UserId::from("blindfoldpig".parse::<UserName>().unwrap());
+            let prefix = PersonalKeyBuilder::with_user_pov(&user_id, Color::White)
+                .with_zobrist(Variant::Chess, 0xd1d06239bd7d2ae8ad6fa208133e1f9a);
+
+            (a <= b) == (prefix.with_month(a).into_bytes() <= prefix.with_month(b).into_bytes())
+        }
     }
 }

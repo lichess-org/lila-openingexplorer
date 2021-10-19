@@ -80,3 +80,16 @@ impl fmt::Display for InvalidMonth {
 }
 
 impl StdError for InvalidMonth {}
+
+#[cfg(test)]
+mod tests {
+    use quickcheck::{Arbitrary, Gen};
+
+    use super::*;
+
+    impl Arbitrary for Month {
+        fn arbitrary(g: &mut Gen) -> Month {
+            Month(u16::arbitrary(g) % (u16::from(Month::max_value()) + 1))
+        }
+    }
+}
