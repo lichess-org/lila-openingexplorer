@@ -62,7 +62,7 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
                 "id": "uPdCG6Ts",
                 "winner": "black",
                 "speed": "correspondence",
-                "rated": false,
+                "mode": "casual",
                 "white": {
                     "name": "foo",
                     "rating": 1500
@@ -83,7 +83,7 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
             "id": "uPdCG6Ts",
             "winner": "black",
             "speed": "correspondence",
-            "rated": false,
+            "mode": "casual",
             "white": {
                 "name": "foo",
                 "rating": 1500

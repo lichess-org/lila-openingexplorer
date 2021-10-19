@@ -1,8 +1,8 @@
 use std::{error::Error as StdError, fmt, ops::AddAssign, str::FromStr};
 
-use serde::Deserialize;
+use serde::Serialize;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Mode {
     Rated,

@@ -9,7 +9,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{ByColor, Color};
 
 use crate::{
-    model::{read_uint, write_uint, Month, Speed},
+    model::{read_uint, write_uint, Mode, Month, Speed},
     util::ByColorDef,
 };
 
@@ -19,7 +19,7 @@ pub struct GameInfo {
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub winner: Option<Color>,
     pub speed: Speed,
-    pub rated: bool,
+    pub mode: Mode,
     #[serde(flatten, with = "ByColorDef")]
     pub players: ByColor<GameInfoPlayer>,
     #[serde_as(as = "DisplayFromStr")]
@@ -45,7 +45,7 @@ impl GameInfo {
                 Some(Color::White) => 1,
                 None => 2,
             } << 3)
-                | (if self.rated { 1 } else { 0 } << 5)
+                | (if self.mode.is_rated() { 1 } else { 0 } << 5)
                 | (if self.indexed.white { 1 } else { 0 } << 6)
                 | (if self.indexed.black { 1 } else { 0 } << 7),
         )?;
@@ -71,7 +71,7 @@ impl GameInfo {
             2 => None,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
-        let rated = (byte >> 5) & 1 == 1;
+        let mode = Mode::from_rated((byte >> 5) & 1 == 1);
         let indexed = ByColor {
             white: (byte >> 6) & 1 == 1,
             black: (byte >> 7) & 1 == 1,
@@ -87,7 +87,7 @@ impl GameInfo {
         Ok(GameInfo {
             winner,
             speed,
-            rated,
+            mode,
             players,
             month,
             indexed,

@@ -359,7 +359,7 @@ impl IndexerActor {
             GameInfo {
                 winner: outcome.winner(),
                 speed: game.speed,
-                rated: game.rated,
+                mode: Mode::from_rated(game.rated),
                 month,
                 players: game.players.map(|p| GameInfoPlayer {
                     name: p.user.map(|p| p.name.to_string()),

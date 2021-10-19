@@ -189,7 +189,6 @@ fn game_merge(
         if let Some(old_info) = info {
             new_info.indexed.white |= old_info.indexed.white;
             new_info.indexed.black |= old_info.indexed.black;
-            new_info.rated &= old_info.rated;
         }
         info = Some(new_info);
         size_hint = op.len();
