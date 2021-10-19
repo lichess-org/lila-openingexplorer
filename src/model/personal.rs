@@ -259,7 +259,7 @@ impl PersonalEntry {
                     uci,
                     san,
                     stats: stats.clone(),
-                    game: latest_game.map(|(_, id)| id),
+                    game: latest_game.filter(|_| stats.is_single()).map(|(_, id)| id),
                 });
 
                 total += stats;

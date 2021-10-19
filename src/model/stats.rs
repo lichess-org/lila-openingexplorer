@@ -50,6 +50,10 @@ impl Stats {
         self.total() == 0
     }
 
+    pub fn is_single(&self) -> bool {
+        self.total() == 1
+    }
+
     pub fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
         Ok(match read_uint(reader)? {
             0 => Stats {

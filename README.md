@@ -56,9 +56,9 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
                         // more may transpose to resulting position.
             "draws": 1,
             "black": 9,
-            "game": { // latest game for this move.
-                      // perhaps useful to show when it is the only game
-                      // for the move
+            "game": { // only game for this move.
+                      // would not actually be sent, because there are multiple
+                      // in this case, but for example:
                 "id": "uPdCG6Ts",
                 "winner": "black",
                 "speed": "correspondence",
