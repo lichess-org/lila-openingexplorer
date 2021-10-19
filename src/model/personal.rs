@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::{BigEndian, ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
 use sha1::{Digest, Sha1};
 use shakmaty::{
@@ -344,7 +344,7 @@ impl PersonalKeyPrefix {
     pub fn with_month(&self, month: Month) -> PersonalKey {
         let mut buf = [0; PersonalKey::SIZE];
         buf[..PersonalKeyPrefix::SIZE].clone_from_slice(&self.prefix[..PersonalKeyPrefix::SIZE]);
-        LittleEndian::write_u16(&mut buf[PersonalKeyPrefix::SIZE..], u16::from(month));
+        BigEndian::write_u16(&mut buf[PersonalKeyPrefix::SIZE..], u16::from(month));
         PersonalKey(buf)
     }
 }
