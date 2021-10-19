@@ -32,8 +32,6 @@ pub struct PersonalQuery {
     pub color: Color,
     #[serde(flatten)]
     pub filter: PersonalQueryFilter,
-    #[serde(default)]
-    pub update: bool,
 }
 
 #[serde_as]

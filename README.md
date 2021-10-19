@@ -17,7 +17,7 @@ HTTP API
 Example:
 
 ```
-curl http://localhost:9000/personal?player=foo&color=white&play=e2e4&update=true
+curl http://localhost:9000/personal?player=foo&color=white&play=e2e4
 ```
 
 Query parameters:
@@ -33,12 +33,10 @@ modes | string | *all* | Comma separated list of game modes (`rated`, `casual`) 
 speeds | string | *all* | Comma separated list of speeds (`ultraBullet`, `bullet`, `blitz`, `rapid`, `classical`, `correspondence`) to filter for
 since | string | `0000-01` | Year-Month. Filter for games played in this month or later
 until | string | `3000-12` | Year-Month. Filter for games played in this month or earlier
-update | bool | `false` | Index new games from lila
 
 Response: Streamed `application/x-ndjson` with rows as follows. The stream
 terminates as soon as indexing is complete. Updates are throttled. Empty lines
-may be sent to avoid timeouts. Indexing will not start without the `update`
-flag.
+may be sent to avoid timeouts.
 
 ```js
 {

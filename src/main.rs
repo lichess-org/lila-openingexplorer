@@ -126,7 +126,7 @@ async fn personal(
     Query(query): Query<PersonalQuery>,
 ) -> Result<NdJson<impl Stream<Item = PersonalResponse>>, Error> {
     let player = UserId::from(query.player);
-    let indexing = indexer.index_player(&player, query.update).await;
+    let indexing = indexer.index_player(&player).await;
 
     let variant = query.variant.into();
 
