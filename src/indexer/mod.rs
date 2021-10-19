@@ -158,7 +158,11 @@ impl IndexerActor {
     async fn run(mut self) {
         while let Some(msg) = self.rx.recv().await {
             match msg {
-                IndexerMessage::IndexPlayer { player, status, since_created_at } => {
+                IndexerMessage::IndexPlayer {
+                    player,
+                    status,
+                    since_created_at,
+                } => {
                     self.index_player(&player, status, since_created_at).await;
 
                     let mut guard = self.indexing.write().await;
@@ -168,7 +172,12 @@ impl IndexerActor {
         }
     }
 
-    async fn index_player(&self, player: &UserId, mut status: PersonalStatus, since_created_at: u64) {
+    async fn index_player(
+        &self,
+        player: &UserId,
+        mut status: PersonalStatus,
+        since_created_at: u64,
+    ) {
         log::info!(
             "indexer {} starting {} (created_at >= {})",
             self.idx,
@@ -270,29 +279,25 @@ impl IndexerActor {
             .expect("get game info")
             .map_or(false, |info| info.indexed.into_color(color))
         {
-            log::debug!(
-                "{}/{} already indexed",
-                game.id,
-                color,
-            );
+            log::debug!("{}/{} already indexed", game.id, color,);
             return;
         }
-        queryable
-            .merge_game_info(
-                game.id,
-                GameInfo {
-                    winner: outcome.winner(),
-                    speed: game.speed,
-                    rated: game.rated,
-                    month,
-                    players: game.players.map(|p| GameInfoPlayer {
-                        name: p.user.map(|p| p.name.to_string()),
-                        rating: p.rating,
-                    }),
-                    indexed: ByColor::new_with(|c| color == c),
-                },
-            )
-            .expect("put game info");
+
+        let mut batch = queryable.batch();
+        batch.merge_game_info(
+            game.id,
+            GameInfo {
+                winner: outcome.winner(),
+                speed: game.speed,
+                rated: game.rated,
+                month,
+                players: game.players.map(|p| GameInfoPlayer {
+                    name: p.user.map(|p| p.name.to_string()),
+                    rating: p.rating,
+                }),
+                indexed: ByColor::new_with(|c| color == c),
+            },
+        );
 
         let variant = game.variant.into();
         let pos = match game.initial_fen {
@@ -328,24 +333,28 @@ impl IndexerActor {
         }
 
         for (zobrist, uci) in table {
-            queryable
-                .merge_personal(
-                    hash.by_color(color)
-                        .with_zobrist(variant, zobrist)
-                        .with_month(month),
-                    PersonalEntry::new_single(
-                        uci.clone(),
-                        game.speed,
-                        Mode::from_rated(game.rated),
-                        game.id,
-                        outcome,
-                    ),
-                )
-                .expect("merge personal");
+            batch.merge_personal(
+                hash.by_color(color)
+                    .with_zobrist(variant, zobrist)
+                    .with_month(month),
+                PersonalEntry::new_single(
+                    uci.clone(),
+                    game.speed,
+                    Mode::from_rated(game.rated),
+                    game.id,
+                    outcome,
+                ),
+            );
         }
+
+        batch.write().expect("atomically commit game");
     }
 }
 
 enum IndexerMessage {
-    IndexPlayer { player: UserId, status: PersonalStatus, since_created_at: u64 },
+    IndexPlayer {
+        player: UserId,
+        status: PersonalStatus,
+        since_created_at: u64,
+    },
 }

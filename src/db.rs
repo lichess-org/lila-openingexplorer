@@ -2,7 +2,7 @@ use std::{io::Cursor, path::Path};
 
 use rocksdb::{
     BlockBasedIndexType, BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode,
-    IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform, DB,
+    IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::model::{
@@ -69,10 +69,10 @@ impl Database {
 }
 
 pub struct QueryableDatabase<'a> {
-    pub db: &'a DB,
-    pub cf_personal: &'a ColumnFamily,
-    pub cf_game: &'a ColumnFamily,
-    pub cf_player: &'a ColumnFamily,
+    db: &'a DB,
+    cf_personal: &'a ColumnFamily,
+    cf_game: &'a ColumnFamily,
+    cf_player: &'a ColumnFamily,
 }
 
 impl QueryableDatabase<'_> {
@@ -88,29 +88,11 @@ impl QueryableDatabase<'_> {
         self.db.property_value_cf(self.cf_personal, name)
     }
 
-    pub fn merge_game_info(&self, id: GameId, info: GameInfo) -> Result<(), rocksdb::Error> {
-        let mut cursor = Cursor::new(Vec::with_capacity(GameInfo::SIZE_HINT));
-        info.write(&mut cursor).expect("serialize game info");
-        self.db
-            .merge_cf(self.cf_game, id.to_bytes(), cursor.into_inner())
-    }
-
     pub fn get_game_info(&self, id: GameId) -> Result<Option<GameInfo>, rocksdb::Error> {
         Ok(self.db.get_cf(self.cf_game, id.to_bytes())?.map(|buf| {
             let mut cursor = Cursor::new(buf);
             GameInfo::read(&mut cursor).expect("deserialize game info")
         }))
-    }
-
-    pub fn merge_personal(
-        &self,
-        key: PersonalKey,
-        entry: PersonalEntry,
-    ) -> Result<(), rocksdb::Error> {
-        let mut cursor = Cursor::new(Vec::with_capacity(PersonalEntry::SIZE_HINT));
-        entry.write(&mut cursor).expect("serialize personal entry");
-        self.db
-            .merge_cf(self.cf_personal, key.into_bytes(), cursor.into_inner())
     }
 
     pub fn get_personal(
@@ -139,6 +121,13 @@ impl QueryableDatabase<'_> {
         Ok(entry)
     }
 
+    pub fn get_player_status(&self, id: &UserId) -> Result<Option<PersonalStatus>, rocksdb::Error> {
+        Ok(self.db.get_cf(self.cf_player, id.as_str())?.map(|buf| {
+            let mut cursor = Cursor::new(buf);
+            PersonalStatus::read(&mut cursor).expect("deserialize status")
+        }))
+    }
+
     pub fn put_player_status(
         &self,
         id: &UserId,
@@ -150,11 +139,39 @@ impl QueryableDatabase<'_> {
             .put_cf(self.cf_player, id.as_str(), cursor.into_inner())
     }
 
-    pub fn get_player_status(&self, id: &UserId) -> Result<Option<PersonalStatus>, rocksdb::Error> {
-        Ok(self.db.get_cf(self.cf_player, id.as_str())?.map(|buf| {
-            let mut cursor = Cursor::new(buf);
-            PersonalStatus::read(&mut cursor).expect("deserialize status")
-        }))
+    pub fn batch(&self) -> Batch<'_> {
+        Batch {
+            queryable: self,
+            batch: WriteBatch::default(),
+        }
+    }
+}
+
+pub struct Batch<'a> {
+    queryable: &'a QueryableDatabase<'a>,
+    batch: WriteBatch,
+}
+
+impl Batch<'_> {
+    pub fn merge_personal(&mut self, key: PersonalKey, entry: PersonalEntry) {
+        let mut cursor = Cursor::new(Vec::with_capacity(PersonalEntry::SIZE_HINT));
+        entry.write(&mut cursor).expect("serialize personal entry");
+        self.batch.merge_cf(
+            self.queryable.cf_personal,
+            key.into_bytes(),
+            cursor.into_inner(),
+        );
+    }
+
+    pub fn merge_game_info(&mut self, id: GameId, info: GameInfo) {
+        let mut cursor = Cursor::new(Vec::with_capacity(GameInfo::SIZE_HINT));
+        info.write(&mut cursor).expect("serialize game info");
+        self.batch
+            .merge_cf(self.queryable.cf_game, id.to_bytes(), cursor.into_inner());
+    }
+
+    pub fn write(self) -> Result<(), rocksdb::Error> {
+        self.queryable.db.write(self.batch)
     }
 }
 
