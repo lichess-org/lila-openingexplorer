@@ -98,12 +98,6 @@ pub struct Game {
     pub initial_fen: Option<Fen>,
 }
 
-impl Game {
-    pub fn user_name(&self, color: Color) -> Option<&UserName> {
-        self.players.by_color(color).user.as_ref().map(|u| &u.name)
-    }
-}
-
 #[derive(Debug, Deserialize)]
 pub struct Player {
     #[serde(default)]

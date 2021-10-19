@@ -13,8 +13,7 @@ use clap::Clap;
 use futures_util::StreamExt;
 use rustc_hash::FxHashMap;
 use shakmaty::{
-    uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Color, Outcome,
-    Position,
+    uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Outcome, Position,
 };
 use tokio::{
     sync::{
@@ -246,20 +245,22 @@ impl IndexerActor {
             return;
         }
 
-        let color = if game
-            .user_name(Color::White)
-            .map_or(false, |user| player == user)
-        {
-            Color::White
-        } else if game
-            .user_name(Color::Black)
-            .map_or(false, |user| player == user)
-        {
-            Color::Black
-        } else {
-            log::error!("{} did not play in {}", player.as_str(), game.id);
+        if game.players.any(|p| p.user.is_none()) {
+            log::debug!("not indexing {} vs anon or ai", game.id);
             return;
+        }
+
+        let color = match game
+            .players
+            .find(|p| p.user.as_ref().map_or(false, |user| user.name == *player))
+        {
+            Some(color) => color,
+            None => {
+                log::error!("{} did not play in {}", player.as_str(), game.id);
+                return;
+            }
         };
+
         let month = Month::from_time_saturating(game.last_move_at);
         let outcome = Outcome::from_winner(game.winner);
 
