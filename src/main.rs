@@ -51,6 +51,7 @@ async fn main() {
     )
     .format_timestamp(None)
     .format_module_path(false)
+    .format_target(false)
     .init();
 
     let opt = Opt::parse();
