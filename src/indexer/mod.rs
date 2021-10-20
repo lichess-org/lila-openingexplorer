@@ -5,7 +5,7 @@ use std::{
     },
     hash::{BuildHasher, Hash, Hasher},
     sync::Arc,
-    time::SystemTime,
+    time::{Duration, Instant, SystemTime},
 };
 
 use axum::http::StatusCode;
@@ -183,12 +183,14 @@ impl IndexerActor {
         mut status: PersonalStatus,
         since_created_at: u64,
     ) {
+        let started_at = Instant::now();
         log::info!(
             "indexer {:02}: starting {} (created_at >= {})",
             self.idx,
             player.as_str(),
             since_created_at
         );
+
         let mut games = match self.lila.user_games(player, since_created_at).await {
             Ok(games) => games,
             Err(err) if err.status() == Some(StatusCode::NOT_FOUND) => {
@@ -234,11 +236,18 @@ impl IndexerActor {
             .queryable()
             .put_player_status(player, status)
             .expect("put player status");
+
+        let elapsed = started_at.elapsed();
         log::info!(
-            "indexer {:02}: finished {} games for {}",
+            "indexer {:02}: finished {} games for {} in {:?} ({:?}/game)",
             self.idx,
             num_games,
-            player.as_str()
+            player.as_str(),
+            elapsed,
+            (elapsed.as_nanos() as u64)
+                .checked_div(num_games)
+                .map(Duration::from_nanos)
+                .unwrap_or_default(),
         );
     }
 
