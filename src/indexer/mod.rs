@@ -324,6 +324,17 @@ impl IndexerActor {
             Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960),
             None => Ok(VariantPosition::new(variant)),
         };
+        let opponent_rating = match game.players.by_color(!color).rating {
+            Some(rating) => rating,
+            None => {
+                log::warn!(
+                    "indexer {:02}: skipping {} without opponent rating",
+                    self.idx,
+                    game.id
+                );
+                return;
+            }
+        };
 
         let mut pos: Zobrist<_, u128> = match pos {
             Ok(pos) => Zobrist::new(pos),
@@ -394,6 +405,7 @@ impl IndexerActor {
                     Mode::from_rated(game.rated),
                     game.id,
                     outcome,
+                    opponent_rating,
                 ),
             );
         }

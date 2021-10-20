@@ -66,11 +66,13 @@ pub struct PersonalResponse {
 
 #[serde_as]
 #[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct PersonalMoveRow {
     #[serde_as(as = "DisplayFromStr")]
     pub uci: Uci,
     #[serde_as(as = "DisplayFromStr")]
     pub san: SanPlus,
+    pub average_opponent_rating: Option<u64>,
     #[serde(flatten)]
     pub stats: Stats,
     pub game: Option<GameRow>,

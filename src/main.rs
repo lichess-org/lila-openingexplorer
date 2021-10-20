@@ -190,6 +190,7 @@ async fn personal(
                         .map(|row| PersonalMoveRow {
                             uci: row.uci,
                             san: row.san,
+                            average_opponent_rating: row.stats.average_rating(),
                             stats: row.stats,
                             game: row.game.and_then(|id| {
                                 queryable

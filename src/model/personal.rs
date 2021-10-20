@@ -105,10 +105,11 @@ impl PersonalEntry {
         mode: Mode,
         game_id: GameId,
         outcome: Outcome,
+        opponent_rating: u16,
     ) -> PersonalEntry {
         let mut sub_entry: BySpeed<ByMode<PersonalGroup>> = Default::default();
         *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = PersonalGroup {
-            stats: outcome.into(),
+            stats: Stats::new_single(outcome, opponent_rating),
             games: smallvec![(0, game_id)],
         };
         let mut sub_entries = FxHashMap::with_capacity_and_hasher(1, Default::default());
