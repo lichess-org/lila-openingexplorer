@@ -239,7 +239,7 @@ impl IndexerActor {
 
         let elapsed = started_at.elapsed();
         log::info!(
-            "indexer {:02}: finished {} games for {} in {:?} ({:?}/game)",
+            "indexer {:02}: finished {} games for {} in {:.3?} ({:.3?}/game, {:.1} games/s)",
             self.idx,
             num_games,
             player.as_str(),
@@ -248,6 +248,7 @@ impl IndexerActor {
                 .checked_div(num_games)
                 .map(Duration::from_nanos)
                 .unwrap_or_default(),
+            (num_games as f64) / elapsed.as_secs_f64()
         );
     }
 
