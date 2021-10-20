@@ -56,6 +56,7 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
                         // more may transpose to resulting position.
             "draws": 1,
             "black": 9,
+            "averageOpponentRating": 1500, // or null
             "game": { // only game for this move.
                       // would not actually be sent, because there are multiple
                       // in this case, but for example:
