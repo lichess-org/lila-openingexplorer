@@ -259,12 +259,6 @@ impl IndexerActor {
         }
 
         if game.status.is_unindexable() {
-            log::debug!(
-                "indexer {:02}: not indexing {} with status {:?}",
-                self.idx,
-                game.id,
-                game.status
-            );
             return;
         }
 
