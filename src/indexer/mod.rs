@@ -172,7 +172,7 @@ impl IndexerActor {
         );
 
         let mut games = match timeout(
-            Duration::from_secs(10),
+            Duration::from_secs(60),
             self.lila.user_games(player, since_created_at),
         )
         .await
@@ -201,7 +201,7 @@ impl IndexerActor {
 
         let mut num_games = 0;
         loop {
-            let game = match timeout(Duration::from_secs(10), games.next()).await {
+            let game = match timeout(Duration::from_secs(60), games.next()).await {
                 Ok(Some(Ok(game))) => game,
                 Ok(Some(Err(err))) => {
                     log::error!("indexer {:02}: {}", self.idx, err);
