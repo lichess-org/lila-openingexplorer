@@ -140,7 +140,7 @@ Column families
     * Zobrist hash of position and variant
   * Tree (2 byte)
     * Year and month
-* Value (>= 12 bytes)
+* Value (>= 14 bytes)
   * Move
     * Speed
       * Mode

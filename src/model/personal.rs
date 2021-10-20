@@ -97,7 +97,7 @@ pub struct PersonalEntry {
 }
 
 impl PersonalEntry {
-    pub const SIZE_HINT: usize = 12;
+    pub const SIZE_HINT: usize = 14;
 
     pub fn new_single(
         uci: Uci,
@@ -471,6 +471,7 @@ mod tests {
             Outcome::Decisive {
                 winner: Color::White,
             },
+            1600,
         );
 
         let b = PersonalEntry::new_single(
@@ -481,6 +482,7 @@ mod tests {
             Outcome::Decisive {
                 winner: Color::Black,
             },
+            1800,
         );
 
         let mut deserialized = PersonalEntry::default();
@@ -512,6 +514,7 @@ mod tests {
         assert_eq!(group.stats.white, 1);
         assert_eq!(group.stats.draws, 0);
         assert_eq!(group.stats.black, 1);
+        assert_eq!(group.stats.average_rating(), Some(1700));
         assert_eq!(group.games.len(), 2);
     }
 

@@ -137,6 +137,7 @@ mod tests {
     impl Arbitrary for Stats {
         fn arbitrary(g: &mut Gen) -> Self {
             Stats {
+                rating_sum: u64::from(u32::arbitrary(g)),
                 white: u64::from(u32::arbitrary(g)),
                 draws: u64::from(u32::arbitrary(g)),
                 black: u64::from(u32::arbitrary(g)),
