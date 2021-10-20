@@ -15,7 +15,7 @@ use shakmaty::{
 use tokio::{
     sync::{watch, RwLock},
     task::JoinHandle,
-    time,
+    time::{sleep, timeout},
 };
 
 use crate::{
@@ -171,9 +171,14 @@ impl IndexerActor {
             since_created_at
         );
 
-        let mut games = match self.lila.user_games(player, since_created_at).await {
-            Ok(games) => games,
-            Err(err) if err.status() == Some(StatusCode::NOT_FOUND) => {
+        let mut games = match timeout(
+            Duration::from_secs(10),
+            self.lila.user_games(player, since_created_at),
+        )
+        .await
+        {
+            Ok(Ok(games)) => games,
+            Ok(Err(err)) if err.status() == Some(StatusCode::NOT_FOUND) => {
                 log::warn!(
                     "indexer {:02}: did not find player {}",
                     self.idx,
@@ -181,21 +186,31 @@ impl IndexerActor {
                 );
                 return;
             }
-            Err(err) => {
+            Ok(Err(err)) => {
                 log::error!("indexer {:02}: request failed: {}", self.idx, err);
-                time::sleep(Duration::from_secs(5)).await;
+                sleep(Duration::from_secs(5)).await;
+                return;
+            }
+            Err(timed_out) => {
+                log::error!("indexer {:02}: request to lila: {}", self.idx, timed_out);
                 return;
             }
         };
 
         let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(player, color));
+
         let mut num_games = 0;
-        while let Some(game) = games.next().await {
-            let game = match game {
-                Ok(game) => game,
-                Err(err) => {
+        loop {
+            let game = match timeout(Duration::from_secs(10), games.next()).await {
+                Ok(Some(Ok(game))) => game,
+                Ok(Some(Err(err))) => {
                     log::error!("indexer {:02}: {}", self.idx, err);
                     continue;
+                }
+                Ok(None) => break,
+                Err(timed_out) => {
+                    log::error!("indexer {:02}: stream from lila: {}", self.idx, timed_out);
+                    return;
                 }
             };
 
