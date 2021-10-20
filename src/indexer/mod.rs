@@ -15,6 +15,7 @@ use shakmaty::{
 use tokio::{
     sync::{watch, RwLock},
     task::JoinHandle,
+    time,
 };
 
 use crate::{
@@ -182,6 +183,7 @@ impl IndexerActor {
             }
             Err(err) => {
                 log::error!("indexer {:02}: request failed: {}", self.idx, err);
+                time::sleep(Duration::from_secs(5)).await;
                 return;
             }
         };
