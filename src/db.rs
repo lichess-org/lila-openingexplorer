@@ -131,7 +131,7 @@ impl QueryableDatabase<'_> {
     pub fn put_player_status(
         &self,
         id: &UserId,
-        status: PersonalStatus,
+        status: &PersonalStatus,
     ) -> Result<(), rocksdb::Error> {
         let mut cursor = Cursor::new(Vec::with_capacity(PersonalStatus::SIZE_HINT));
         status.write(&mut cursor).expect("serialize status");

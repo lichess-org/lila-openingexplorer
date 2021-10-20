@@ -201,6 +201,11 @@ impl IndexerActor {
 
             num_games += 1;
             if num_games % 1024 == 0 {
+                self.db
+                    .queryable()
+                    .put_player_status(player, &status)
+                    .expect("put player status");
+
                 log::info!(
                     "indexer {:02}: indexed {} games for {} ...",
                     self.idx,
@@ -213,7 +218,7 @@ impl IndexerActor {
         status.indexed_at = SystemTime::now();
         self.db
             .queryable()
-            .put_player_status(player, status)
+            .put_player_status(player, &status)
             .expect("put player status");
 
         let elapsed = started_at.elapsed();
