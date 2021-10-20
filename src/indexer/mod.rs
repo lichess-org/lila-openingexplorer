@@ -84,6 +84,11 @@ impl IndexerStub {
         )
     }
 
+    pub async fn num_indexing(&self) -> usize {
+        let guard = self.indexing.read().await;
+        guard.len()
+    }
+
     pub async fn index_player(&self, player: &UserId) -> Option<watch::Receiver<()>> {
         // Optimization: First try subscribing to an existing indexing run,
         // without acquiring a write lock.

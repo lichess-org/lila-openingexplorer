@@ -64,6 +64,7 @@ async fn main() {
         .route("/admin/:prop", get(db_property))
         .route("/admin/game/:prop", get(game_property))
         .route("/admin/personal/:prop", get(personal_property))
+        .route("/admin/explorer.indexing", get(num_indexing))
         .route("/personal", get(personal))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
@@ -107,6 +108,10 @@ async fn personal_property(
         .personal_property(&prop)
         .expect("get property")
         .ok_or(StatusCode::NOT_FOUND)
+}
+
+async fn num_indexing(Extension(indexer): Extension<IndexerStub>) -> String {
+    indexer.num_indexing().await.to_string()
 }
 
 struct PersonalStreamState {
