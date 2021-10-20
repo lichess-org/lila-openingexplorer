@@ -1,13 +1,10 @@
 use std::{
-    collections::{
-        hash_map::{Entry, RandomState},
-        HashMap,
-    },
-    hash::{BuildHasher, Hash, Hasher},
+    collections::{hash_map::Entry, HashMap},
     sync::Arc,
     time::{Duration, Instant, SystemTime},
 };
 
+use async_channel::TrySendError;
 use axum::http::StatusCode;
 use clap::Clap;
 use futures_util::StreamExt;
@@ -16,10 +13,7 @@ use shakmaty::{
     uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Outcome, Position,
 };
 use tokio::{
-    sync::{
-        mpsc::{self, error::TrySendError},
-        watch, RwLock,
-    },
+    sync::{watch, RwLock},
     task::JoinHandle,
 };
 
@@ -49,23 +43,20 @@ pub struct IndexerOpt {
 pub struct IndexerStub {
     db: Arc<Database>,
     indexing: Arc<RwLock<HashMap<UserId, watch::Sender<()>>>>,
-    random_state: RandomState,
-    txs: Vec<mpsc::Sender<IndexerMessage>>,
+    tx: async_channel::Sender<IndexerMessage>,
 }
 
 impl IndexerStub {
     pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, Vec<JoinHandle<()>>) {
-        let random_state = RandomState::new();
         let indexing = Arc::new(RwLock::new(HashMap::new()));
-        let mut txs = Vec::with_capacity(opt.indexers);
+
+        let (tx, rx) = async_channel::bounded(1000);
         let mut join_handles = Vec::with_capacity(opt.indexers);
         for idx in 0..opt.indexers {
-            let (tx, rx) = mpsc::channel(500);
-            txs.push(tx);
             join_handles.push(tokio::spawn(
                 IndexerActor {
                     idx,
-                    rx,
+                    rx: rx.clone(),
                     indexing: Arc::clone(&indexing),
                     db: Arc::clone(&db),
                     lila: Lila::new(opt.clone()),
@@ -73,15 +64,8 @@ impl IndexerStub {
                 .run(),
             ));
         }
-        (
-            IndexerStub {
-                db,
-                random_state,
-                indexing,
-                txs,
-            },
-            join_handles,
-        )
+
+        (IndexerStub { db, indexing, tx }, join_handles)
     }
 
     pub async fn num_indexing(&self) -> usize {
@@ -116,19 +100,13 @@ impl IndexerStub {
         };
 
         // Queue indexing request.
-        let responsible_indexer = {
-            let mut hasher = self.random_state.build_hasher();
-            player.hash(&mut hasher);
-            hasher.finish() as usize % self.txs.len()
-        };
-
         let mut guard = self.indexing.write().await;
         let entry = match guard.entry(player.to_owned()) {
             Entry::Occupied(entry) => return Some(entry.get().subscribe()),
             Entry::Vacant(entry) => entry,
         };
 
-        match self.txs[responsible_indexer].try_send(IndexerMessage::IndexPlayer {
+        match self.tx.try_send(IndexerMessage::IndexPlayer {
             player: player.to_owned(),
             status,
             since_created_at,
@@ -140,13 +118,12 @@ impl IndexerStub {
             }
             Err(TrySendError::Full(_)) => {
                 log::error!(
-                    "indexer {:02}: not queuing {} because indexer queue is full",
-                    responsible_indexer,
+                    "not queuing {} because indexer queue is full",
                     player.as_str()
                 );
                 None
             }
-            Err(TrySendError::Closed(_)) => panic!("indexer {:02} died", responsible_indexer),
+            Err(TrySendError::Closed(_)) => panic!("all indexers died"),
         }
     }
 }
@@ -154,14 +131,14 @@ impl IndexerStub {
 struct IndexerActor {
     idx: usize,
     indexing: Arc<RwLock<HashMap<UserId, watch::Sender<()>>>>,
-    rx: mpsc::Receiver<IndexerMessage>,
+    rx: async_channel::Receiver<IndexerMessage>,
     db: Arc<Database>,
     lila: Lila,
 }
 
 impl IndexerActor {
-    async fn run(mut self) {
-        while let Some(msg) = self.rx.recv().await {
+    async fn run(self) {
+        while let Ok(msg) = self.rx.recv().await {
             match msg {
                 IndexerMessage::IndexPlayer {
                     player,

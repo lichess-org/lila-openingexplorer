@@ -13,6 +13,7 @@ keywords = ["chess", "lichess"]
 edition = "2018"
 
 [dependencies]
+async-channel = "1"
 axum = "0.2"
 byteorder = "1"
 bytes = "1"
