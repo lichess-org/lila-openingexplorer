@@ -239,18 +239,24 @@ impl IndexerActor {
             .expect("put player status");
 
         let elapsed = started_at.elapsed();
-        log::info!(
-            "indexer {:02}: finished {} games for {} in {:.3?} ({:.3?}/game, {:.1} games/s)",
-            self.idx,
-            num_games,
-            player.as_str(),
-            elapsed,
-            (elapsed.as_nanos() as u64)
-                .checked_div(num_games)
-                .map(Duration::from_nanos)
-                .unwrap_or_default(),
-            (num_games as f64) / elapsed.as_secs_f64()
-        );
+
+        if num_games > 0 {
+            log::info!(
+                "indexer {:02}: finished {} games for {} in {:.3?} ({:.3?}/game, {:.1} games/s)",
+                self.idx,
+                num_games,
+                player.as_str(),
+                elapsed,
+                Duration::from_nanos(elapsed.as_nanos() as u64) / num_games,
+                (num_games as f64) / elapsed.as_secs_f64()
+            );
+        } else {
+            log::info!(
+                "indexer {:02}: no new games for {}",
+                self.idx,
+                player.as_str()
+            );
+        }
     }
 
     fn index_game(

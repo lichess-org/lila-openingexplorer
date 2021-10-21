@@ -399,7 +399,12 @@ impl PersonalStatus {
         SystemTime::now()
             .duration_since(self.indexed_at)
             .map_or(false, |cooldown| cooldown > Duration::from_secs(60))
-            .then(|| self.latest_created_at)
+            .then(|| {
+                // Plus 1 millisecond, as an optimization to avoid overlap.
+                // Might miss games if the index run happens between games
+                // created in the same millisecond.
+                self.latest_created_at.saturating_add(1)
+            })
     }
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<PersonalStatus> {
