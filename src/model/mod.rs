@@ -1,5 +1,6 @@
 mod game_id;
 mod game_info;
+mod master;
 mod mode;
 mod month;
 mod personal;
