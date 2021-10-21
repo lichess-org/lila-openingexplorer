@@ -184,7 +184,7 @@ impl Batch<'_> {
             .merge_cf(self.queryable.cf_game, id.to_bytes(), cursor.into_inner());
     }
 
-    pub fn put_master_game(&mut self, id: GameId, game: MasterGame) {
+    pub fn put_master_game(&mut self, id: GameId, game: &MasterGame) {
         self.batch.put_cf(
             self.queryable.cf_master_game,
             id.to_bytes(),

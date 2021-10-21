@@ -1,10 +1,11 @@
 use std::{
+    cmp::Reverse,
     io,
     io::{Read, Write},
     ops::AddAssign,
 };
 
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
@@ -12,7 +13,7 @@ use shakmaty::{uci::Uci, ByColor, Color, Outcome};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    model::{read_uci, GameId, Stats},
+    model::{read_uci, write_uci, GameId, Stats},
     util::ByColorDef,
 };
 
@@ -96,6 +97,7 @@ impl MasterEntry {
             let group = self.groups.entry(uci).or_default();
 
             group.stats += Stats::read(reader)?;
+
             let num_games = reader.read_u8()?;
             group.games.reserve_exact(usize::from(num_games));
             for _ in 0..num_games {
@@ -107,6 +109,29 @@ impl MasterEntry {
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        todo!()
+        let mut top_games = Vec::new();
+        for group in self.groups.values() {
+            top_games.extend(&group.games);
+        }
+        top_games.sort_by_key(|(sort_key, _)| Reverse(*sort_key));
+        top_games.truncate(15);
+
+        for (uci, group) in &self.groups {
+            write_uci(writer, uci)?;
+
+            group.stats.write(writer)?;
+
+            let num_games = if group.games.len() == 1 {
+                1
+            } else {
+                group.games.iter().filter(|g| top_games.contains(g)).count()
+            };
+            writer.write_u8(num_games as u8)?;
+            for (sort_key, id) in &group.games {
+                writer.write_u16::<LittleEndian>(*sort_key)?;
+                id.write(writer)?;
+            }
+        }
+        Ok(())
     }
 }

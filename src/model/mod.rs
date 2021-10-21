@@ -12,6 +12,7 @@ mod user;
 
 pub use game_id::{GameId, InvalidGameId};
 pub use game_info::{GameInfo, GameInfoPlayer};
+pub use master::MasterGame;
 pub use mode::{ByMode, Mode};
 pub use month::Month;
 pub use personal::{

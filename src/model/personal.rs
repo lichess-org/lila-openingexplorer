@@ -181,7 +181,7 @@ impl PersonalEntry {
 
                         group.stats.write(writer)?;
 
-                        for (game_idx, game) in group.games.iter() {
+                        for (game_idx, game) in &group.games {
                             if *game_idx > discarded_game_idx || group.games.len() == 1 {
                                 write_uint(writer, *game_idx)?;
                                 game.write(writer)?;
