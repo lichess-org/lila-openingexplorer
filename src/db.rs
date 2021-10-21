@@ -46,6 +46,9 @@ impl Database {
         player_block_opts.set_block_size(1024);
         player_opts.set_block_based_table_factory(&player_block_opts);
 
+        let mut master_game_opts = Options::default();
+        master_game_opts.set_prefix_extractor(SliceTransform::create_noop());
+
         let inner = DBWithThreadMode::open_cf_descriptors(
             &db_opts,
             path,
@@ -54,7 +57,7 @@ impl Database {
                 ColumnFamilyDescriptor::new("game", game_opts),
                 ColumnFamilyDescriptor::new("player", player_opts),
                 ColumnFamilyDescriptor::new("master", todo!()),
-                ColumnFamilyDescriptor::new("master_game", todo!()),
+                ColumnFamilyDescriptor::new("master_game", master_game_opts),
             ],
         )?;
 
