@@ -18,6 +18,8 @@ use axum::{
 };
 use clap::Clap;
 use futures_util::stream::Stream;
+use serde::Deserialize;
+use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
 use tokio::sync::watch;
 
@@ -29,10 +31,11 @@ use crate::{
     db::Database,
     importer::MasterImporter,
     indexer::{IndexerOpt, IndexerStub},
-    model::{KeyBuilder, KeyPrefix, MasterGameWithId, UserId},
+    model::{GameId, KeyBuilder, KeyPrefix, MasterGameWithId, UserId},
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
+use crate::model::MasterGame;
 
 #[derive(Clap)]
 struct Opt {
@@ -69,6 +72,7 @@ async fn main() {
         .route("/admin/personal/:prop", get(personal_property))
         .route("/admin/explorer.indexing", get(num_indexing))
         .route("/import/master", put(master_import))
+        .route("/master/pgn/:id", get(master_pgn))
         .route("/personal", get(personal))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
@@ -229,4 +233,18 @@ async fn master_import(
     Extension(importer): Extension<MasterImporter>,
 ) -> Result<(), Error> {
     importer.import(body).await
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct MasterGameId(#[serde_as(as = "DisplayFromStr")] GameId);
+
+async fn master_pgn(
+    Path(MasterGameId(id)): Path<MasterGameId>,
+    Extension(db): Extension<Arc<Database>>,
+) -> Result<MasterGame, StatusCode> {
+    match db.queryable().get_master_game(id).expect("get master game") {
+        Some(game) => Ok(game),
+        None => Err(StatusCode::NOT_FOUND),
+    }
 }

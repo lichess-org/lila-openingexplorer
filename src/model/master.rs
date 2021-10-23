@@ -1,15 +1,16 @@
 use std::{
     cmp::Reverse,
     io,
-    io::{Read, Write},
+    io::{Cursor, Read, Write},
     ops::AddAssign,
 };
 
+use axum::{body::Body, http::Response, response::IntoResponse};
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
-use shakmaty::{uci::Uci, ByColor, Color, Outcome};
+use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
@@ -46,6 +47,60 @@ pub struct MasterGame {
 pub struct MasterGamePlayer {
     pub name: String,
     pub rating: u16,
+}
+
+impl MasterGame {
+    fn outcome(&self) -> Outcome {
+        Outcome::from_winner(self.winner)
+    }
+
+    fn write_pgn<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        writeln!(writer, "[Event \"{}\"]", self.event)?;
+        writeln!(writer, "[Site \"{}\"]", self.site)?;
+        writeln!(writer, "[Date \"{}\"]", self.date)?;
+        writeln!(writer, "[Round \"{}\"]", self.round)?;
+        writeln!(writer, "[White \"{}\"]", self.players.white.name)?;
+        writeln!(writer, "[Black \"{}\"]", self.players.black.name)?;
+        writeln!(writer, "[Result \"{}\"]", self.outcome())?;
+        writeln!(writer, "[WhiteElo \"{}\"]", self.players.white.rating)?;
+        writeln!(writer, "[BlackElo \"{}\"]", self.players.black.rating)?;
+        writeln!(writer)?;
+
+        let mut pos = Chess::default();
+
+        for (i, uci) in self.moves.iter().enumerate() {
+            let m = uci
+                .to_move(&pos)
+                .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+            if i % 2 == 0 {
+                write!(writer, "{}. ", i / 2 + 1)?;
+            } else if i > 0 {
+                write!(writer, " ")?;
+            }
+            let san = SanPlus::from_move_and_play_unchecked(&mut pos, &m);
+            write!(writer, "{}", san)?;
+        }
+
+        if !self.moves.is_empty() {
+            write!(writer, " ")?;
+        }
+        writeln!(writer, "{}", self.outcome())
+    }
+}
+
+impl IntoResponse for MasterGame {
+    type Body = Body;
+    type BodyError = <Body as axum::body::HttpBody>::Error;
+
+    fn into_response(self) -> Response<Body> {
+        let mut buf = Cursor::new(Vec::new());
+        self.write_pgn(&mut buf).expect("write pgn");
+
+        Response::builder()
+            .header(axum::http::header::CONTENT_TYPE, "application/x-chess-pgn")
+            .body(Body::from(buf.into_inner()))
+            .unwrap()
+    }
 }
 
 #[derive(Debug, Default)]
