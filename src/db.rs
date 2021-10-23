@@ -6,8 +6,8 @@ use rocksdb::{
 };
 
 use crate::model::{
-    GameId, GameInfo, MasterEntry, MasterGame, Month, PersonalEntry, PersonalKey,
-    PersonalKeyPrefix, PersonalStatus, UserId,
+    GameId, GameInfo, Key, KeyPrefix, MasterEntry, MasterGame, Month, PersonalEntry,
+    PersonalStatus, UserId,
 };
 
 #[derive(Debug)]
@@ -23,8 +23,7 @@ impl Database {
 
         let mut personal_opts = Options::default();
         personal_opts.set_merge_operator_associative("personal merge", personal_merge);
-        personal_opts
-            .set_prefix_extractor(SliceTransform::create_fixed_prefix(PersonalKeyPrefix::SIZE));
+        personal_opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(KeyPrefix::SIZE));
         let mut personal_block_opts = BlockBasedOptions::default();
         personal_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
         personal_block_opts.set_block_size(4 * 1024);
@@ -111,7 +110,7 @@ impl QueryableDatabase<'_> {
 
     pub fn get_personal(
         &self,
-        key: &PersonalKeyPrefix,
+        key: &KeyPrefix,
         since: Month,
         until: Month,
     ) -> Result<PersonalEntry, rocksdb::Error> {
@@ -174,7 +173,7 @@ pub struct Batch<'a> {
 }
 
 impl Batch<'_> {
-    pub fn merge_personal(&mut self, key: PersonalKey, entry: PersonalEntry) {
+    pub fn merge_personal(&mut self, key: Key, entry: PersonalEntry) {
         let mut cursor = Cursor::new(Vec::with_capacity(PersonalEntry::SIZE_HINT));
         entry.write(&mut cursor).expect("serialize personal entry");
         self.batch.merge_cf(

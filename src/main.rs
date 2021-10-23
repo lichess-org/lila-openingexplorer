@@ -33,7 +33,7 @@ use crate::{
     },
     db::Database,
     indexer::{IndexerOpt, IndexerStub},
-    model::{PersonalKeyBuilder, PersonalKeyPrefix, UserId},
+    model::{KeyBuilder, KeyPrefix, UserId},
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
@@ -123,7 +123,7 @@ async fn num_indexing(Extension(indexer): Extension<IndexerStub>) -> String {
 
 struct PersonalStreamState {
     indexing: Option<watch::Receiver<()>>,
-    key: PersonalKeyPrefix,
+    key: KeyPrefix,
     db: Arc<Database>,
     filter: PersonalQueryFilter,
     pos: VariantPosition,
@@ -150,7 +150,7 @@ async fn personal(
 
     let opening = openings.classify_and_play(&mut pos, query.play)?;
 
-    let key = PersonalKeyBuilder::with_user_pov(&player, query.color)
+    let key = KeyBuilder::personal(&player, query.color)
         .with_zobrist(variant, pos.zobrist_hash());
 
     let state = PersonalStreamState {

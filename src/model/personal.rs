@@ -5,13 +5,12 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use byteorder::{BigEndian, ByteOrder as _, LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
-use sha1::{Digest, Sha1};
 use shakmaty::{
     san::{San, SanPlus},
     uci::Uci,
-    variant::{Variant, VariantPosition},
+    variant::VariantPosition,
     Color, Outcome,
 };
 use smallvec::{smallvec, SmallVec};
@@ -296,74 +295,6 @@ pub struct FilteredPersonalMoveRow {
 }
 
 #[derive(Debug)]
-pub struct PersonalKeyBuilder {
-    base: u128,
-}
-
-impl PersonalKeyBuilder {
-    pub fn with_user_pov(user: &UserId, color: Color) -> PersonalKeyBuilder {
-        let mut hash = Sha1::new();
-        hash.update(&[color.char() as u8]);
-        hash.update(user.as_str());
-        let buf = hash.finalize();
-        PersonalKeyBuilder {
-            base: LittleEndian::read_u128(buf.as_slice()),
-        }
-    }
-
-    pub fn with_zobrist(&self, variant: Variant, zobrist: u128) -> PersonalKeyPrefix {
-        // Zobrist hashes are the opposite of cryptographically secure. An
-        // attacker could efficiently construct a position such that a record
-        // will appear in the opening explorer of another player. This is not
-        // completely trivial, and theres very little incentive, so we will
-        // switch to a more expensive hash function only once required,
-        // and then also stop using SHA1 in with_user_pov().
-        PersonalKeyPrefix {
-            prefix: (self.base
-                ^ zobrist
-                ^ (match variant {
-                    Variant::Chess => 0,
-                    Variant::Antichess => 0x44782fce075483666c81899cb65921c9,
-                    Variant::Atomic => 0x66ccbd680f655d562689ca333c5e2a42,
-                    Variant::Crazyhouse => 0x9d04db38ca4d923d82ff24eb9530e986,
-                    Variant::Horde => 0xc29dfb1076aa15186effd0d34cc60737,
-                    Variant::KingOfTheHill => 0xdfb25d5df41fc5961e61f6b4ba613fbe,
-                    Variant::RacingKings => 0x8e72f94307f96710b3910cf7e5808e0d,
-                    Variant::ThreeCheck => 0xd19242bae967b40e7856bd1c71aa4220,
-                }))
-            .to_le_bytes(),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct PersonalKeyPrefix {
-    prefix: [u8; 16],
-}
-
-impl PersonalKeyPrefix {
-    pub const SIZE: usize = 12;
-
-    pub fn with_month(&self, month: Month) -> PersonalKey {
-        let mut buf = [0; PersonalKey::SIZE];
-        buf[..PersonalKeyPrefix::SIZE].clone_from_slice(&self.prefix[..PersonalKeyPrefix::SIZE]);
-        BigEndian::write_u16(&mut buf[PersonalKeyPrefix::SIZE..], u16::from(month));
-        PersonalKey(buf)
-    }
-}
-
-#[derive(Debug)]
-pub struct PersonalKey([u8; PersonalKey::SIZE]);
-
-impl PersonalKey {
-    pub const SIZE: usize = PersonalKeyPrefix::SIZE + 2;
-
-    pub fn into_bytes(self) -> [u8; Self::SIZE] {
-        self.0
-    }
-}
-
-#[derive(Debug)]
 pub struct PersonalStatus {
     pub latest_created_at: u64,
     pub revisit_ongoing_created_at: Option<u64>,
@@ -433,10 +364,10 @@ mod tests {
     use std::io::Cursor;
 
     use quickcheck::quickcheck;
-    use shakmaty::Square;
+    use shakmaty::{variant::Variant, Square};
 
     use super::*;
-    use crate::model::UserName;
+    use crate::model::{KeyBuilder, UserName};
 
     #[test]
     fn test_header_roundtrip() {
@@ -526,7 +457,7 @@ mod tests {
     quickcheck! {
         fn test_key_order(a: Month, b: Month) -> bool {
             let user_id = UserId::from("blindfoldpig".parse::<UserName>().unwrap());
-            let prefix = PersonalKeyBuilder::with_user_pov(&user_id, Color::White)
+            let prefix = KeyBuilder::personal(&user_id, Color::White)
                 .with_zobrist(Variant::Chess, 0xd1d06239bd7d2ae8ad6fa208133e1f9a);
 
             (a <= b) == (prefix.with_month(a).into_bytes() <= prefix.with_month(b).into_bytes())

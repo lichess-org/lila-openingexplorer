@@ -1,5 +1,6 @@
 mod game_id;
 mod game_info;
+mod key;
 mod master;
 mod mode;
 mod month;
@@ -12,12 +13,11 @@ mod user;
 
 pub use game_id::{GameId, InvalidGameId};
 pub use game_info::{GameInfo, GameInfoPlayer};
+pub use key::{Key, KeyBuilder, KeyPrefix};
 pub use master::{MasterEntry, MasterGame, MasterGameWithId};
 pub use mode::{ByMode, Mode};
 pub use month::Month;
-pub use personal::{
-    PersonalEntry, PersonalKey, PersonalKeyBuilder, PersonalKeyPrefix, PersonalStatus,
-};
+pub use personal::{PersonalEntry, PersonalStatus};
 pub use speed::{BySpeed, Speed};
 pub use stats::Stats;
 pub use uci::{read_uci, write_uci};

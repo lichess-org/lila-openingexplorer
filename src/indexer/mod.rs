@@ -21,7 +21,7 @@ use tokio::{
 use crate::{
     db::Database,
     model::{
-        GameInfo, GameInfoPlayer, Mode, Month, PersonalEntry, PersonalKeyBuilder, PersonalStatus,
+        GameInfo, GameInfoPlayer, Mode, Month, PersonalEntry, KeyBuilder, PersonalStatus,
         UserId,
     },
 };
@@ -197,7 +197,7 @@ impl IndexerActor {
             }
         };
 
-        let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(player, color));
+        let hash = ByColor::new_with(|color| KeyBuilder::personal(player, color));
 
         let mut num_games = 0;
         loop {
@@ -262,7 +262,7 @@ impl IndexerActor {
     fn index_game(
         &self,
         player: &UserId,
-        hash: &ByColor<PersonalKeyBuilder>,
+        hash: &ByColor<KeyBuilder>,
         game: Game,
         status: &mut PersonalStatus,
     ) {
