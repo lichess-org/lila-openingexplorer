@@ -125,6 +125,10 @@ impl Month {
     pub fn add_months_saturating(self, months: u16) -> Month {
         min(Month(self.0.saturating_add(months)), Month::max_value())
     }
+
+    pub fn year(self) -> Year {
+        Year(self.0 / 12)
+    }
 }
 
 impl From<Month> for u16 {

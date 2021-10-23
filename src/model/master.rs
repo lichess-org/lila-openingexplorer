@@ -14,7 +14,7 @@ use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    model::{read_uci, write_uci, GameId, LaxDate, Stats},
+    model::{read_uci, write_uci, GameId, GameInfoPlayer, LaxDate, Stats},
     util::ByColorDef,
 };
 
@@ -36,17 +36,11 @@ pub struct MasterGame {
     pub date: LaxDate,
     pub round: String,
     #[serde(flatten, with = "ByColorDef")]
-    pub players: ByColor<MasterGamePlayer>,
+    pub players: ByColor<GameInfoPlayer>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub winner: Option<Color>,
     #[serde_as(as = "StringWithSeparator<SpaceSeparator, Uci>")]
     pub moves: Vec<Uci>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct MasterGamePlayer {
-    pub name: String,
-    pub rating: u16,
 }
 
 impl MasterGame {
@@ -105,13 +99,13 @@ impl IntoResponse for MasterGame {
 }
 
 #[derive(Debug, Default)]
-struct Group {
-    stats: Stats,
-    games: SmallVec<[(u16, GameId); 1]>,
+pub struct MasterGroup {
+    pub stats: Stats,
+    pub games: SmallVec<[(u16, GameId); 1]>,
 }
 
-impl AddAssign for Group {
-    fn add_assign(&mut self, rhs: Group) {
+impl AddAssign for MasterGroup {
+    fn add_assign(&mut self, rhs: MasterGroup) {
         self.stats += rhs.stats;
         self.games.extend(rhs.games);
     }
@@ -119,7 +113,7 @@ impl AddAssign for Group {
 
 #[derive(Default, Debug)]
 pub struct MasterEntry {
-    groups: FxHashMap<Uci, Group>,
+    pub groups: FxHashMap<Uci, MasterGroup>,
 }
 
 impl MasterEntry {
@@ -135,7 +129,7 @@ impl MasterEntry {
         let mut groups = FxHashMap::with_capacity_and_hasher(1, Default::default());
         groups.insert(
             uci,
-            Group {
+            MasterGroup {
                 stats: Stats::new_single(outcome, mover_rating),
                 games: smallvec![(mover_rating.saturating_add(opponent_rating), id)],
             },
@@ -194,6 +188,14 @@ impl MasterEntry {
             }
         }
         Ok(())
+    }
+
+    pub fn total(&self) -> Stats {
+        let mut sum = Stats::default();
+        for group in self.groups.values() {
+            sum += group.stats.clone();
+        }
+        sum
     }
 }
 

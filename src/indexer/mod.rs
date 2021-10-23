@@ -283,7 +283,7 @@ impl IndexerActor {
             return;
         }
 
-        if game.players.any(|p| p.user.is_none()) {
+        if game.players.any(|p| p.user.is_none() || p.rating.is_none()) {
             return;
         }
 
@@ -387,13 +387,13 @@ impl IndexerActor {
         batch.merge_game_info(
             game.id,
             GameInfo {
-                winner: outcome.winner(),
+                outcome,
                 speed: game.speed,
                 mode: Mode::from_rated(game.rated),
                 month,
                 players: game.players.map(|p| GameInfoPlayer {
-                    name: p.user.map(|p| p.name.to_string()),
-                    rating: p.rating,
+                    name: p.user.map_or(String::new(), |u| u.name.to_string()),
+                    rating: p.rating.unwrap_or_default(),
                 }),
                 indexed: ByColor::new_with(|c| color == c),
             },

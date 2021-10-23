@@ -4,27 +4,18 @@ use std::{
 };
 
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
-use serde::Serialize;
-use serde_with::{serde_as, DisplayFromStr};
-use shakmaty::{ByColor, Color};
+use serde::{Deserialize, Serialize};
+use shakmaty::{ByColor, Color, Outcome};
 
-use crate::{
-    model::{read_uint, write_uint, Mode, Month, Speed},
-    util::ByColorDef,
-};
+use crate::model::{read_uint, write_uint, Mode, Month, Speed};
 
-#[serde_as]
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub struct GameInfo {
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    pub winner: Option<Color>,
+    pub outcome: Outcome,
     pub speed: Speed,
     pub mode: Mode,
-    #[serde(flatten, with = "ByColorDef")]
     pub players: ByColor<GameInfoPlayer>,
-    #[serde_as(as = "DisplayFromStr")]
     pub month: Month,
-    #[serde(skip)]
     pub indexed: ByColor<bool>,
 }
 
@@ -40,10 +31,14 @@ impl GameInfo {
                 Speed::Rapid => 3,
                 Speed::Classical => 4,
                 Speed::Correspondence => 5,
-            } | (match self.winner {
-                Some(Color::Black) => 0,
-                Some(Color::White) => 1,
-                None => 2,
+            } | (match self.outcome {
+                Outcome::Decisive {
+                    winner: Color::Black,
+                } => 0,
+                Outcome::Decisive {
+                    winner: Color::White,
+                } => 1,
+                Outcome::Draw => 2,
             } << 3)
                 | (if self.mode.is_rated() { 1 } else { 0 } << 5)
                 | (if self.indexed.white { 1 } else { 0 } << 6)
@@ -65,10 +60,14 @@ impl GameInfo {
             5 => Speed::Correspondence,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
-        let winner = match (byte >> 3) & 3 {
-            0 => Some(Color::Black),
-            1 => Some(Color::White),
-            2 => None,
+        let outcome = match (byte >> 3) & 3 {
+            0 => Outcome::Decisive {
+                winner: Color::Black,
+            },
+            1 => Outcome::Decisive {
+                winner: Color::White,
+            },
+            2 => Outcome::Draw,
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
         let mode = Mode::from_rated((byte >> 5) & 1 == 1);
@@ -85,7 +84,7 @@ impl GameInfo {
             .try_into()
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         Ok(GameInfo {
-            winner,
+            outcome,
             speed,
             mode,
             players,
@@ -95,20 +94,17 @@ impl GameInfo {
     }
 }
 
-#[serde_as]
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GameInfoPlayer {
-    pub name: Option<String>,
-    pub rating: Option<u16>,
+    pub name: String,
+    pub rating: u16,
 }
 
 impl GameInfoPlayer {
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_uint(writer, self.name.as_ref().map_or(0, |s| s.len()) as u64)?;
-        if let Some(name) = &self.name {
-            writer.write_all(name.as_bytes())?;
-        }
-        writer.write_u16::<LittleEndian>(self.rating.unwrap_or(0))
+        write_uint(writer, self.name.len() as u64)?;
+        writer.write_all(self.name.as_bytes())?;
+        writer.write_u16::<LittleEndian>(self.rating)
     }
 
     fn read<R: Read>(reader: &mut R) -> io::Result<GameInfoPlayer> {
@@ -117,12 +113,9 @@ impl GameInfoPlayer {
         let mut buf = vec![0; len as usize];
         reader.read_exact(&mut buf)?;
         Ok(GameInfoPlayer {
-            name: Some(
-                String::from_utf8(buf)
-                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?,
-            )
-            .filter(|s| !s.is_empty()),
-            rating: Some(reader.read_u16::<LittleEndian>()?).filter(|r| *r != 0),
+            name: String::from_utf8(buf)
+                .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?,
+            rating: reader.read_u16::<LittleEndian>()?,
         })
     }
 }
