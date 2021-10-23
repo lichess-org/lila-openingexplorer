@@ -82,3 +82,22 @@ impl Key {
         self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use quickcheck::quickcheck;
+    use shakmaty::{variant::Variant, Color};
+
+    use super::*;
+    use crate::model::UserName;
+
+    quickcheck! {
+        fn test_key_order(a: Month, b: Month) -> bool {
+            let user_id = UserId::from("blindfoldpig".parse::<UserName>().unwrap());
+            let prefix = KeyBuilder::personal(&user_id, Color::White)
+                .with_zobrist(Variant::Chess, 0xd1d06239bd7d2ae8ad6fa208133e1f9a);
+
+            (a <= b) == (prefix.with_month(a).into_bytes() <= prefix.with_month(b).into_bytes())
+        }
+    }
+}
