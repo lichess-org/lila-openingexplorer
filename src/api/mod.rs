@@ -3,7 +3,7 @@ use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator, 
 use shakmaty::{san::SanPlus, uci::Uci, Color};
 
 use crate::{
-    model::{GameId, GameInfo, Mode, Month, Speed, Stats, UserName},
+    model::{GameId, GameInfo, Mode, Month, Speed, Stats, UserName, Year},
     opening::Opening,
 };
 

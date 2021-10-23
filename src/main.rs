@@ -26,7 +26,7 @@ use tokio::sync::watch;
 use crate::{
     api::{
         Error, GameRow, GameRowWithUci, NdJson, PersonalMoveRow, PersonalQuery,
-        PersonalQueryFilter, PersonalResponse,
+        PersonalQueryFilter, PersonalResponse, MasterQuery,
     },
     db::Database,
     importer::MasterImporter,
@@ -253,5 +253,6 @@ async fn master(
     Extension(openings): Extension<&'static Openings>,
     Extension(db): Extension<Arc<Database>>,
     Query(query): Query<MasterQuery>,
-) -> Result<Json<()>, Error> {
+) -> Result<Json<PersonalResponse>, Error> {
+    todo!()
 }

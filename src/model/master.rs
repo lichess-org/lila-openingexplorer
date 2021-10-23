@@ -155,8 +155,8 @@ impl MasterEntry {
 
             group.stats += Stats::read(reader)?;
 
-            let num_games = reader.read_u8()?;
-            group.games.reserve_exact(usize::from(num_games));
+            let num_games = usize::from(reader.read_u8()?);
+            group.games.reserve_exact(num_games);
             for _ in 0..num_games {
                 group
                     .games
@@ -184,7 +184,11 @@ impl MasterEntry {
                 group.games.iter().filter(|g| top_games.contains(g)).count()
             };
             writer.write_u8(num_games as u8)?;
-            for (sort_key, id) in &group.games {
+            for (sort_key, id) in group
+                .games
+                .iter()
+                .filter(|g| group.games.len() == 1 || top_games.contains(g))
+            {
                 writer.write_u16::<LittleEndian>(*sort_key)?;
                 id.write(writer)?;
             }
