@@ -73,12 +73,13 @@ impl MasterGame {
                 .to_move(&pos)
                 .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
             if i % 2 == 0 {
-                write!(writer, "{}. ", i / 2 + 1)?;
-            } else if i > 0 {
-                write!(writer, " ")?;
+                if i > 0 {
+                    write!(writer, " ")?;
+                }
+                write!(writer, "{}.", i / 2 + 1)?;
             }
             let san = SanPlus::from_move_and_play_unchecked(&mut pos, &m);
-            write!(writer, "{}", san)?;
+            write!(writer, " {}", san)?;
         }
 
         if !self.moves.is_empty() {
