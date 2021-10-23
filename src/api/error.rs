@@ -3,10 +3,13 @@ use std::{error::Error as StdError, fmt};
 use axum::http::StatusCode;
 use shakmaty::{uci::IllegalUciError, variant::VariantPosition, PositionError};
 
+use crate::model::GameId;
+
 #[derive(Debug)]
 pub enum Error {
     PositionError(PositionError<VariantPosition>),
     IllegalUciError(IllegalUciError),
+    DuplicateGame(GameId),
 }
 
 impl From<PositionError<VariantPosition>> for Error {
@@ -28,6 +31,7 @@ impl fmt::Display for Error {
         match self {
             Error::PositionError(err) => write!(f, "bad request: {}", err),
             Error::IllegalUciError(err) => write!(f, "bad request: {}", err),
+            Error::DuplicateGame(id) => write!(f, "duplicate game: {}", id),
         }
     }
 }
@@ -38,9 +42,7 @@ impl axum::response::IntoResponse for Error {
 
     fn into_response(self) -> axum::http::Response<Self::Body> {
         axum::http::Response::builder()
-            .status(match self {
-                Error::PositionError(_) | Error::IllegalUciError(_) => StatusCode::BAD_REQUEST,
-            })
+            .status(StatusCode::BAD_REQUEST)
             .body(Self::Body::from(self.to_string()))
             .unwrap()
     }

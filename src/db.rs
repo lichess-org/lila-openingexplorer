@@ -152,11 +152,23 @@ impl QueryableDatabase<'_> {
             .put_cf(self.cf_player, id.as_str(), cursor.into_inner())
     }
 
+    pub fn has_master_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
+        self.db
+            .get_cf(self.cf_master_game, id.to_bytes())
+            .map(|maybe_entry| maybe_entry.is_some())
+    }
+
     pub fn get_master_game(&self, id: GameId) -> Result<Option<MasterGame>, rocksdb::Error> {
         Ok(self
             .db
             .get_cf(self.cf_master_game, id.to_bytes())?
             .map(|buf| serde_json::from_slice(&buf).expect("deserialize master game")))
+    }
+
+    pub fn has_master(&self, key: Key) -> Result<bool, rocksdb::Error> {
+        self.db
+            .get_cf(self.cf_master, key.into_bytes())
+            .map(|maybe_entry| maybe_entry.is_some())
     }
 
     pub fn batch(&self) -> Batch<'_> {
