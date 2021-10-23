@@ -6,8 +6,8 @@ use rocksdb::{
 };
 
 use crate::model::{
-    GameId, GameInfo, MasterGame, Month, PersonalEntry, PersonalKey, PersonalKeyPrefix,
-    PersonalStatus, UserId,
+    GameId, GameInfo, MasterEntry, MasterGame, Month, PersonalEntry, PersonalKey,
+    PersonalKeyPrefix, PersonalStatus, UserId,
 };
 
 #[derive(Debug)]
@@ -49,6 +49,10 @@ impl Database {
         let mut master_game_opts = Options::default();
         master_game_opts.set_prefix_extractor(SliceTransform::create_noop());
 
+        let mut master_opts = Options::default();
+        // TODO: prefix
+        master_opts.set_merge_operator_associative("master merge", master_merge);
+
         let inner = DBWithThreadMode::open_cf_descriptors(
             &db_opts,
             path,
@@ -56,7 +60,7 @@ impl Database {
                 ColumnFamilyDescriptor::new("personal", personal_opts),
                 ColumnFamilyDescriptor::new("game", game_opts),
                 ColumnFamilyDescriptor::new("player", player_opts),
-                ColumnFamilyDescriptor::new("master", todo!()),
+                ColumnFamilyDescriptor::new("master", master_opts),
                 ColumnFamilyDescriptor::new("master_game", master_game_opts),
             ],
         )?;
@@ -187,6 +191,10 @@ impl Batch<'_> {
             .merge_cf(self.queryable.cf_game, id.to_bytes(), cursor.into_inner());
     }
 
+    pub fn merge_master(&mut self) {
+        todo!()
+    }
+
     pub fn put_master_game(&mut self, id: GameId, game: &MasterGame) {
         self.batch.put_cf(
             self.queryable.cf_master_game,
@@ -241,5 +249,24 @@ fn personal_merge(
     }
     let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
     entry.write(&mut cursor).expect("write personal entry");
+    Some(cursor.into_inner())
+}
+
+fn master_merge(
+    _key: &[u8],
+    existing: Option<&[u8]>,
+    operands: &mut MergeOperands,
+) -> Option<Vec<u8>> {
+    let mut entry = MasterEntry::default();
+    let mut size_hint = 0;
+    for op in existing.into_iter().chain(operands.into_iter()) {
+        let mut cursor = Cursor::new(op);
+        entry
+            .extend_from_reader(&mut cursor)
+            .expect("deserialize for master merge");
+        size_hint += op.len();
+    }
+    let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
+    entry.write(&mut cursor).expect("write master entry");
     Some(cursor.into_inner())
 }

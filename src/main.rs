@@ -8,17 +8,23 @@ pub mod opening;
 pub mod util;
 
 use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use shakmaty::uci::Uci;
+use shakmaty::Chess;
+use shakmaty::Position;
+use rustc_hash::FxHashMap;
 
 use axum::{
     extract::{Extension, Path, Query},
-    handler::get,
+    handler::{get, put},
     http::StatusCode,
     AddExtensionLayer, Router,
+    Json,
 };
 use clap::Clap;
 use futures_util::stream::Stream;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
 use tokio::sync::watch;
+use crate::model::MasterGameWithId;
 
 use crate::{
     api::{
@@ -65,6 +71,7 @@ async fn main() {
         .route("/admin/game/:prop", get(game_property))
         .route("/admin/personal/:prop", get(personal_property))
         .route("/admin/explorer.indexing", get(num_indexing))
+        .route("/import/master", put(master_import))
         .route("/personal", get(personal))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
@@ -218,4 +225,25 @@ async fn personal(
             ))
         },
     ).dedup_by_key(|res| res.total.total())))
+}
+
+async fn master_import(Json(body): Json<MasterGameWithId>, Extension(db): Extension<Arc<Database>>) -> Result<(), Error> {
+    let mut without_loops: FxHashMap<u128, Uci> = FxHashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
+    let mut pos: Zobrist<Chess, u128> = Zobrist::default();
+    for uci in &body.game.moves {
+        let m = uci.to_move(&pos)?;
+        without_loops.insert(pos.zobrist_hash(), Uci::from_chess960(&m));
+        pos.play_unchecked(&m);
+    }
+
+    let queryable = db.queryable();
+    let mut batch = queryable.batch();
+    batch.put_master_game(body.id, &body.game);
+    for (zobrist, uci) in without_loops {
+        todo!();
+        // batch.merge_master();
+    }
+    batch.write().expect("commit master game");
+
+    Ok(())
 }
