@@ -32,8 +32,8 @@ def main(pgn):
 
         if res.status_code != 200:
             print(res.text)
-
-        break
+        else:
+            print(game.headers["LichessId"])
 
 
 def winner(game):
