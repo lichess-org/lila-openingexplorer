@@ -20,11 +20,11 @@ def main(pgn):
             "round": game.headers["Round"],
             "white": {
                 "name": game.headers["White"],
-                "rating": game.headers["WhiteElo"],
+                "rating": int(game.headers["WhiteElo"]),
             },
             "black": {
                 "name": game.headers["Black"],
-                "rating": game.headers["BlackElo"],
+                "rating": int(game.headers["BlackElo"]),
             },
             "winner": winner(game),
             "moves": " ".join(m.uci() for m in game.end().board().move_stack)
