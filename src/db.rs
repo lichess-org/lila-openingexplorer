@@ -190,8 +190,14 @@ impl Batch<'_> {
             .merge_cf(self.queryable.cf_game, id.to_bytes(), cursor.into_inner());
     }
 
-    pub fn merge_master(&mut self) {
-        todo!()
+    pub fn merge_master(&mut self, key: Key, entry: MasterEntry) {
+        let mut cursor = Cursor::new(Vec::with_capacity(MasterEntry::SIZE_HINT));
+        entry.write(&mut cursor).expect("serialize master entry");
+        self.batch.merge_cf(
+            self.queryable.cf_master,
+            key.into_bytes(),
+            cursor.into_inner(),
+        );
     }
 
     pub fn put_master_game(&mut self, id: GameId, game: &MasterGame) {

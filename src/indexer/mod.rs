@@ -21,8 +21,7 @@ use tokio::{
 use crate::{
     db::Database,
     model::{
-        GameInfo, GameInfoPlayer, Mode, Month, PersonalEntry, KeyBuilder, PersonalStatus,
-        UserId,
+        GameInfo, GameInfoPlayer, KeyBuilder, Mode, Month, PersonalEntry, PersonalStatus, UserId,
     },
 };
 

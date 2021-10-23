@@ -2,29 +2,24 @@
 
 pub mod api;
 pub mod db;
+pub mod importer;
 pub mod indexer;
 pub mod model;
 pub mod opening;
 pub mod util;
 
 use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
-use shakmaty::uci::Uci;
-use shakmaty::Chess;
-use shakmaty::Position;
-use rustc_hash::FxHashMap;
 
 use axum::{
     extract::{Extension, Path, Query},
     handler::{get, put},
     http::StatusCode,
-    AddExtensionLayer, Router,
-    Json,
+    AddExtensionLayer, Json, Router,
 };
 use clap::Clap;
 use futures_util::stream::Stream;
 use shakmaty::{fen::Fen, variant::VariantPosition, zobrist::Zobrist, CastlingMode};
 use tokio::sync::watch;
-use crate::model::MasterGameWithId;
 
 use crate::{
     api::{
@@ -32,8 +27,9 @@ use crate::{
         PersonalQueryFilter, PersonalResponse,
     },
     db::Database,
+    importer::MasterImporter,
     indexer::{IndexerOpt, IndexerStub},
-    model::{KeyBuilder, KeyPrefix, UserId},
+    model::{KeyBuilder, KeyPrefix, MasterGameWithId, UserId},
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
@@ -64,7 +60,8 @@ async fn main() {
 
     let openings: &'static Openings = Box::leak(Box::new(Openings::build_table()));
     let db = Arc::new(Database::open(opt.db).expect("db"));
-    let (indexer, join_handles) = IndexerStub::spawn(db.clone(), opt.indexer);
+    let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
+    let master_importer = MasterImporter::new(Arc::clone(&db));
 
     let app = Router::new()
         .route("/admin/:prop", get(db_property))
@@ -75,7 +72,8 @@ async fn main() {
         .route("/personal", get(personal))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
-        .layer(AddExtensionLayer::new(indexer));
+        .layer(AddExtensionLayer::new(indexer))
+        .layer(AddExtensionLayer::new(master_importer));
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
@@ -150,8 +148,7 @@ async fn personal(
 
     let opening = openings.classify_and_play(&mut pos, query.play)?;
 
-    let key = KeyBuilder::personal(&player, query.color)
-        .with_zobrist(variant, pos.zobrist_hash());
+    let key = KeyBuilder::personal(&player, query.color).with_zobrist(variant, pos.zobrist_hash());
 
     let state = PersonalStreamState {
         filter: query.filter,
@@ -227,23 +224,9 @@ async fn personal(
     ).dedup_by_key(|res| res.total.total())))
 }
 
-async fn master_import(Json(body): Json<MasterGameWithId>, Extension(db): Extension<Arc<Database>>) -> Result<(), Error> {
-    let mut without_loops: FxHashMap<u128, Uci> = FxHashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
-    let mut pos: Zobrist<Chess, u128> = Zobrist::default();
-    for uci in &body.game.moves {
-        let m = uci.to_move(&pos)?;
-        without_loops.insert(pos.zobrist_hash(), Uci::from_chess960(&m));
-        pos.play_unchecked(&m);
-    }
-
-    let queryable = db.queryable();
-    let mut batch = queryable.batch();
-    batch.put_master_game(body.id, &body.game);
-    for (zobrist, uci) in without_loops {
-        todo!();
-        // batch.merge_master();
-    }
-    batch.write().expect("commit master game");
-
-    Ok(())
+async fn master_import(
+    Json(body): Json<MasterGameWithId>,
+    Extension(importer): Extension<MasterImporter>,
+) -> Result<(), Error> {
+    importer.import(body).await
 }
