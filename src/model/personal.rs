@@ -11,15 +11,14 @@ use shakmaty::{
     san::{San, SanPlus},
     uci::Uci,
     variant::VariantPosition,
-    Color, Outcome,
+    Outcome,
 };
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
     api::PersonalQueryFilter,
     model::{
-        read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Month, Speed,
-        Stats, UserId,
+        read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Speed, Stats,
     },
 };
 

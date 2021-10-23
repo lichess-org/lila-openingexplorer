@@ -33,7 +33,10 @@ impl MasterImporter {
 
         let _guard = self.mutex.lock();
         let queryable = self.db.queryable();
-        if queryable.has_master_game(body.id).expect("check for master game") {
+        if queryable
+            .has_master_game(body.id)
+            .expect("check for master game")
+        {
             return Err(Error::DuplicateGame(body.id));
         }
 
@@ -50,7 +53,9 @@ impl MasterImporter {
         let mut final_key = None;
         batch.put_master_game(body.id, &body.game);
         for (zobrist, (uci, turn)) in without_loops {
-            let key = KeyBuilder::master().with_zobrist(Variant::Chess, zobrist).with_year(body.game.date.year());
+            let key = KeyBuilder::master()
+                .with_zobrist(Variant::Chess, zobrist)
+                .with_year(body.game.date.year());
             final_key = Some(key.clone());
             batch.merge_master(
                 key,
@@ -65,7 +70,10 @@ impl MasterImporter {
         }
 
         if let Some(final_key) = final_key {
-            if queryable.has_master(final_key).expect("check for master entry") {
+            if queryable
+                .has_master(final_key)
+                .expect("check for master entry")
+            {
                 return Err(Error::DuplicateGame(body.id));
             }
         }
