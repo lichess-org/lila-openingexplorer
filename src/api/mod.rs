@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator};
+use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator, TryFromInto};
 use shakmaty::{san::SanPlus, uci::Uci, Color};
 
 use crate::{
@@ -16,6 +16,23 @@ pub use error::Error;
 pub use fen::LaxFen;
 pub use nd_json::NdJson;
 pub use variant::LilaVariant;
+
+#[serde_as]
+#[derive(Deserialize, Debug)]
+pub struct MasterQuery {
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub fen: Option<LaxFen>,
+    #[serde_as(as = "StringWithSeparator<CommaSeparator, Uci>")]
+    #[serde(default)]
+    pub play: Vec<Uci>,
+    #[serde_as(as = "TryFromInto<u16>")]
+    #[serde(default)]
+    pub since: Year,
+    #[serde_as(as = "TryFromInto<u16>")]
+    #[serde(default = "Year::max_value")]
+    pub until: Year,
+}
 
 #[serde_as]
 #[derive(Deserialize, Debug)]

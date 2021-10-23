@@ -248,3 +248,10 @@ async fn master_pgn(
         None => Err(StatusCode::NOT_FOUND),
     }
 }
+
+async fn master(
+    Extension(openings): Extension<&'static Openings>,
+    Extension(db): Extension<Arc<Database>>,
+    Query(query): Query<MasterQuery>,
+) -> Result<Json<()>, Error> {
+}
