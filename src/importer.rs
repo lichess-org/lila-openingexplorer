@@ -27,8 +27,11 @@ impl MasterImporter {
     }
 
     pub async fn import(&self, body: MasterGameWithId) -> Result<(), Error> {
-        let _guard = self.mutex.lock();
+        if body.game.players.white.rating / 2 + body.game.players.black.rating / 2 < 2200 {
+            return Err(Error::RejectedImport(body.id));
+        }
 
+        let _guard = self.mutex.lock();
         let queryable = self.db.queryable();
         if queryable.has_master_game(body.id).expect("check for master game") {
             return Err(Error::DuplicateGame(body.id));

@@ -1,18 +1,45 @@
 use std::{io::Cursor, path::Path};
 
 use rocksdb::{
-    BlockBasedIndexType, BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBWithThreadMode,
-    IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
+    merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, ColumnFamily,
+    ColumnFamilyDescriptor, DBWithThreadMode, IteratorMode, MergeOperands, Options, ReadOptions,
+    SliceTransform, WriteBatch, DB,
 };
 
 use crate::model::{
     GameId, GameInfo, Key, KeyPrefix, MasterEntry, MasterGame, Month, PersonalEntry,
-    PersonalStatus, UserId,
+    PersonalStatus, UserId, Year,
 };
 
 #[derive(Debug)]
 pub struct Database {
     inner: DB,
+}
+
+fn column_family(
+    name: &str,
+    merge: Option<&str>,
+    merge_fn: impl MergeFn + Clone,
+    prefix: Option<usize>,
+    block_size: usize,
+    bloom_filter: i32,
+) -> ColumnFamilyDescriptor {
+    let mut opts = Options::default();
+    if let Some(merge) = merge {
+        opts.set_merge_operator_associative(merge, merge_fn);
+    }
+    opts.set_prefix_extractor(match prefix {
+        Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
+        None => SliceTransform::create_noop(),
+    });
+    let mut block_opts = BlockBasedOptions::default();
+    block_opts.set_index_type(BlockBasedIndexType::HashSearch);
+    block_opts.set_block_size(block_size);
+    if bloom_filter > 0 {
+        block_opts.set_bloom_filter(bloom_filter, true);
+    }
+    opts.set_block_based_table_factory(&block_opts);
+    ColumnFamilyDescriptor::new(name, opts)
 }
 
 impl Database {
@@ -21,46 +48,29 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
 
-        let mut personal_opts = Options::default();
-        personal_opts.set_merge_operator_associative("personal merge", personal_merge);
-        personal_opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(KeyPrefix::SIZE));
-        let mut personal_block_opts = BlockBasedOptions::default();
-        personal_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
-        personal_block_opts.set_block_size(4 * 1024);
-        personal_block_opts.set_bloom_filter(8, true);
-        personal_opts.set_block_based_table_factory(&personal_block_opts);
-
-        let mut game_opts = Options::default();
-        game_opts.set_merge_operator_associative("game merge", game_merge);
-        game_opts.set_prefix_extractor(SliceTransform::create_noop());
-        let mut game_block_opts = BlockBasedOptions::default();
-        game_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
-        game_block_opts.set_block_size(1024);
-        game_opts.set_block_based_table_factory(&game_block_opts);
-
-        let mut player_opts = Options::default();
-        player_opts.set_prefix_extractor(SliceTransform::create_noop());
-        let mut player_block_opts = BlockBasedOptions::default();
-        player_block_opts.set_index_type(BlockBasedIndexType::HashSearch);
-        player_block_opts.set_block_size(1024);
-        player_opts.set_block_based_table_factory(&player_block_opts);
-
-        let mut master_game_opts = Options::default();
-        master_game_opts.set_prefix_extractor(SliceTransform::create_noop());
-
-        let mut master_opts = Options::default();
-        // TODO: prefix
-        master_opts.set_merge_operator_associative("master merge", master_merge);
-
         let inner = DBWithThreadMode::open_cf_descriptors(
             &db_opts,
             path,
             vec![
-                ColumnFamilyDescriptor::new("personal", personal_opts),
-                ColumnFamilyDescriptor::new("game", game_opts),
-                ColumnFamilyDescriptor::new("player", player_opts),
-                ColumnFamilyDescriptor::new("master", master_opts),
-                ColumnFamilyDescriptor::new("master_game", master_game_opts),
+                column_family(
+                    "personal",
+                    Some("personal merge"),
+                    personal_merge,
+                    Some(KeyPrefix::SIZE),
+                    4 * 1024,
+                    8,
+                ),
+                column_family("game", Some("game merge"), game_merge, None, 1024, 0),
+                column_family("player", None, void_merge, None, 1024, 0),
+                column_family(
+                    "master",
+                    Some("master merge"),
+                    master_merge,
+                    Some(KeyPrefix::SIZE),
+                    4 * 1024,
+                    8,
+                ),
+                column_family("master_game", None, void_merge, None, 4 * 1024, 0),
             ],
         )?;
 
@@ -169,6 +179,32 @@ impl QueryableDatabase<'_> {
         self.db
             .get_cf(self.cf_master, key.into_bytes())
             .map(|maybe_entry| maybe_entry.is_some())
+    }
+
+    pub fn get_master(
+        &self,
+        key: KeyPrefix,
+        since: Year,
+        until: Year,
+    ) -> Result<MasterEntry, rocksdb::Error> {
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
+        opt.set_iterate_upper_bound(key.with_year(until.add_years_saturating(1)).into_bytes());
+
+        let iterator = self
+            .db
+            .iterator_cf_opt(self.cf_master, opt, IteratorMode::Start);
+
+        let mut entry = MasterEntry::default();
+        for (_key, value) in iterator {
+            let mut cursor = Cursor::new(value);
+            entry
+                .extend_from_reader(&mut cursor)
+                .expect("deserialize master entry");
+        }
+
+        Ok(entry)
     }
 
     pub fn batch(&self) -> Batch<'_> {
@@ -286,4 +322,12 @@ fn master_merge(
     let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
     entry.write(&mut cursor).expect("write master entry");
     Some(cursor.into_inner())
+}
+
+fn void_merge(
+    _key: &[u8],
+    _existing: Option<&[u8]>,
+    _operands: &mut MergeOperands,
+) -> Option<Vec<u8>> {
+    unreachable!("void merge operator only used to satisfy type checker")
 }

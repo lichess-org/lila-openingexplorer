@@ -10,6 +10,7 @@ pub enum Error {
     PositionError(PositionError<VariantPosition>),
     IllegalUciError(IllegalUciError),
     DuplicateGame(GameId),
+    RejectedImport(GameId),
 }
 
 impl From<PositionError<VariantPosition>> for Error {
@@ -31,7 +32,8 @@ impl fmt::Display for Error {
         match self {
             Error::PositionError(err) => write!(f, "bad request: {}", err),
             Error::IllegalUciError(err) => write!(f, "bad request: {}", err),
-            Error::DuplicateGame(id) => write!(f, "duplicate game: {}", id),
+            Error::DuplicateGame(id) => write!(f, "duplicate game {}", id),
+            Error::RejectedImport(id) => write!(f, "rejected import of {}", id),
         }
     }
 }
