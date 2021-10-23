@@ -10,6 +10,7 @@ use crate::model::{read_uint, write_uint};
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, Serialize)]
 pub struct Stats {
+    #[serde(skip)]
     pub rating_sum: u64,
     pub white: u64,
     pub draws: u64,
