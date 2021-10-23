@@ -2,7 +2,7 @@ use byteorder::{BigEndian, ByteOrder as _, LittleEndian};
 use sha1::{Digest, Sha1};
 use shakmaty::{variant::Variant, Color};
 
-use crate::model::{Month, UserId};
+use crate::model::{Month, UserId, Year};
 
 #[derive(Debug)]
 pub struct KeyBuilder {
@@ -61,6 +61,13 @@ impl KeyPrefix {
         let mut buf = [0; Key::SIZE];
         buf[..KeyPrefix::SIZE].clone_from_slice(&self.prefix[..KeyPrefix::SIZE]);
         BigEndian::write_u16(&mut buf[KeyPrefix::SIZE..], u16::from(month));
+        Key(buf)
+    }
+
+    pub fn with_year(&self, year: Year) -> Key {
+        let mut buf = [0; Key::SIZE];
+        buf[..KeyPrefix::SIZE].clone_from_slice(&self.prefix[..KeyPrefix::SIZE]);
+        BigEndian::write_u16(&mut buf[KeyPrefix::SIZE..], u16::from(year));
         Key(buf)
     }
 }

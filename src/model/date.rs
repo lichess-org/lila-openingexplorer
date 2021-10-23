@@ -5,6 +5,48 @@ use chrono::{DateTime, Datelike as _, Utc};
 const MAX_YEAR: u16 = 3000; // MAX_YEAR * 12 + 12 < 2^16
 
 #[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Year(u16);
+
+impl Year {
+    pub fn max_value() -> Year {
+        Year(MAX_YEAR)
+    }
+
+    pub fn add_years_saturating(self, years: u16) -> Year {
+        min(Year(self.0.saturating_add(years)), Year::max_value())
+    }
+}
+
+impl From<Year> for u16 {
+    fn from(Year(year): Year) -> u16 {
+        year
+    }
+}
+
+impl TryFrom<u16> for Year {
+    type Error = InvalidYear;
+
+    fn try_from(year: u16) -> Result<Year, InvalidYear> {
+        if year <= Year::max_value().0 {
+            Ok(Year(year))
+        } else {
+            Err(InvalidYear)
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct InvalidYear;
+
+impl fmt::Display for InvalidYear {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid year")
+    }
+}
+
+impl StdError for InvalidYear {}
+
+#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Month(u16);
 
 impl Month {
