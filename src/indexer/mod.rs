@@ -21,8 +21,7 @@ use tokio::{
 use crate::{
     db::Database,
     model::{
-        GameInfo, GameInfoPlayer, Mode, Month, PersonalEntry, PersonalKeyBuilder, PersonalStatus,
-        UserId,
+        GameInfo, GameInfoPlayer, KeyBuilder, Mode, Month, PersonalEntry, PersonalStatus, UserId,
     },
 };
 
@@ -197,7 +196,7 @@ impl IndexerActor {
             }
         };
 
-        let hash = ByColor::new_with(|color| PersonalKeyBuilder::with_user_pov(player, color));
+        let hash = ByColor::new_with(|color| KeyBuilder::personal(player, color));
 
         let mut num_games = 0;
         loop {
@@ -262,7 +261,7 @@ impl IndexerActor {
     fn index_game(
         &self,
         player: &UserId,
-        hash: &ByColor<PersonalKeyBuilder>,
+        hash: &ByColor<KeyBuilder>,
         game: Game,
         status: &mut PersonalStatus,
     ) {
@@ -284,7 +283,7 @@ impl IndexerActor {
             return;
         }
 
-        if game.players.any(|p| p.user.is_none()) {
+        if game.players.any(|p| p.user.is_none() || p.rating.is_none()) {
             return;
         }
 
@@ -388,13 +387,13 @@ impl IndexerActor {
         batch.merge_game_info(
             game.id,
             GameInfo {
-                winner: outcome.winner(),
+                outcome,
                 speed: game.speed,
                 mode: Mode::from_rated(game.rated),
                 month,
                 players: game.players.map(|p| GameInfoPlayer {
-                    name: p.user.map(|p| p.name.to_string()),
-                    rating: p.rating,
+                    name: p.user.map_or(String::new(), |u| u.name.to_string()),
+                    rating: p.rating.unwrap_or_default(),
                 }),
                 indexed: ByColor::new_with(|c| color == c),
             },
