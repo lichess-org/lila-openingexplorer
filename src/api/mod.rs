@@ -35,6 +35,8 @@ pub struct MasterQuery {
     #[serde_as(as = "TryFromInto<u16>")]
     #[serde(default = "Year::max_value")]
     pub until: Year,
+    #[serde(flatten)]
+    pub limits: Limits,
 }
 
 #[serde_as]
@@ -54,6 +56,8 @@ pub struct PersonalQuery {
     pub color: Color,
     #[serde(flatten)]
     pub filter: PersonalQueryFilter,
+    #[serde(flatten)]
+    pub limits: Limits,
 }
 
 #[serde_as]
@@ -71,6 +75,17 @@ pub struct PersonalQueryFilter {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "Month::max_value")]
     pub until: Month,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Limits {
+    #[serde(default = "usize::max_value")]
+    pub top_games: usize,
+    #[serde(default = "usize::max_value")]
+    pub recent_games: usize,
+    #[serde(default)]
+    pub moves: Option<usize>,
 }
 
 #[serde_as]

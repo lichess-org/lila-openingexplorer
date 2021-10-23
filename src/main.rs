@@ -31,8 +31,8 @@ use tokio::sync::watch;
 
 use crate::{
     api::{
-        Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, MasterQuery,
-        NdJson, PersonalQuery, PersonalQueryFilter,
+        Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, Limits,
+        MasterQuery, NdJson, PersonalQuery, PersonalQueryFilter,
     },
     db::Database,
     importer::MasterImporter,
@@ -143,6 +143,7 @@ struct PersonalStreamState {
     key: KeyPrefix,
     db: Arc<Database>,
     filter: PersonalQueryFilter,
+    limits: Limits,
     pos: VariantPosition,
     opening: Option<&'static Opening>,
     first: bool,
@@ -171,6 +172,7 @@ async fn personal(
 
     let state = PersonalStreamState {
         filter: query.filter,
+        limits: query.limits,
         db,
         indexing,
         opening,
@@ -210,6 +212,7 @@ async fn personal(
                     moves: filtered
                         .moves
                         .into_iter()
+                        .take(state.limits.moves.unwrap_or(usize::MAX))
                         .map(|row| ExplorerMove {
                             uci: row.uci,
                             san: row.san,
@@ -227,6 +230,7 @@ async fn personal(
                     recent_games: Some(filtered
                         .recent_games
                         .into_iter()
+                        .take(state.limits.recent_games)
                         .flat_map(|(uci, id)| {
                             queryable.get_game_info(id).expect("get game").map(|info| {
                                 ExplorerGameWithUci {
@@ -314,8 +318,10 @@ async fn master(
         }
     }
     moves.sort_by_key(|row| Reverse(row.stats.total()));
+    moves.truncate(query.limits.moves.unwrap_or(12));
     games.sort_by_key(|(sort_key, _, _)| Reverse(*sort_key));
     games.truncate(15);
+    games.truncate(query.limits.top_games);
 
     Ok(Json(ExplorerResponse {
         total,
