@@ -135,3 +135,39 @@ impl MasterEntry {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use shakmaty::Square;
+
+    use super::*;
+
+    #[test]
+    fn test_master_entry() {
+        let uci = Uci::Normal {
+            from: Square::E2,
+            to: Square::E4,
+            promotion: None,
+        };
+        let game = "aaaaaaaa".parse().unwrap();
+        let a = MasterEntry::new_single(uci.clone(), game, Outcome::Draw, 1600, 1700);
+
+        let mut writer = Cursor::new(Vec::with_capacity(MasterEntry::SIZE_HINT));
+        a.write(&mut writer).unwrap();
+        assert_eq!(
+            writer.position() as usize,
+            MasterEntry::SIZE_HINT,
+            "optimized for single entries"
+        );
+
+        let mut reader = Cursor::new(writer.into_inner());
+        let mut deserialized = MasterEntry::default();
+        deserialized.extend_from_reader(&mut reader).unwrap();
+
+        let group = deserialized.groups.get(&uci).unwrap();
+        assert_eq!(group.stats.draws, 1);
+        assert_eq!(group.games[0], (1600 + 1700, game));
+    }
+}

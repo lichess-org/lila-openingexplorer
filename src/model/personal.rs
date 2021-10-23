@@ -490,8 +490,6 @@ mod tests {
             1800,
         );
 
-        let mut deserialized = PersonalEntry::default();
-
         let mut cursor = Cursor::new(Vec::new());
         a.write(&mut cursor).unwrap();
         assert_eq!(
@@ -499,6 +497,8 @@ mod tests {
             PersonalEntry::SIZE_HINT,
             "optimized for single entries"
         );
+
+        let mut deserialized = PersonalEntry::default();
         deserialized
             .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
             .unwrap();
