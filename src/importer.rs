@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use crate::{
     api::Error,
     db::Database,
-    model::{KeyBuilder, MasterEntry, MasterGameWithId},
+    model::{Key, KeyBuilder, MasterEntry, MasterGameWithId},
 };
 
 #[derive(Clone)]
@@ -40,23 +40,32 @@ impl MasterImporter {
             return Err(Error::DuplicateGame(body.id));
         }
 
-        let mut without_loops: FxHashMap<u128, (Uci, Color)> =
+        let mut without_loops: FxHashMap<Key, (Uci, Color)> =
             FxHashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
         let mut pos: Zobrist<Chess, u128> = Zobrist::default();
+        let mut final_key = None;
         for uci in &body.game.moves {
+            let key = KeyBuilder::master()
+                .with_zobrist(Variant::Chess, pos.zobrist_hash())
+                .with_year(body.game.date.year());
+            final_key = Some(key.clone());
             let m = uci.to_move(&pos)?;
-            without_loops.insert(pos.zobrist_hash(), (Uci::from_chess960(&m), pos.turn()));
+            without_loops.insert(key, (Uci::from_chess960(&m), pos.turn()));
             pos.play_unchecked(&m);
         }
 
+        if let Some(final_key) = final_key {
+            if queryable
+                .has_master(final_key)
+                .expect("check for master entry")
+            {
+                return Err(Error::DuplicateGame(body.id));
+            }
+        }
+
         let mut batch = queryable.batch();
-        let mut final_key = None;
         batch.put_master_game(body.id, &body.game);
-        for (zobrist, (uci, turn)) in without_loops {
-            let key = KeyBuilder::master()
-                .with_zobrist(Variant::Chess, zobrist)
-                .with_year(body.game.date.year());
-            final_key = Some(key.clone());
+        for (key, (uci, turn)) in without_loops {
             batch.merge_master(
                 key,
                 MasterEntry::new_single(
@@ -67,15 +76,6 @@ impl MasterImporter {
                     body.game.players.by_color(!turn).rating,
                 ),
             );
-        }
-
-        if let Some(final_key) = final_key {
-            if queryable
-                .has_master(final_key)
-                .expect("check for master entry")
-            {
-                return Err(Error::DuplicateGame(body.id));
-            }
         }
 
         batch.write().expect("commit master game");
