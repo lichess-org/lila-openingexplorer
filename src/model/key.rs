@@ -72,7 +72,7 @@ impl KeyPrefix {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Key([u8; Key::SIZE]);
 
 impl Key {

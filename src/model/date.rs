@@ -2,6 +2,76 @@ use std::{cmp::min, convert::TryFrom, error::Error as StdError, fmt, str::FromSt
 
 use chrono::{DateTime, Datelike as _, Utc};
 
+#[derive(Debug)]
+pub enum InvalidDate {
+    InvalidYear,
+    InvalidMonth,
+}
+
+impl fmt::Display for InvalidDate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match *self {
+            InvalidDate::InvalidYear => "invalid year",
+            InvalidDate::InvalidMonth => "invalid month",
+        })
+    }
+}
+
+impl StdError for InvalidDate {}
+
+#[derive(Copy, Clone, Debug)]
+pub struct LaxDate {
+    year: Year,
+    month: Option<u8>,
+    day: Option<u8>,
+}
+
+impl LaxDate {
+    pub fn year(self) -> Year {
+        self.year
+    }
+
+    pub fn month(self) -> Option<Month> {
+        self.month
+            .map(|m| Month(self.year.0 * 12 + u16::from(m) - 1))
+    }
+}
+
+impl FromStr for LaxDate {
+    type Err = InvalidDate;
+
+    fn from_str(s: &str) -> Result<LaxDate, InvalidDate> {
+        let mut parts = s.splitn(3, s);
+        let year_part = parts.next().expect("non-empty split");
+        Ok(LaxDate {
+            year: Year::try_from(
+                year_part
+                    .parse::<u16>()
+                    .map_err(|_| InvalidDate::InvalidYear)?,
+            )?,
+            month: parts
+                .next()
+                .and_then(|m| m.parse().ok())
+                .filter(|m| 1 <= *m && *m <= 12),
+            day: parts.next().and_then(|d| d.parse().ok()),
+        })
+    }
+}
+
+impl fmt::Display for LaxDate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:04}.", self.year.0)?;
+        match self.month {
+            Some(month) => write!(f, "{:02}.", month)?,
+            None => f.write_str("??.")?,
+        }
+        match self.day {
+            Some(day) => write!(f, "{:02}", day),
+            None => f.write_str("??"),
+        }
+    }
+}
+
 const MAX_YEAR: u16 = 3000; // MAX_YEAR * 12 + 12 < 2^16
 
 #[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
@@ -24,27 +94,16 @@ impl From<Year> for u16 {
 }
 
 impl TryFrom<u16> for Year {
-    type Error = InvalidYear;
+    type Error = InvalidDate;
 
-    fn try_from(year: u16) -> Result<Year, InvalidYear> {
+    fn try_from(year: u16) -> Result<Year, InvalidDate> {
         if year <= Year::max_value().0 {
             Ok(Year(year))
         } else {
-            Err(InvalidYear)
+            Err(InvalidDate::InvalidYear)
         }
     }
 }
-
-#[derive(Debug)]
-pub struct InvalidYear;
-
-impl fmt::Display for InvalidYear {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("invalid year")
-    }
-}
-
-impl StdError for InvalidYear {}
 
 #[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Month(u16);
@@ -75,13 +134,13 @@ impl From<Month> for u16 {
 }
 
 impl TryFrom<u16> for Month {
-    type Error = InvalidMonth;
+    type Error = InvalidDate;
 
-    fn try_from(month: u16) -> Result<Month, InvalidMonth> {
+    fn try_from(month: u16) -> Result<Month, InvalidDate> {
         if month <= Month::max_value().0 {
             Ok(Month(month))
         } else {
-            Err(InvalidMonth)
+            Err(InvalidDate::InvalidMonth)
         }
     }
 }
@@ -93,35 +152,25 @@ impl fmt::Display for Month {
 }
 
 impl FromStr for Month {
-    type Err = InvalidMonth;
+    type Err = InvalidDate;
 
-    fn from_str(s: &str) -> Result<Month, InvalidMonth> {
+    fn from_str(s: &str) -> Result<Month, InvalidDate> {
         match s.split_once(|ch| ch == '-' || ch == '/') {
             Some((year_part, month_part)) => {
-                let year: u16 = year_part.parse().map_err(|_| InvalidMonth)?;
-                let month_plus_one: u16 = month_part.parse().map_err(|_| InvalidMonth)?;
+                let year: u16 = year_part.parse().map_err(|_| InvalidDate::InvalidMonth)?;
+                let month_plus_one: u16 =
+                    month_part.parse().map_err(|_| InvalidDate::InvalidMonth)?;
 
                 if year <= MAX_YEAR && 1 <= month_plus_one && month_plus_one <= 12 {
                     Ok(Month(year * 12 + month_plus_one - 1))
                 } else {
-                    Err(InvalidMonth)
+                    Err(InvalidDate::InvalidMonth)
                 }
             }
-            None => Err(InvalidMonth),
+            None => Err(InvalidDate::InvalidMonth),
         }
     }
 }
-
-#[derive(Debug)]
-pub struct InvalidMonth;
-
-impl fmt::Display for InvalidMonth {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("invalid month")
-    }
-}
-
-impl StdError for InvalidMonth {}
 
 #[cfg(test)]
 mod tests {

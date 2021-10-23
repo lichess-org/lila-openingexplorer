@@ -47,8 +47,8 @@ impl MasterImporter {
         let mut final_key = None;
         batch.put_master_game(body.id, &body.game);
         for (zobrist, (uci, turn)) in without_loops {
-            let key = KeyBuilder::master().with_zobrist(Variant::Chess, zobrist).with_month(todo!());
-            final_key = Some(key);
+            let key = KeyBuilder::master().with_zobrist(Variant::Chess, zobrist).with_year(body.game.date.year());
+            final_key = Some(key.clone());
             batch.merge_master(
                 key,
                 MasterEntry::new_single(

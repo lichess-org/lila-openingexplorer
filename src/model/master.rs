@@ -13,7 +13,7 @@ use shakmaty::{uci::Uci, ByColor, Color, Outcome};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    model::{read_uci, write_uci, GameId, Stats},
+    model::{read_uci, write_uci, GameId, LaxDate, Stats},
     util::ByColorDef,
 };
 
@@ -31,7 +31,8 @@ pub struct MasterGameWithId {
 pub struct MasterGame {
     pub event: String,
     pub site: String,
-    pub date: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub date: LaxDate,
     pub round: String,
     #[serde(flatten, with = "ByColorDef")]
     pub players: ByColor<MasterGamePlayer>,
