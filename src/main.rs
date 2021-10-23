@@ -85,6 +85,15 @@ async fn main() {
         .layer(AddExtensionLayer::new(indexer))
         .layer(AddExtensionLayer::new(master_importer));
 
+    #[cfg(feature = "cors")]
+    let app = app.layer(tower_http::set_header::SetResponseHeaderLayer::<
+        _,
+        axum::body::Body,
+    >::if_not_present(
+        axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        axum::http::HeaderValue::from_static("*"),
+    ));
+
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
         .await
