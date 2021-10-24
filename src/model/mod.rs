@@ -19,7 +19,7 @@ pub use key::{Key, KeyBuilder, KeyPrefix};
 pub use lichess::{LichessEntry, LichessGroup, PreparedMove, PreparedResponse, RatingGroup};
 pub use master::{MasterEntry, MasterGame, MasterGameWithId};
 pub use mode::{ByMode, Mode};
-pub use personal::{PersonalEntry, PersonalStatus};
+pub use personal::{IndexRun, PersonalEntry, PersonalStatus};
 pub use speed::{BySpeed, Speed};
 pub use stats::Stats;
 pub use uci::{read_uci, write_uci};

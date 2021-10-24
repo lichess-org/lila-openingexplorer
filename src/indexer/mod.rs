@@ -1,7 +1,7 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, Instant},
 };
 
 use async_channel::TrySendError;
@@ -21,7 +21,7 @@ use tokio::{
 use crate::{
     db::Database,
     model::{
-        GameInfo, GameInfoPlayer, KeyBuilder, Mode, Month, PersonalEntry, PersonalStatus, UserId,
+        GameInfo, GameInfoPlayer, KeyBuilder, Mode, Month, PersonalEntry, PersonalStatus, UserId, IndexRun,
     },
 };
 
@@ -93,7 +93,7 @@ impl IndexerStub {
             .expect("get player status")
             .unwrap_or_default();
 
-        let since_created_at = match status
+        let index_run = match status
             .maybe_revisit_ongoing()
             .or_else(|| status.maybe_index())
         {
@@ -111,7 +111,7 @@ impl IndexerStub {
         match self.tx.try_send(IndexerMessage::IndexPlayer {
             player: player.to_owned(),
             status,
-            since_created_at,
+            index_run,
         }) {
             Ok(_) => {
                 let (sender, receiver) = watch::channel(());
@@ -145,9 +145,9 @@ impl IndexerActor {
                 IndexerMessage::IndexPlayer {
                     player,
                     status,
-                    since_created_at,
+                    index_run
                 } => {
-                    self.index_player(&player, status, since_created_at).await;
+                    self.index_player(&player, status, index_run).await;
 
                     let mut guard = self.indexing.write().await;
                     guard.remove(&player);
@@ -160,19 +160,19 @@ impl IndexerActor {
         &self,
         player: &UserId,
         mut status: PersonalStatus,
-        since_created_at: u64,
+        index_run: IndexRun,
     ) {
         let started_at = Instant::now();
         log::info!(
-            "indexer {:02}: starting {} (created_at >= {})",
+            "indexer {:02}: starting {} ({})",
             self.idx,
             player.as_str(),
-            since_created_at
+            index_run,
         );
 
         let mut games = match timeout(
             Duration::from_secs(60),
-            self.lila.user_games(player, since_created_at),
+            self.lila.user_games(player, index_run.since()),
         )
         .await
         {
@@ -231,7 +231,7 @@ impl IndexerActor {
             }
         }
 
-        status.indexed_at = SystemTime::now();
+        status.finish_run(index_run);
         self.db
             .queryable()
             .put_player_status(player, &status)
@@ -424,6 +424,6 @@ enum IndexerMessage {
     IndexPlayer {
         player: UserId,
         status: PersonalStatus,
-        since_created_at: u64,
+        index_run: IndexRun,
     },
 }

@@ -1,5 +1,6 @@
 use std::{
     cmp::{max, Reverse},
+    fmt,
     io::{self, Read, Write},
     time::{Duration, SystemTime},
 };
@@ -256,6 +257,7 @@ pub struct PersonalStatus {
     pub latest_created_at: u64,
     pub revisit_ongoing_created_at: Option<u64>,
     pub indexed_at: SystemTime,
+    pub revisited_at: SystemTime,
 }
 
 impl Default for PersonalStatus {
@@ -264,6 +266,7 @@ impl Default for PersonalStatus {
             latest_created_at: 0,
             revisit_ongoing_created_at: None,
             indexed_at: SystemTime::UNIX_EPOCH,
+            revisited_at: SystemTime::UNIX_EPOCH,
         }
     }
 }
@@ -271,28 +274,33 @@ impl Default for PersonalStatus {
 impl PersonalStatus {
     pub const SIZE_HINT: usize = 3 * 8;
 
-    pub fn maybe_revisit_ongoing(&mut self) -> Option<u64> {
+    pub fn maybe_revisit_ongoing(&mut self) -> Option<IndexRun> {
         if SystemTime::now()
-            .duration_since(self.indexed_at)
+            .duration_since(self.revisited_at)
             .unwrap_or_default()
             > Duration::from_secs(24 * 60 * 60)
         {
-            self.revisit_ongoing_created_at.take()
+            self.revisit_ongoing_created_at
+                .map(|since| IndexRun::Revisit { since })
         } else {
             None
         }
     }
 
-    pub fn maybe_index(&self) -> Option<u64> {
+    pub fn maybe_index(&self) -> Option<IndexRun> {
         SystemTime::now()
             .duration_since(self.indexed_at)
             .map_or(false, |cooldown| cooldown > Duration::from_secs(60))
-            .then(|| {
-                // Plus 1 millisecond, as an optimization to avoid overlap.
-                // Might miss games if the index run happens between games
-                // created in the same millisecond.
-                self.latest_created_at.saturating_add(1)
+            .then(|| IndexRun::Index {
+                after: self.latest_created_at,
             })
+    }
+
+    pub fn finish_run(&mut self, run: IndexRun) {
+        self.indexed_at = SystemTime::now();
+        if matches!(run, IndexRun::Revisit { .. }) {
+            self.revisited_at = self.indexed_at;
+        }
     }
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<PersonalStatus> {
@@ -300,6 +308,11 @@ impl PersonalStatus {
             latest_created_at: read_uint(reader)?,
             revisit_ongoing_created_at: Some(read_uint(reader)?).filter(|t| *t != 0),
             indexed_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(reader)?),
+            revisited_at: match read_uint(reader) {
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => SystemTime::UNIX_EPOCH, // bc
+                Err(err) => return Err(err),
+                Ok(secs) => SystemTime::UNIX_EPOCH + Duration::from_secs(secs),
+            },
         })
     }
 
@@ -312,7 +325,43 @@ impl PersonalStatus {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .expect("duration since unix epoch")
                 .as_secs(),
+        )?;
+        write_uint(
+            writer,
+            self.revisited_at
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .expect("duration since unix epoch")
+                .as_secs(),
         )
+    }
+}
+
+#[derive(Debug)]
+pub enum IndexRun {
+    Index { after: u64 },
+    Revisit { since: u64 },
+}
+
+impl IndexRun {
+    pub fn since(&self) -> u64 {
+        match *self {
+            IndexRun::Index { after } => {
+                // Plus 1 millisecond, as an optimization to avoid overlap.
+                // Might miss games if the index run happens between games
+                // created in the same millisecond.
+                after.saturating_add(1)
+            }
+            IndexRun::Revisit { since } => since,
+        }
+    }
+}
+
+impl fmt::Display for IndexRun {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IndexRun::Index { after } => write!(f, "created_at > {}", after),
+            IndexRun::Revisit { since } => write!(f, "created_at >= {}", since),
+        }
     }
 }
 
