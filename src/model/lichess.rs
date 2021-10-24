@@ -9,7 +9,9 @@ use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 use smallvec::{smallvec, SmallVec};
 
-use crate::model::{read_uci, read_uint, write_uint, BySpeed, GameId, Speed, Stats};
+use crate::model::{read_uci, read_uint, write_uci, write_uint, BySpeed, GameId, Speed, Stats};
+
+const MAX_LICHESS_GAMES: u64 = 15;
 
 #[derive(Copy, Clone)]
 enum RatingGroup {
@@ -68,6 +70,35 @@ impl<T> ByRatingGroup<T> {
             RatingGroup::Group2800 => &mut self.group_2800,
             RatingGroup::Group3200 => &mut self.group_3200,
         }
+    }
+
+    fn as_ref(&self) -> ByRatingGroup<&T> {
+        ByRatingGroup {
+            group_low: &self.group_low,
+            group_1600: &self.group_1600,
+            group_1800: &self.group_1800,
+            group_2000: &self.group_2000,
+            group_2200: &self.group_2200,
+            group_2500: &self.group_2500,
+            group_2800: &self.group_2800,
+            group_3200: &self.group_3200,
+        }
+    }
+
+    fn try_map<U, E, F>(self, mut f: F) -> Result<ByRatingGroup<U>, E>
+    where
+        F: FnMut(RatingGroup, T) -> Result<U, E>,
+    {
+        Ok(ByRatingGroup {
+            group_low: f(RatingGroup::GroupLow, self.group_low)?,
+            group_1600: f(RatingGroup::Group1600, self.group_1600)?,
+            group_1800: f(RatingGroup::Group1800, self.group_1800)?,
+            group_2000: f(RatingGroup::Group2000, self.group_2000)?,
+            group_2200: f(RatingGroup::Group2200, self.group_2200)?,
+            group_2500: f(RatingGroup::Group2500, self.group_2500)?,
+            group_2800: f(RatingGroup::Group2800, self.group_2800)?,
+            group_3200: f(RatingGroup::Group3200, self.group_3200)?,
+        })
     }
 }
 
@@ -231,5 +262,51 @@ impl LichessEntry {
                 *group += LichessGroup { stats, games };
             }
         }
+    }
+
+    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        let discarded_game_idx = self.max_game_idx.saturating_sub(MAX_LICHESS_GAMES);
+
+        for (uci, sub_entry) in &self.sub_entries {
+            write_uci(writer, uci)?;
+
+            sub_entry.as_ref().try_map(|speed, by_rating_group| {
+                by_rating_group.as_ref().try_map(|rating_group, group| {
+                    let num_games = if group.games.len() == 1 {
+                        1
+                    } else {
+                        group
+                            .games
+                            .iter()
+                            .filter(|(game_idx, _)| *game_idx > discarded_game_idx)
+                            .count()
+                    };
+
+                    if num_games > 0 || !group.stats.is_empty() {
+                        LichessHeader::Group {
+                            speed,
+                            rating_group,
+                            num_games,
+                        }
+                        .write(writer)?;
+
+                        group.stats.write(writer)?;
+
+                        for (game_idx, game) in &group.games {
+                            if *game_idx > discarded_game_idx || group.games.len() == 1 {
+                                write_uint(writer, *game_idx)?;
+                                game.write(writer)?;
+                            }
+                        }
+                    }
+
+                    Ok::<_, io::Error>(())
+                })
+            })?;
+
+            LichessHeader::End.write(writer)?;
+        }
+
+        Ok(())
     }
 }

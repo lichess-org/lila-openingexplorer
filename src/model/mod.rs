@@ -16,7 +16,7 @@ pub use date::{LaxDate, Month, Year};
 pub use game_id::{GameId, InvalidGameId};
 pub use game_info::{GameInfo, GameInfoPlayer};
 pub use key::{Key, KeyBuilder, KeyPrefix};
-pub use lichess::LichessGroup;
+pub use lichess::{LichessEntry, LichessGroup};
 pub use master::{MasterEntry, MasterGame, MasterGameWithId};
 pub use mode::{ByMode, Mode};
 pub use personal::{PersonalEntry, PersonalStatus};

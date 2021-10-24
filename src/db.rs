@@ -7,7 +7,7 @@ use rocksdb::{
 };
 
 use crate::model::{
-    GameId, GameInfo, Key, KeyPrefix, MasterEntry, MasterGame, Month, PersonalEntry,
+    GameId, GameInfo, Key, KeyPrefix, LichessEntry, MasterEntry, MasterGame, Month, PersonalEntry,
     PersonalStatus, UserId, Year,
 };
 
@@ -53,6 +53,14 @@ impl Database {
             path,
             vec![
                 column_family(
+                    "lichess",
+                    Some("lichess merge"),
+                    lichess_merge,
+                    Some(KeyPrefix::SIZE),
+                    4 * 1024,
+                    5,
+                ),
+                column_family(
                     "personal",
                     Some("personal merge"),
                     personal_merge,
@@ -80,6 +88,7 @@ impl Database {
     pub fn queryable(&self) -> QueryableDatabase<'_> {
         QueryableDatabase {
             db: &self.inner,
+            cf_lichess: self.inner.cf_handle("lichess").expect("cf lichess"),
             cf_personal: self.inner.cf_handle("personal").expect("cf personal"),
             cf_game: self.inner.cf_handle("game").expect("cf game"),
             cf_player: self.inner.cf_handle("player").expect("cf player"),
@@ -91,6 +100,7 @@ impl Database {
 
 pub struct QueryableDatabase<'a> {
     db: &'a DB,
+    cf_lichess: &'a ColumnFamily,
     cf_personal: &'a ColumnFamily,
     cf_game: &'a ColumnFamily,
     cf_player: &'a ColumnFamily,
@@ -221,6 +231,16 @@ pub struct Batch<'a> {
 }
 
 impl Batch<'_> {
+    pub fn merge_lichess(&mut self, key: Key, entry: LichessEntry) {
+        let mut cursor = Cursor::new(Vec::with_capacity(LichessEntry::SIZE_HINT));
+        entry.write(&mut cursor).expect("serialize lichess entry");
+        self.batch.merge_cf(
+            self.queryable.cf_lichess,
+            key.into_bytes(),
+            cursor.into_inner(),
+        );
+    }
+
     pub fn merge_personal(&mut self, key: Key, entry: PersonalEntry) {
         let mut cursor = Cursor::new(Vec::with_capacity(PersonalEntry::SIZE_HINT));
         entry.write(&mut cursor).expect("serialize personal entry");
@@ -259,6 +279,25 @@ impl Batch<'_> {
     pub fn write(self) -> Result<(), rocksdb::Error> {
         self.queryable.db.write(self.batch)
     }
+}
+
+fn lichess_merge(
+    _key: &[u8],
+    existing: Option<&[u8]>,
+    operands: &mut MergeOperands,
+) -> Option<Vec<u8>> {
+    let mut entry = LichessEntry::default();
+    let mut size_hint = 0;
+    for op in existing.into_iter().chain(operands.into_iter()) {
+        let mut cursor = Cursor::new(op);
+        entry
+            .extend_from_reader(&mut cursor)
+            .expect("deserialize for lichess merge");
+        size_hint += op.len();
+    }
+    let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
+    entry.write(&mut cursor).expect("write lichess entry");
+    Some(cursor.into_inner())
 }
 
 fn game_merge(
