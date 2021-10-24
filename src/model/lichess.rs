@@ -9,7 +9,7 @@ use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 use smallvec::{smallvec, SmallVec};
 
-use crate::model::{write_uint, BySpeed, GameId, Speed, Stats};
+use crate::model::{read_uci, read_uint, write_uint, BySpeed, GameId, Speed, Stats};
 
 #[derive(Copy, Clone)]
 enum RatingGroup {
@@ -196,6 +196,40 @@ impl LichessEntry {
         LichessEntry {
             sub_entries,
             max_game_idx: 0,
+        }
+    }
+
+    pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
+        loop {
+            let uci = match read_uci(reader) {
+                Ok(uci) => uci,
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
+                Err(err) => return Err(err),
+            };
+
+            let sub_entry = self.sub_entries.entry(uci).or_default();
+
+            let base_game_idx = self.max_game_idx + 1;
+
+            while let LichessHeader::Group {
+                speed,
+                rating_group,
+                num_games,
+            } = LichessHeader::read(reader)?
+            {
+                let stats = Stats::read(reader)?;
+                let mut games = SmallVec::with_capacity(num_games);
+                for _ in 0..num_games {
+                    let game_idx = base_game_idx + read_uint(reader)?;
+                    self.max_game_idx = max(self.max_game_idx, game_idx);
+                    let game = GameId::read(reader)?;
+                    games.push((game_idx, game));
+                }
+                let group = sub_entry
+                    .by_speed_mut(speed)
+                    .by_rating_group_mut(rating_group);
+                *group += LichessGroup { stats, games };
+            }
         }
     }
 }
