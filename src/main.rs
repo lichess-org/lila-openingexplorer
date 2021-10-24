@@ -16,7 +16,6 @@ use axum::{
     http::StatusCode,
     AddExtensionLayer, Json, Router,
 };
-use clap::Clap;
 use futures_util::stream::Stream;
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -29,6 +28,7 @@ use shakmaty::{
     CastlingMode,
 };
 use tokio::sync::watch;
+use clap::Parser;
 
 use crate::{
     api::{
@@ -43,7 +43,7 @@ use crate::{
     util::DedupStreamExt as _,
 };
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opt {
     #[clap(long = "bind", default_value = "127.0.0.1:9000")]
     bind: SocketAddr,

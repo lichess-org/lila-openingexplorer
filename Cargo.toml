@@ -14,7 +14,7 @@ edition = "2021"
 
 [dependencies]
 async-channel = "1"
-axum = "0.2"
+axum = { git = "https://github.com/tokio-rs/axum" }
 byteorder = "1"
 bytes = "1"
 chrono = { version = "0.4", default-features = false }

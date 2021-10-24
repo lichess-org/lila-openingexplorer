@@ -6,7 +6,7 @@ use std::{
 
 use async_channel::TrySendError;
 use axum::http::StatusCode;
-use clap::Clap;
+use clap::Parser;
 use futures_util::StreamExt;
 use rustc_hash::FxHashMap;
 use shakmaty::{
@@ -31,7 +31,7 @@ use lila::{Game, Lila};
 
 const MAX_PLIES: usize = 50;
 
-#[derive(Clap, Clone)]
+#[derive(Parser, Clone)]
 pub struct IndexerOpt {
     #[clap(long = "lila", default_value = "https://lichess.org")]
     lila: String,
