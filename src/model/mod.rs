@@ -2,6 +2,7 @@ mod date;
 mod game_id;
 mod game_info;
 mod key;
+mod lichess;
 mod master;
 mod mode;
 mod personal;
