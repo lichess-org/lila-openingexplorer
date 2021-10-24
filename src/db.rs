@@ -128,6 +128,32 @@ impl QueryableDatabase<'_> {
         }))
     }
 
+    pub fn get_lichess(
+        &self,
+        key: &KeyPrefix,
+        since: Month,
+        until: Month,
+    ) -> Result<LichessEntry, rocksdb::Error> {
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
+        opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
+
+        let iterator = self
+            .db
+            .iterator_cf_opt(self.cf_lichess, opt, IteratorMode::Start);
+
+        let mut entry = LichessEntry::default();
+        for (_key, value) in iterator {
+            let mut cursor = Cursor::new(value);
+            entry
+                .extend_from_reader(&mut cursor)
+                .expect("deserialize lichess entry");
+        }
+
+        Ok(entry)
+    }
+
     pub fn get_personal(
         &self,
         key: &KeyPrefix,
