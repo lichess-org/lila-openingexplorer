@@ -74,7 +74,7 @@ async fn main() {
     let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
     let app = Router::new()
-        .route("/admin/:prop", get(db_property))
+        .route("/admin/db/:prop", get(db_property))
         .route("/admin/game/:prop", get(game_property))
         .route("/admin/personal/:prop", get(personal_property))
         .route("/admin/explorer.indexing", get(num_indexing))
