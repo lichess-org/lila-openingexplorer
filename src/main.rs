@@ -36,7 +36,7 @@ use crate::{
         Limits, MasterQuery, NdJson, PersonalQuery, PersonalQueryFilter,
     },
     db::{Database, QueryableDatabase},
-    importer::MasterImporter,
+    importer::{LichessGame, LichessImporter, MasterImporter},
     indexer::{IndexerOpt, IndexerStub},
     model::{GameId, KeyBuilder, KeyPrefix, MasterGame, MasterGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
@@ -71,6 +71,7 @@ async fn main() {
     let db = Arc::new(Database::open(opt.db).expect("db"));
     let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
     let master_importer = MasterImporter::new(Arc::clone(&db));
+    let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
     let app = Router::new()
         .route("/admin/:prop", get(db_property))
@@ -78,14 +79,16 @@ async fn main() {
         .route("/admin/personal/:prop", get(personal_property))
         .route("/admin/explorer.indexing", get(num_indexing))
         .route("/import/master", put(master_import))
-        .route("/master", get(master))
+        .route("/import/lichess", put(lichess_import))
         .route("/master/pgn/:id", get(master_pgn))
+        .route("/master", get(master))
         .route("/personal", get(personal))
         .route("/lichess", get(lichess))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
-        .layer(AddExtensionLayer::new(indexer))
-        .layer(AddExtensionLayer::new(master_importer));
+        .layer(AddExtensionLayer::new(master_importer))
+        .layer(AddExtensionLayer::new(lichess_importer))
+        .layer(AddExtensionLayer::new(indexer));
 
     #[cfg(feature = "cors")]
     let app = app.layer(tower_http::set_header::SetResponseHeaderLayer::<
@@ -359,6 +362,16 @@ async fn master(
         opening,
         recent_games: None,
     }))
+}
+
+async fn lichess_import(
+    Json(body): Json<Vec<LichessGame>>,
+    Extension(importer): Extension<LichessImporter>,
+) -> Result<(), Error> {
+    for game in body {
+        importer.import(game).await?;
+    }
+    Ok(())
 }
 
 async fn lichess(

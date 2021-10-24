@@ -1,15 +1,19 @@
 use std::sync::Arc;
 
 use rustc_hash::FxHashMap;
+use serde::Deserialize;
+use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 use shakmaty::{
-    uci::Uci, variant::Variant, zobrist::Zobrist, Chess, Color, Outcome, Position, Setup,
+    san::San, uci::Uci, variant::Variant, zobrist::Zobrist, ByColor, Chess, Color, Outcome,
+    Position, Setup,
 };
 use tokio::sync::Mutex;
 
 use crate::{
     api::Error,
     db::Database,
-    model::{Key, KeyBuilder, MasterEntry, MasterGameWithId},
+    model::{GameId, GameInfoPlayer, Key, KeyBuilder, LaxDate, MasterEntry, MasterGameWithId},
+    util::ByColorDef,
 };
 
 #[derive(Clone)]
@@ -79,6 +83,41 @@ impl MasterImporter {
         }
 
         batch.write().expect("commit master game");
+        Ok(())
+    }
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+pub struct LichessGame {
+    #[serde_as(as = "DisplayFromStr")]
+    id: GameId,
+    #[serde_as(as = "DisplayFromStr")]
+    date: LaxDate,
+    #[serde(with = "ByColorDef")]
+    players: ByColor<GameInfoPlayer>,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    winner: Option<Color>,
+    #[serde_as(as = "StringWithSeparator<SpaceSeparator, San>")]
+    moves: Vec<San>,
+}
+
+#[derive(Clone)]
+pub struct LichessImporter {
+    db: Arc<Database>,
+    mutex: Arc<Mutex<()>>,
+}
+
+impl LichessImporter {
+    pub fn new(db: Arc<Database>) -> LichessImporter {
+        LichessImporter {
+            db,
+            mutex: Arc::new(Mutex::new(())),
+        }
+    }
+
+    pub async fn import(&self, body: LichessGame) -> Result<(), Error> {
+        let _guard = self.mutex.lock();
         Ok(())
     }
 }
