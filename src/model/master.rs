@@ -14,7 +14,9 @@ use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    model::{read_uci, write_uci, GameId, GameInfoPlayer, LaxDate, Stats},
+    model::{
+        read_uci, write_uci, GameId, GameInfoPlayer, LaxDate, PreparedMove, PreparedResponse, Stats,
+    },
     util::ByColorDef,
 };
 
@@ -190,12 +192,55 @@ impl MasterEntry {
         Ok(())
     }
 
-    pub fn total(&self) -> Stats {
+    fn total(&self) -> Stats {
         let mut sum = Stats::default();
         for group in self.groups.values() {
             sum += group.stats.clone();
         }
         sum
+    }
+
+    pub fn prepare(self) -> PreparedResponse {
+        let total = self.total();
+
+        let mut top_games = Vec::new();
+        for (uci, group) in &self.groups {
+            for (sort_key, game) in &group.games {
+                top_games.push((*sort_key, uci.to_owned(), *game));
+            }
+        }
+        top_games.sort_by_key(|(sort_key, _, _)| Reverse(*sort_key));
+        top_games.truncate(15);
+
+        let mut moves: Vec<PreparedMove> = self
+            .groups
+            .into_iter()
+            .map(|(uci, group)| {
+                let single_game = if group.stats.is_single() {
+                    group.games.iter().map(|(_, id)| *id).next()
+                } else {
+                    None
+                };
+                PreparedMove {
+                    uci,
+                    average_rating: group.stats.average_rating(),
+                    average_opponent_rating: None,
+                    game: single_game,
+                    stats: group.stats,
+                }
+            })
+            .collect();
+        moves.sort_by_key(|m| Reverse(m.stats.total()));
+
+        PreparedResponse {
+            total,
+            moves,
+            top_games: top_games
+                .into_iter()
+                .map(|(_, uci, game)| (uci, game))
+                .collect(),
+            recent_games: Vec::new(),
+        }
     }
 }
 

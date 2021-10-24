@@ -24,6 +24,10 @@ impl KeyBuilder {
         KeyBuilder { base: 0 }
     }
 
+    pub fn lichess() -> KeyBuilder {
+        KeyBuilder { base: 0 }
+    }
+
     pub fn with_zobrist(&self, variant: Variant, zobrist: u128) -> KeyPrefix {
         // Zobrist hashes are the opposite of cryptographically secure. An
         // attacker could efficiently construct a position such that a record

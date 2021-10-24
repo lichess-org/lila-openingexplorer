@@ -8,7 +8,7 @@ pub mod model;
 pub mod opening;
 pub mod util;
 
-use std::{cmp::Reverse, mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Extension, Path, Query},
@@ -22,7 +22,7 @@ use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
     fen::Fen,
-    san::SanPlus,
+    san::{San, SanPlus},
     variant::{Variant, VariantPosition},
     zobrist::Zobrist,
     CastlingMode,
@@ -31,8 +31,8 @@ use tokio::sync::watch;
 
 use crate::{
     api::{
-        Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, Limits,
-        MasterQuery, NdJson, PersonalQuery, PersonalQueryFilter,
+        Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, LichessQuery,
+        Limits, MasterQuery, NdJson, PersonalQuery, PersonalQueryFilter,
     },
     db::Database,
     importer::MasterImporter,
@@ -285,52 +285,44 @@ async fn master(
     let opening = openings.classify_and_play(&mut pos, query.play)?;
     let key = KeyBuilder::master().with_zobrist(Variant::Chess, pos.zobrist_hash());
     let queryable = db.queryable();
-    let entry = queryable
+    let mut entry = queryable
         .get_master(key, query.since, query.until)
-        .expect("get master");
-    let total = entry.total();
+        .expect("get master")
+        .prepare();
 
-    let mut moves = Vec::with_capacity(entry.groups.len());
-    let mut games = Vec::new();
-    for (uci, group) in entry.groups {
-        let m = uci.to_move(&pos)?;
-        let san = SanPlus::from_move(pos.clone(), &m);
-        let single_game = if group.stats.is_single() {
-            group.games.iter().map(|(_, id)| *id).next()
-        } else {
-            None
-        };
-        moves.push(ExplorerMove {
-            average_rating: group.stats.average_rating(),
-            average_opponent_rating: None,
-            uci: uci.clone(),
-            san,
-            game: single_game.and_then(|id| {
-                queryable
-                    .get_master_game(id)
-                    .expect("get master game")
-                    .map(|info| ExplorerGame::from_master(id, info))
-            }),
-            stats: group.stats,
-        });
-        for (sort_key, game) in group.games {
-            games.push((sort_key, uci.clone(), game));
-        }
-    }
-    moves.sort_by_key(|row| Reverse(row.stats.total()));
-    moves.truncate(query.limits.moves.unwrap_or(12));
-    games.sort_by_key(|(sort_key, _, _)| Reverse(*sort_key));
-    games.truncate(15);
-    games.truncate(query.limits.top_games);
+    entry.moves.truncate(query.limits.moves.unwrap_or(12));
+    entry.top_games.truncate(query.limits.top_games);
 
     Ok(Json(ExplorerResponse {
-        total,
-        moves,
-        recent_games: None,
+        total: entry.total,
+        moves: entry
+            .moves
+            .into_iter()
+            .map(|p| ExplorerMove {
+                san: p.uci.to_move(&pos).map_or(
+                    SanPlus {
+                        san: San::Null,
+                        suffix: None,
+                    },
+                    |m| SanPlus::from_move(pos.clone(), &m),
+                ),
+                uci: p.uci,
+                average_rating: p.average_rating,
+                average_opponent_rating: p.average_opponent_rating,
+                stats: p.stats,
+                game: p.game.and_then(|id| {
+                    queryable
+                        .get_master_game(id)
+                        .expect("get master game")
+                        .map(|info| ExplorerGame::from_master(id, info))
+                }),
+            })
+            .collect(),
         top_games: Some(
-            games
+            entry
+                .top_games
                 .into_iter()
-                .flat_map(|(_, uci, id)| {
+                .flat_map(|(uci, id)| {
                     queryable
                         .get_master_game(id)
                         .expect("get master game")
@@ -342,5 +334,22 @@ async fn master(
                 .collect(),
         ),
         opening,
+        recent_games: None,
     }))
+}
+
+async fn lichess(
+    Extension(openings): Extension<&'static Openings>,
+    Extension(db): Extension<Arc<Database>>,
+    Query(query): Query<LichessQuery>,
+) -> Result<Json<ExplorerResponse>, Error> {
+    let variant = Variant::from(query.variant);
+    let mut pos = Zobrist::new(match query.fen {
+        Some(fen) => VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)?,
+        None => VariantPosition::new(variant),
+    });
+
+    let opening = openings.classify_and_play(&mut pos, query.play)?;
+    let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
+    todo!()
 }

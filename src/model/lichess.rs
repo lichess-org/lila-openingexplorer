@@ -321,4 +321,21 @@ impl LichessEntry {
 
         Ok(())
     }
+
+    //pub fn prepare(self, pos: &VariantPosition, query: &LichessQuery) -> FilteredEntry {}
+}
+
+pub struct PreparedResponse {
+    pub total: Stats,
+    pub moves: Vec<PreparedMove>,
+    pub recent_games: Vec<(Uci, GameId)>,
+    pub top_games: Vec<(Uci, GameId)>,
+}
+
+pub struct PreparedMove {
+    pub uci: Uci,
+    pub stats: Stats,
+    pub game: Option<GameId>,
+    pub average_rating: Option<u64>,
+    pub average_opponent_rating: Option<u64>,
 }
