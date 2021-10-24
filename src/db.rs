@@ -338,8 +338,9 @@ fn game_merge(
         let mut cursor = Cursor::new(op);
         let mut new_info = GameInfo::read(&mut cursor).expect("read for game merge");
         if let Some(old_info) = info {
-            new_info.indexed.white |= old_info.indexed.white;
-            new_info.indexed.black |= old_info.indexed.black;
+            new_info.indexed_personal.white |= old_info.indexed_personal.white;
+            new_info.indexed_personal.black |= old_info.indexed_personal.black;
+            new_info.indexed_lichess |= old_info.indexed_lichess;
         }
         info = Some(new_info);
         size_hint = op.len();

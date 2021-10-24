@@ -1,7 +1,7 @@
 use std::{error::Error as StdError, fmt};
 
 use axum::http::StatusCode;
-use shakmaty::{uci::IllegalUciError, variant::VariantPosition, PositionError};
+use shakmaty::{san::SanError, uci::IllegalUciError, variant::VariantPosition, PositionError};
 
 use crate::model::GameId;
 
@@ -9,6 +9,7 @@ use crate::model::GameId;
 pub enum Error {
     PositionError(PositionError<VariantPosition>),
     IllegalUciError(IllegalUciError),
+    SanError(SanError),
     DuplicateGame(GameId),
     RejectedImport(GameId),
 }
@@ -25,6 +26,12 @@ impl From<IllegalUciError> for Error {
     }
 }
 
+impl From<SanError> for Error {
+    fn from(err: SanError) -> Error {
+        Error::SanError(err)
+    }
+}
+
 impl StdError for Error {}
 
 impl fmt::Display for Error {
@@ -32,6 +39,7 @@ impl fmt::Display for Error {
         match self {
             Error::PositionError(err) => write!(f, "bad request: {}", err),
             Error::IllegalUciError(err) => write!(f, "bad request: {}", err),
+            Error::SanError(err) => write!(f, "bad request: {}", err),
             Error::DuplicateGame(id) => write!(f, "duplicate game {}", id),
             Error::RejectedImport(id) => write!(f, "rejected import of {}", id),
         }

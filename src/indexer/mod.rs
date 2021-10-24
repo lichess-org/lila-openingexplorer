@@ -310,7 +310,7 @@ impl IndexerActor {
         if queryable
             .get_game_info(game.id)
             .expect("get game info")
-            .map_or(false, |info| info.indexed.into_color(color))
+            .map_or(false, |info| info.indexed_personal.into_color(color))
         {
             log::debug!(
                 "indexer {:02}: {}/{} already indexed",
@@ -395,7 +395,8 @@ impl IndexerActor {
                     name: p.user.map_or(String::new(), |u| u.name.to_string()),
                     rating: p.rating.unwrap_or_default(),
                 }),
-                indexed: ByColor::new_with(|c| color == c),
+                indexed_personal: ByColor::new_with(|c| color == c),
+                indexed_lichess: false,
             },
         );
 
