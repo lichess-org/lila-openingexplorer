@@ -23,6 +23,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
     fen::Fen,
     san::{San, SanPlus},
+    uci::Uci,
     variant::{Variant, VariantPosition},
     zobrist::Zobrist,
     CastlingMode,
@@ -34,10 +35,10 @@ use crate::{
         Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, LichessQuery,
         Limits, MasterQuery, NdJson, PersonalQuery, PersonalQueryFilter,
     },
-    db::Database,
+    db::{Database, QueryableDatabase},
     importer::MasterImporter,
     indexer::{IndexerOpt, IndexerStub},
-    model::{GameId, KeyBuilder, KeyPrefix, MasterGame, MasterGameWithId, UserId},
+    model::{GameId, KeyBuilder, KeyPrefix, MasterGame, MasterGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
@@ -150,6 +151,53 @@ struct PersonalStreamState {
     done: bool,
 }
 
+fn finalize_lichess_moves(
+    moves: Vec<PreparedMove>,
+    pos: &VariantPosition,
+    queryable: &QueryableDatabase,
+) -> Vec<ExplorerMove> {
+    moves
+        .into_iter()
+        .map(|p| ExplorerMove {
+            stats: p.stats,
+            san: p.uci.to_move(pos).map_or(
+                SanPlus {
+                    san: San::Null,
+                    suffix: None,
+                },
+                |m| SanPlus::from_move(pos.clone(), &m),
+            ),
+            uci: p.uci,
+            average_rating: p.average_rating,
+            average_opponent_rating: p.average_opponent_rating,
+            game: p.game.and_then(|id| {
+                queryable
+                    .get_game_info(id)
+                    .expect("get game")
+                    .map(|info| ExplorerGame::from_lichess(id, info))
+            }),
+        })
+        .collect()
+}
+
+fn finalize_lichess_games(
+    games: Vec<(Uci, GameId)>,
+    queryable: &QueryableDatabase,
+) -> Vec<ExplorerGameWithUci> {
+    games
+        .into_iter()
+        .flat_map(|(uci, id)| {
+            queryable
+                .get_game_info(id)
+                .expect("get game")
+                .map(|info| ExplorerGameWithUci {
+                    uci,
+                    row: ExplorerGame::from_lichess(id, info),
+                })
+        })
+        .collect()
+}
+
 async fn personal(
     Extension(openings): Extension<&'static Openings>,
     Extension(db): Extension<Arc<Database>>,
@@ -201,45 +249,19 @@ async fn personal(
             };
 
             let queryable = state.db.queryable();
-            let filtered = queryable
+            let mut filtered = queryable
                 .get_personal(&state.key, state.filter.since, state.filter.until)
                 .expect("get personal")
-                .prepare(&state.pos, &state.filter);
+                .prepare(&state.filter);
+
+            filtered.moves.truncate(state.limits.moves.unwrap_or(usize::MAX));
+            filtered.recent_games.truncate(state.limits.recent_games);
 
             Some((
                 ExplorerResponse {
                     total: filtered.total,
-                    moves: filtered
-                        .moves
-                        .into_iter()
-                        .take(state.limits.moves.unwrap_or(usize::MAX))
-                        .map(|row| ExplorerMove {
-                            uci: row.uci,
-                            san: row.san,
-                            average_rating: None,
-                            average_opponent_rating: row.stats.average_rating(),
-                            stats: row.stats,
-                            game: row.game.and_then(|id| {
-                                queryable
-                                    .get_game_info(id)
-                                    .expect("get game")
-                                    .map(|info| ExplorerGame::from_lichess(id, info))
-                            }),
-                        })
-                        .collect(),
-                    recent_games: Some(filtered
-                        .recent_games
-                        .into_iter()
-                        .take(state.limits.recent_games)
-                        .flat_map(|(uci, id)| {
-                            queryable.get_game_info(id).expect("get game").map(|info| {
-                                ExplorerGameWithUci {
-                                    uci,
-                                    row: ExplorerGame::from_lichess(id, info),
-                                }
-                            })
-                        })
-                        .collect()),
+                    moves: finalize_lichess_moves(filtered.moves, &state.pos, &queryable),
+                    recent_games: Some(finalize_lichess_games(filtered.recent_games, &queryable)),
                     top_games: None,
                     opening: state.opening,
                 },

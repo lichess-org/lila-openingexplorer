@@ -123,20 +123,6 @@ pub struct Limits {
 #[serde_as]
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct ExplorerResponse {
-    #[serde(flatten)]
-    pub total: Stats,
-    pub moves: Vec<ExplorerMove>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recent_games: Option<Vec<ExplorerGameWithUci>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_games: Option<Vec<ExplorerGameWithUci>>,
-    pub opening: Option<&'static Opening>,
-}
-
-#[serde_as]
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct ExplorerMove {
     #[serde_as(as = "DisplayFromStr")]
     pub uci: Uci,
@@ -149,6 +135,20 @@ pub struct ExplorerMove {
     #[serde(flatten)]
     pub stats: Stats,
     pub game: Option<ExplorerGame>,
+}
+
+#[serde_as]
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplorerResponse {
+    #[serde(flatten)]
+    pub total: Stats,
+    pub moves: Vec<ExplorerMove>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recent_games: Option<Vec<ExplorerGameWithUci>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_games: Option<Vec<ExplorerGameWithUci>>,
+    pub opening: Option<&'static Opening>,
 }
 
 #[serde_as]

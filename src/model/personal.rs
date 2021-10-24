@@ -6,19 +6,14 @@ use std::{
 
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
-use shakmaty::{
-    san::{San, SanPlus},
-    uci::Uci,
-    variant::VariantPosition,
-    Outcome,
-};
+use shakmaty::{uci::Uci, Outcome};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
     api::PersonalQueryFilter,
     model::{
         read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode,
-        Speed, Stats,
+        PreparedMove, PreparedResponse, Speed, Stats,
     },
 };
 
@@ -184,15 +179,10 @@ impl PersonalEntry {
         Ok(())
     }
 
-    pub fn prepare(
-        self,
-        pos: &VariantPosition,
-        filter: &PersonalQueryFilter,
-    ) -> FilteredPersonalEntry {
+    pub fn prepare(self, filter: &PersonalQueryFilter) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(u64, Uci, GameId)> =
-            Vec::with_capacity(MAX_PERSONAL_GAMES as usize);
+        let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
             let mut latest_game: Option<(u64, GameId)> = None;
@@ -233,18 +223,11 @@ impl PersonalEntry {
             }
 
             if !stats.is_empty() || latest_game.is_some() {
-                let san = uci.to_move(pos).map_or(
-                    SanPlus {
-                        san: San::Null,
-                        suffix: None,
-                    },
-                    |m| SanPlus::from_move(pos.clone(), &m),
-                );
-
-                moves.push(FilteredPersonalMoveRow {
+                moves.push(PreparedMove {
                     uci,
-                    san,
                     stats: stats.clone(),
+                    average_rating: None,
+                    average_opponent_rating: stats.average_rating(),
                     game: latest_game.filter(|_| stats.is_single()).map(|(_, id)| id),
                 });
 
@@ -255,7 +238,7 @@ impl PersonalEntry {
         moves.sort_by_key(|row| Reverse(row.stats.total()));
         recent_games.sort_by_key(|(idx, _, _)| Reverse(*idx));
 
-        FilteredPersonalEntry {
+        PreparedResponse {
             total,
             moves,
             recent_games: recent_games
@@ -263,21 +246,9 @@ impl PersonalEntry {
                 .map(|(_, uci, game)| (uci, game))
                 .take(MAX_PERSONAL_GAMES as usize)
                 .collect(),
+            top_games: Vec::new(),
         }
     }
-}
-
-pub struct FilteredPersonalEntry {
-    pub total: Stats,
-    pub moves: Vec<FilteredPersonalMoveRow>,
-    pub recent_games: Vec<(Uci, GameId)>,
-}
-
-pub struct FilteredPersonalMoveRow {
-    pub uci: Uci,
-    pub san: SanPlus,
-    pub stats: Stats,
-    pub game: Option<GameId>,
 }
 
 #[derive(Debug)]
