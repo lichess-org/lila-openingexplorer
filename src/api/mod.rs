@@ -4,7 +4,8 @@ use shakmaty::{san::SanPlus, uci::Uci, ByColor, Color};
 
 use crate::{
     model::{
-        GameId, GameInfo, GameInfoPlayer, MasterGame, Mode, Month, Speed, Stats, UserName, Year,
+        GameId, GameInfo, GameInfoPlayer, MasterGame, Mode, Month, RatingGroup, Speed, Stats,
+        UserName, Year,
     },
     opening::Opening,
     util::ByColorDef,
@@ -37,6 +38,33 @@ pub struct MasterQuery {
     pub until: Year,
     #[serde(flatten)]
     pub limits: Limits,
+}
+
+#[serde_as]
+#[derive(Deserialize, Debug)]
+pub struct LichessQuery {
+    #[serde(default)]
+    pub variant: LilaVariant,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub fen: Option<LaxFen>,
+    #[serde_as(as = "StringWithSeparator<CommaSeparator, Uci>")]
+    #[serde(default)]
+    pub play: Vec<Uci>,
+    #[serde(flatten)]
+    pub limits: Limits,
+    #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, Speed>>")]
+    #[serde(default)]
+    pub speeds: Option<Vec<Speed>>,
+    #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, RatingGroup>>")]
+    #[serde(default)]
+    pub ratings: Option<Vec<RatingGroup>>,
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default)]
+    pub since: Month,
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default = "Month::max_value")]
+    pub until: Month,
 }
 
 #[serde_as]

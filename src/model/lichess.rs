@@ -2,6 +2,7 @@ use std::{
     cmp::max,
     io::{self, Read, Write},
     ops::AddAssign,
+    str::FromStr,
 };
 
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
@@ -13,8 +14,8 @@ use crate::model::{read_uci, read_uint, write_uci, write_uint, BySpeed, GameId, 
 
 const MAX_LICHESS_GAMES: u64 = 15;
 
-#[derive(Copy, Clone)]
-enum RatingGroup {
+#[derive(Copy, Clone, Debug)]
+pub enum RatingGroup {
     GroupLow,
     Group1600,
     Group1800,
@@ -26,8 +27,7 @@ enum RatingGroup {
 }
 
 impl RatingGroup {
-    fn select(mover_rating: u16, opponent_rating: u16) -> RatingGroup {
-        let avg = mover_rating / 2 + opponent_rating / 2;
+    fn select_avg(avg: u16) -> RatingGroup {
         if avg < 1600 {
             RatingGroup::GroupLow
         } else if avg < 1800 {
@@ -43,6 +43,18 @@ impl RatingGroup {
         } else {
             RatingGroup::Group3200
         }
+    }
+
+    fn select(mover_rating: u16, opponent_rating: u16) -> RatingGroup {
+        RatingGroup::select_avg(mover_rating / 2 + opponent_rating / 2)
+    }
+}
+
+impl FromStr for RatingGroup {
+    type Err = <u16 as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<RatingGroup, Self::Err> {
+        Ok(RatingGroup::select_avg(s.parse()?))
     }
 }
 
