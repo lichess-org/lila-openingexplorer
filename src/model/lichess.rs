@@ -1,5 +1,5 @@
 use std::{
-    cmp::max,
+    cmp::{max, Reverse},
     io::{self, Read, Write},
     ops::AddAssign,
     str::FromStr,
@@ -10,11 +10,14 @@ use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 use smallvec::{smallvec, SmallVec};
 
-use crate::model::{read_uci, read_uint, write_uci, write_uint, BySpeed, GameId, Speed, Stats};
+use crate::{
+    api::LichessQueryFilter,
+    model::{read_uci, read_uint, write_uci, write_uint, BySpeed, GameId, Speed, Stats},
+};
 
 const MAX_LICHESS_GAMES: u64 = 15;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RatingGroup {
     GroupLow,
     Group1600,
@@ -27,6 +30,17 @@ pub enum RatingGroup {
 }
 
 impl RatingGroup {
+    const ALL: [RatingGroup; 8] = [
+        RatingGroup::GroupLow,
+        RatingGroup::Group1600,
+        RatingGroup::Group1800,
+        RatingGroup::Group2000,
+        RatingGroup::Group2200,
+        RatingGroup::Group2500,
+        RatingGroup::Group2800,
+        RatingGroup::Group3200,
+    ];
+
     fn select_avg(avg: u16) -> RatingGroup {
         if avg < 1600 {
             RatingGroup::GroupLow
@@ -71,6 +85,19 @@ struct ByRatingGroup<T> {
 }
 
 impl<T> ByRatingGroup<T> {
+    fn by_rating_group(&self, rating_group: RatingGroup) -> &T {
+        match rating_group {
+            RatingGroup::GroupLow => &self.group_low,
+            RatingGroup::Group1600 => &self.group_1600,
+            RatingGroup::Group1800 => &self.group_1800,
+            RatingGroup::Group2000 => &self.group_2000,
+            RatingGroup::Group2200 => &self.group_2200,
+            RatingGroup::Group2500 => &self.group_2500,
+            RatingGroup::Group2800 => &self.group_2800,
+            RatingGroup::Group3200 => &self.group_3200,
+        }
+    }
+
     fn by_rating_group_mut(&mut self, rating_group: RatingGroup) -> &mut T {
         match rating_group {
             RatingGroup::GroupLow => &mut self.group_low,
@@ -322,7 +349,83 @@ impl LichessEntry {
         Ok(())
     }
 
-    //pub fn prepare(self, pos: &VariantPosition, query: &LichessQuery) -> FilteredEntry {}
+    pub fn prepare(self, filter: &LichessQueryFilter) -> PreparedResponse {
+        let mut total = Stats::default();
+        let mut moves = Vec::with_capacity(self.sub_entries.len());
+        let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
+        let mut top_games: Vec<(Uci, GameId)> = Vec::new();
+        let mut skipped_rating_group = false;
+
+        for (uci, sub_entry) in self.sub_entries {
+            let mut latest_game: Option<(u64, GameId)> = None;
+            let mut stats = Stats::default();
+
+            for rating_group in RatingGroup::ALL.into_iter().rev() {
+                if filter.contains_rating_group(rating_group) {
+                    for speed in Speed::ALL.into_iter().rev() {
+                        if filter.contains_speed(speed) {
+                            let group = sub_entry.by_speed(speed).by_rating_group(rating_group);
+                            stats += group.stats.to_owned();
+
+                            for (idx, game) in group.games.iter().copied() {
+                                if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
+                                {
+                                    latest_game = Some((idx, game));
+                                }
+                            }
+
+                            recent_games.extend(
+                                group
+                                    .games
+                                    .iter()
+                                    .copied()
+                                    .map(|(idx, game)| (idx, uci.to_owned(), game)),
+                            );
+
+                            if !skipped_rating_group && top_games.len() < 4 {
+                                top_games.extend(
+                                    group
+                                        .games
+                                        .iter()
+                                        .copied()
+                                        .map(|(_, game)| (uci.to_owned(), game)),
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    skipped_rating_group = true;
+                }
+            }
+
+            if !stats.is_empty() || latest_game.is_some() {
+                moves.push(PreparedMove {
+                    uci,
+                    stats: stats.clone(),
+                    average_rating: stats.average_rating(),
+                    average_opponent_rating: None,
+                    game: latest_game.filter(|_| stats.is_single()).map(|(_, id)| id),
+                });
+            }
+
+            total += stats;
+        }
+
+        top_games.truncate(4);
+
+        recent_games.sort_by_key(|(idx, _, _)| Reverse(*idx));
+
+        PreparedResponse {
+            total,
+            moves,
+            recent_games: recent_games
+                .into_iter()
+                .map(|(_, uci, game)| (uci, game))
+                .take((MAX_LICHESS_GAMES as usize).saturating_sub(top_games.len()))
+                .collect(),
+            top_games,
+        }
+    }
 }
 
 pub struct PreparedResponse {

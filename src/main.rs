@@ -81,6 +81,7 @@ async fn main() {
         .route("/master", get(master))
         .route("/master/pgn/:id", get(master_pgn))
         .route("/personal", get(personal))
+        .route("/lichess", get(lichess))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
         .layer(AddExtensionLayer::new(indexer))
@@ -372,6 +373,23 @@ async fn lichess(
     });
 
     let opening = openings.classify_and_play(&mut pos, query.play)?;
+
     let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
-    todo!()
+    let queryable = db.queryable();
+    let mut filtered = queryable
+        .get_lichess(&key, query.filter.since, query.filter.until)
+        .expect("get lichess")
+        .prepare(&query.filter);
+
+    filtered.moves.truncate(query.limits.moves.unwrap_or(12));
+    filtered.recent_games.truncate(query.limits.recent_games);
+    filtered.top_games.truncate(query.limits.recent_games);
+
+    Ok(Json(ExplorerResponse {
+        total: filtered.total,
+        moves: finalize_lichess_moves(filtered.moves, pos.as_inner(), &queryable),
+        recent_games: Some(finalize_lichess_games(filtered.recent_games, &queryable)),
+        top_games: Some(finalize_lichess_games(filtered.top_games, &queryable)),
+        opening,
+    }))
 }

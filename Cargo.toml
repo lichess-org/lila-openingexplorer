@@ -10,7 +10,7 @@ license = "AGPL-3.0+"
 authors = ["Niklas Fiekas <niklas.fiekas@backscattering.de>"]
 categories = ["games"]
 keywords = ["chess", "lichess"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 async-channel = "1"

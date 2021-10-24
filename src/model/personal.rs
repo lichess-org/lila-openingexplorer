@@ -206,7 +206,7 @@ impl PersonalEntry {
                             for (idx, game) in group.games.iter().copied() {
                                 if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
                                 {
-                                    latest_game = Some((idx, game))
+                                    latest_game = Some((idx, game));
                                 }
                             }
 

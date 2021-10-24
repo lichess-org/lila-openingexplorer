@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator, TryFromInto};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Color};
@@ -53,6 +55,13 @@ pub struct LichessQuery {
     pub play: Vec<Uci>,
     #[serde(flatten)]
     pub limits: Limits,
+    #[serde(flatten)]
+    pub filter: LichessQueryFilter,
+}
+
+#[serde_as]
+#[derive(Deserialize, Debug)]
+pub struct LichessQueryFilter {
     #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, Speed>>")]
     #[serde(default)]
     pub speeds: Option<Vec<Speed>>,
@@ -65,6 +74,20 @@ pub struct LichessQuery {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "Month::max_value")]
     pub until: Month,
+}
+
+impl LichessQueryFilter {
+    pub fn contains_speed(&self, speed: Speed) -> bool {
+        self.speeds
+            .as_ref()
+            .map_or(true, |speeds| speeds.contains(&speed))
+    }
+
+    pub fn contains_rating_group(&self, rating_group: RatingGroup) -> bool {
+        self.ratings.as_ref().map_or(true, |ratings| {
+            ratings.contains(&min(rating_group, RatingGroup::Group2500))
+        })
+    }
 }
 
 #[serde_as]
