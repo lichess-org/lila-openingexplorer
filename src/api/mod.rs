@@ -105,13 +105,17 @@ pub struct PersonalQueryFilter {
     pub until: Month,
 }
 
+#[serde_as]
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Limits {
+    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "usize::max_value")]
     pub top_games: usize,
+    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "usize::max_value")]
     pub recent_games: usize,
+    #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     pub moves: Option<usize>,
 }
