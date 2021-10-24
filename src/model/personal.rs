@@ -1,7 +1,6 @@
 use std::{
     cmp::{max, Reverse},
     io::{self, Read, Write},
-    ops::AddAssign,
     time::{Duration, SystemTime},
 };
 
@@ -18,7 +17,8 @@ use smallvec::{smallvec, SmallVec};
 use crate::{
     api::PersonalQueryFilter,
     model::{
-        read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, Mode, Speed, Stats,
+        read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode,
+        Speed, Stats,
     },
 };
 
@@ -76,21 +76,8 @@ impl Header {
 }
 
 #[derive(Default, Debug)]
-struct PersonalGroup {
-    pub stats: Stats,
-    pub games: SmallVec<[(u64, GameId); 1]>,
-}
-
-impl AddAssign for PersonalGroup {
-    fn add_assign(&mut self, rhs: PersonalGroup) {
-        self.stats += rhs.stats;
-        self.games.extend(rhs.games);
-    }
-}
-
-#[derive(Default, Debug)]
 pub struct PersonalEntry {
-    sub_entries: FxHashMap<Uci, BySpeed<ByMode<PersonalGroup>>>,
+    sub_entries: FxHashMap<Uci, BySpeed<ByMode<LichessGroup>>>,
     max_game_idx: u64,
 }
 
@@ -105,8 +92,8 @@ impl PersonalEntry {
         outcome: Outcome,
         opponent_rating: u16,
     ) -> PersonalEntry {
-        let mut sub_entry: BySpeed<ByMode<PersonalGroup>> = Default::default();
-        *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = PersonalGroup {
+        let mut sub_entry: BySpeed<ByMode<LichessGroup>> = Default::default();
+        *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = LichessGroup {
             stats: Stats::new_single(outcome, opponent_rating),
             games: smallvec![(0, game_id)],
         };
@@ -146,7 +133,7 @@ impl PersonalEntry {
                     games.push((game_idx, game));
                 }
                 let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
-                *group += PersonalGroup { stats, games };
+                *group += LichessGroup { stats, games };
             }
         }
     }

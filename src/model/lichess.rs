@@ -1,11 +1,13 @@
 use std::{
     cmp::max,
     io::{self, Read, Write},
+    ops::AddAssign,
 };
 
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use smallvec::SmallVec;
 
-use crate::model::{write_uint, Speed};
+use crate::model::{write_uint, GameId, Speed, Stats};
 
 #[derive(Copy, Clone)]
 enum RatingGroup {
@@ -18,7 +20,7 @@ enum RatingGroup {
     Group3200,
 }
 
-enum Header {
+enum LichessHeader {
     Group {
         rating_group: RatingGroup,
         speed: Speed,
@@ -27,11 +29,11 @@ enum Header {
     End,
 }
 
-impl Header {
-    fn read<R: Read>(reader: &mut R) -> io::Result<Header> {
+impl LichessHeader {
+    fn read<R: Read>(reader: &mut R) -> io::Result<LichessHeader> {
         let n = reader.read_u8()?;
         let speed = match n & 7 {
-            0 => return Ok(Header::End),
+            0 => return Ok(LichessHeader::End),
             1 => Speed::UltraBullet,
             2 => Speed::Bullet,
             3 => Speed::Blitz,
@@ -51,7 +53,7 @@ impl Header {
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
         let at_least_num_games = usize::from(n >> 6);
-        Ok(Header::Group {
+        Ok(LichessHeader::Group {
             speed,
             rating_group,
             num_games: if at_least_num_games >= 3 {
@@ -64,8 +66,8 @@ impl Header {
 
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         match *self {
-            Header::End => writer.write_u8(0),
-            Header::Group {
+            LichessHeader::End => writer.write_u8(0),
+            LichessHeader::Group {
                 speed,
                 rating_group,
                 num_games,
@@ -95,5 +97,18 @@ impl Header {
                 Ok(())
             }
         }
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct LichessGroup {
+    pub stats: Stats,
+    pub games: SmallVec<[(u64, GameId); 1]>,
+}
+
+impl AddAssign for LichessGroup {
+    fn add_assign(&mut self, rhs: LichessGroup) {
+        self.stats += rhs.stats;
+        self.games.extend(rhs.games);
     }
 }
