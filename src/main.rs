@@ -150,18 +150,6 @@ async fn num_indexing(Extension(indexer): Extension<IndexerStub>) -> String {
     indexer.num_indexing().await.to_string()
 }
 
-struct PersonalStreamState {
-    indexing: Option<watch::Receiver<()>>,
-    key: KeyPrefix,
-    db: Arc<Database>,
-    filter: PersonalQueryFilter,
-    limits: Limits,
-    pos: VariantPosition,
-    opening: Option<&'static Opening>,
-    first: bool,
-    done: bool,
-}
-
 fn finalize_lichess_moves(
     moves: Vec<PreparedMove>,
     pos: &VariantPosition,
@@ -207,6 +195,18 @@ fn finalize_lichess_games(
                 })
         })
         .collect()
+}
+
+struct PersonalStreamState {
+    indexing: Option<watch::Receiver<()>>,
+    key: KeyPrefix,
+    db: Arc<Database>,
+    filter: PersonalQueryFilter,
+    limits: Limits,
+    pos: VariantPosition,
+    opening: Option<&'static Opening>,
+    first: bool,
+    done: bool,
 }
 
 async fn personal(
