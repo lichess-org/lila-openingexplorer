@@ -413,6 +413,7 @@ impl LichessEntry {
 
         top_games.truncate(4);
 
+        moves.sort_by_key(|row| Reverse(row.stats.total()));
         recent_games.sort_by_key(|(idx, _, _)| Reverse(*idx));
 
         PreparedResponse {
