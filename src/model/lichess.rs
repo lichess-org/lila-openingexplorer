@@ -1,5 +1,5 @@
 use std::{
-    cmp::{max, Reverse},
+    cmp::{max, min, Reverse},
     io::{self, Read, Write},
     ops::AddAssign,
     str::FromStr,
@@ -212,7 +212,7 @@ impl LichessHeader {
                         RatingGroup::Group2800 => 6,
                         RatingGroup::Group3200 => 7,
                     } << 3)
-                        | ((max(3, num_games) as u8) << 6),
+                        | ((min(3, num_games) as u8) << 6),
                 )?;
                 if num_games >= 3 {
                     write_uint(writer, num_games as u64)?;
