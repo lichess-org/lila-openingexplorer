@@ -352,17 +352,15 @@ impl LichessEntry {
     pub fn prepare(self, filter: &LichessQueryFilter) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
-        let mut top_games: Vec<(Uci, GameId)> = Vec::new();
+        let mut games: Vec<(RatingGroup, Speed, u64, Uci, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
             let mut latest_game: Option<(u64, GameId)> = None;
             let mut stats = Stats::default();
-            let mut skipped_rating_group = false;
 
-            for rating_group in RatingGroup::ALL.into_iter().rev() {
+            for rating_group in RatingGroup::ALL {
                 if filter.contains_rating_group(rating_group) {
-                    for speed in Speed::ALL.into_iter().rev() {
+                    for speed in Speed::ALL {
                         if filter.contains_speed(speed) {
                             let group = sub_entry.by_speed(speed).by_rating_group(rating_group);
                             stats += group.stats.to_owned();
@@ -374,30 +372,11 @@ impl LichessEntry {
                                 }
                             }
 
-                            if !skipped_rating_group
-                                && top_games.len() < 4
-                                && rating_group >= RatingGroup::Group2000
-                            {
-                                top_games.extend(
-                                    group
-                                        .games
-                                        .iter()
-                                        .copied()
-                                        .map(|(_, game)| (uci.to_owned(), game)),
-                                );
-                            } else {
-                                recent_games.extend(
-                                    group
-                                        .games
-                                        .iter()
-                                        .copied()
-                                        .map(|(idx, game)| (idx, uci.to_owned(), game)),
-                                );
-                            }
+                            games.extend(group.games.iter().copied().map(|(idx, game)| {
+                                (rating_group, speed, idx, uci.to_owned(), game)
+                            }));
                         }
                     }
-                } else {
-                    skipped_rating_group = true;
                 }
             }
 
@@ -414,17 +393,37 @@ impl LichessEntry {
             total += stats;
         }
 
-        top_games.truncate(MAX_LICHESS_GAMES as usize);
+        // Determine which rating groups will be considered for top games.
+        let mut top_group = RatingGroup::Group2000;
+        for group in RatingGroup::ALL.into_iter().rev() {
+            if group > RatingGroup::Group2000 && filter.contains_rating_group(group) {
+                top_group = group;
+            } else {
+                break;
+            }
+        }
 
-        moves.sort_by_key(|row| Reverse(row.stats.total()));
-        recent_games.sort_by_key(|(idx, _, _)| Reverse(*idx));
+        // Split out top games from recent games.
+        games.sort_by_key(|(rating_group, speed, idx, _, _)| {
+            (Reverse(*rating_group), Reverse(*speed), Reverse(*idx))
+        });
+        let mut top_games = Vec::new();
+        games.retain(|(rating_group, _, _, uci, game)| {
+            if top_games.len() < 4 && *rating_group >= top_group {
+                top_games.push((uci.to_owned(), *game));
+                false
+            } else {
+                true
+            }
+        });
+        games.sort_by_key(|(_, _, idx, _, _)| Reverse(*idx));
 
         PreparedResponse {
             total,
             moves,
-            recent_games: recent_games
+            recent_games: games
                 .into_iter()
-                .map(|(_, uci, game)| (uci, game))
+                .map(|(_, _, _, uci, game)| (uci, game))
                 .take((MAX_LICHESS_GAMES as usize).saturating_sub(top_games.len()))
                 .collect(),
             top_games,

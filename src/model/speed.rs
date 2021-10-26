@@ -2,7 +2,7 @@ use std::{error::Error as StdError, fmt, ops::AddAssign, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize, Serialize)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize, Serialize, Ord, PartialOrd)]
 #[serde(rename_all = "camelCase")]
 pub enum Speed {
     UltraBullet,
