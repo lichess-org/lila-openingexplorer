@@ -80,11 +80,13 @@ async fn main() {
         .route("/admin/game/:prop", get(game_property))
         .route("/admin/personal/:prop", get(personal_property))
         .route("/admin/explorer.indexing", get(num_indexing))
-        .route("/import/master", put(master_import))
+        .route("/import/masters", put(master_import))
         .route("/import/lichess", put(lichess_import))
-        .route("/master/pgn/:id", get(master_pgn))
-        .route("/master", get(master))
-        .route("/personal", get(personal))
+        .route("/masters/pgn/:id", get(master_pgn))
+        .route("/masters", get(master))
+        .route("/master", get(master)) // bc
+        .route("/personal", get(personal)) // bc
+        .route("/player", get(personal))
         .route("/lichess", get(lichess))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
