@@ -105,7 +105,7 @@ pub struct LichessGame {
     id: GameId,
     #[serde_as(as = "DisplayFromStr")]
     date: LaxDate,
-    #[serde(with = "ByColorDef")]
+    #[serde(flatten, with = "ByColorDef")]
     players: ByColor<GameInfoPlayer>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     winner: Option<Color>,

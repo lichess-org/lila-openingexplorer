@@ -442,3 +442,45 @@ pub struct PreparedMove {
     pub average_rating: Option<u64>,
     pub average_opponent_rating: Option<u64>,
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use shakmaty::Square;
+
+    use super::*;
+
+    #[test]
+    fn test_lichess_entry() {
+        let uci = Uci::Normal {
+            from: Square::G1,
+            to: Square::F3,
+            promotion: None,
+        };
+
+        let a = LichessEntry::new_single(
+            uci,
+            Speed::Blitz,
+            "99999999".parse().unwrap(),
+            Outcome::Draw,
+            2000,
+            2200,
+        );
+
+        let mut cursor = Cursor::new(Vec::new());
+        a.write(&mut cursor).unwrap();
+        assert_eq!(
+            cursor.position() as usize,
+            LichessEntry::SIZE_HINT,
+            "optimized for single entries"
+        );
+
+        let mut deserialized = LichessEntry::default();
+        deserialized
+            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .unwrap();
+
+        assert_eq!(deserialized.sub_entries.len(), 1);
+    }
+}
