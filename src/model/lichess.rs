@@ -393,6 +393,8 @@ impl LichessEntry {
             total += stats;
         }
 
+        moves.sort_by_key(|row| Reverse(row.stats.total()));
+
         // Determine which rating groups will be considered for top games.
         let mut top_group = RatingGroup::Group2000;
         for group in RatingGroup::ALL.into_iter().rev() {
