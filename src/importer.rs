@@ -173,7 +173,7 @@ impl LichessImporter {
             game.id,
             GameInfo {
                 mode: Mode::Rated,
-                indexed_personal: Default::default(),
+                indexed_player: Default::default(),
                 indexed_lichess: true,
                 outcome,
                 players: game.players.clone(),

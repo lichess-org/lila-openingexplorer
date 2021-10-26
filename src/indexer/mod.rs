@@ -21,7 +21,7 @@ use tokio::{
 use crate::{
     db::Database,
     model::{
-        GameInfo, GameInfoPlayer, IndexRun, KeyBuilder, Mode, Month, PersonalEntry, PersonalStatus,
+        GameInfo, GameInfoPlayer, IndexRun, KeyBuilder, Mode, Month, PlayerEntry, PlayerStatus,
         UserId,
     },
 };
@@ -160,7 +160,7 @@ impl IndexerActor {
         }
     }
 
-    async fn index_player(&self, player: &UserId, mut status: PersonalStatus, index_run: IndexRun) {
+    async fn index_player(&self, player: &UserId, mut status: PlayerStatus, index_run: IndexRun) {
         let started_at = Instant::now();
         log::info!(
             "indexer {:02}: starting {} ({})",
@@ -262,7 +262,7 @@ impl IndexerActor {
         player: &UserId,
         hash: &ByColor<KeyBuilder>,
         game: Game,
-        status: &mut PersonalStatus,
+        status: &mut PlayerStatus,
     ) {
         status.latest_created_at = game.created_at;
 
@@ -309,7 +309,7 @@ impl IndexerActor {
         if lichess_db
             .game(game.id)
             .expect("get game info")
-            .map_or(false, |info| info.indexed_personal.into_color(color))
+            .map_or(false, |info| info.indexed_player.into_color(color))
         {
             log::debug!(
                 "indexer {:02}: {}/{} already indexed",
@@ -394,7 +394,7 @@ impl IndexerActor {
                     name: p.user.map_or(String::new(), |u| u.name.to_string()),
                     rating: p.rating.unwrap_or_default(),
                 }),
-                indexed_personal: ByColor::new_with(|c| color == c),
+                indexed_player: ByColor::new_with(|c| color == c),
                 indexed_lichess: false,
             },
         );
@@ -404,7 +404,7 @@ impl IndexerActor {
                 hash.by_color(color)
                     .with_zobrist(variant, zobrist)
                     .with_month(month),
-                PersonalEntry::new_single(
+                PlayerEntry::new_single(
                     uci.clone(),
                     game.speed,
                     Mode::from_rated(game.rated),
@@ -422,7 +422,7 @@ impl IndexerActor {
 enum IndexerMessage {
     IndexPlayer {
         player: UserId,
-        status: PersonalStatus,
+        status: PlayerStatus,
         index_run: IndexRun,
     },
 }

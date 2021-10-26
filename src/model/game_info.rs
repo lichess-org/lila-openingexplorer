@@ -16,7 +16,7 @@ pub struct GameInfo {
     pub mode: Mode,
     pub players: ByColor<GameInfoPlayer>,
     pub month: Month,
-    pub indexed_personal: ByColor<bool>,
+    pub indexed_player: ByColor<bool>,
     pub indexed_lichess: bool,
 }
 
@@ -42,8 +42,8 @@ impl GameInfo {
                 Outcome::Draw => 2,
             } << 3)
                 | (if self.mode.is_rated() { 1 } else { 0 } << 5)
-                | (if self.indexed_personal.white { 1 } else { 0 } << 6)
-                | (if self.indexed_personal.black { 1 } else { 0 } << 7),
+                | (if self.indexed_player.white { 1 } else { 0 } << 6)
+                | (if self.indexed_player.black { 1 } else { 0 } << 7),
         )?;
         self.players.white.write(writer)?;
         self.players.black.write(writer)?;
@@ -73,7 +73,7 @@ impl GameInfo {
             _ => return Err(io::ErrorKind::InvalidData.into()),
         };
         let mode = Mode::from_rated((byte >> 5) & 1 == 1);
-        let indexed_personal = ByColor {
+        let indexed_player = ByColor {
             white: (byte >> 6) & 1 == 1,
             black: (byte >> 7) & 1 == 1,
         };
@@ -92,7 +92,7 @@ impl GameInfo {
             mode,
             players,
             month,
-            indexed_personal,
+            indexed_player,
             indexed_lichess,
         })
     }

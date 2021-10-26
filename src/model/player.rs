@@ -18,7 +18,7 @@ use crate::{
     },
 };
 
-const MAX_PERSONAL_GAMES: usize = 8; // must fit into 4 bits
+const MAX_PLAYER_GAMES: usize = 8; // must fit into 4 bits
 
 #[derive(Debug, Eq, PartialEq)]
 enum Header {
@@ -72,12 +72,12 @@ impl Header {
 }
 
 #[derive(Default, Debug)]
-pub struct PersonalEntry {
+pub struct PlayerEntry {
     sub_entries: FxHashMap<Uci, BySpeed<ByMode<LichessGroup>>>,
     max_game_idx: Option<u64>,
 }
 
-impl PersonalEntry {
+impl PlayerEntry {
     pub const SIZE_HINT: usize = 14;
 
     pub fn new_single(
@@ -87,7 +87,7 @@ impl PersonalEntry {
         game_id: GameId,
         outcome: Outcome,
         opponent_rating: u16,
-    ) -> PersonalEntry {
+    ) -> PlayerEntry {
         let mut sub_entry: BySpeed<ByMode<LichessGroup>> = Default::default();
         *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = LichessGroup {
             stats: Stats::new_single(outcome, opponent_rating),
@@ -96,7 +96,7 @@ impl PersonalEntry {
         let mut sub_entries = FxHashMap::with_capacity_and_hasher(1, Default::default());
         sub_entries.insert(uci, sub_entry);
 
-        PersonalEntry {
+        PlayerEntry {
             sub_entries,
             max_game_idx: Some(0),
         }
@@ -144,7 +144,7 @@ impl PersonalEntry {
                         Header::Group {
                             speed,
                             mode,
-                            num_games: min(group.games.len(), MAX_PERSONAL_GAMES),
+                            num_games: min(group.games.len(), MAX_PLAYER_GAMES),
                         }
                         .write(writer)?;
 
@@ -153,7 +153,7 @@ impl PersonalEntry {
                         for (game_idx, game) in group
                             .games
                             .iter()
-                            .skip(group.games.len().saturating_sub(MAX_PERSONAL_GAMES))
+                            .skip(group.games.len().saturating_sub(MAX_PLAYER_GAMES))
                         {
                             write_uint(writer, *game_idx)?;
                             game.write(writer)?;
@@ -235,7 +235,7 @@ impl PersonalEntry {
             recent_games: recent_games
                 .into_iter()
                 .map(|(_, uci, game)| (uci, game))
-                .take(MAX_PERSONAL_GAMES as usize)
+                .take(MAX_PLAYER_GAMES as usize)
                 .collect(),
             top_games: Vec::new(),
         }
@@ -243,16 +243,16 @@ impl PersonalEntry {
 }
 
 #[derive(Debug)]
-pub struct PersonalStatus {
+pub struct PlayerStatus {
     pub latest_created_at: u64,
     pub revisit_ongoing_created_at: Option<u64>,
     pub indexed_at: SystemTime,
     pub revisited_at: SystemTime,
 }
 
-impl Default for PersonalStatus {
-    fn default() -> PersonalStatus {
-        PersonalStatus {
+impl Default for PlayerStatus {
+    fn default() -> PlayerStatus {
+        PlayerStatus {
             latest_created_at: 0,
             revisit_ongoing_created_at: None,
             indexed_at: SystemTime::UNIX_EPOCH,
@@ -261,7 +261,7 @@ impl Default for PersonalStatus {
     }
 }
 
-impl PersonalStatus {
+impl PlayerStatus {
     pub const SIZE_HINT: usize = 3 * 8;
 
     pub fn maybe_revisit_ongoing(&mut self) -> Option<IndexRun> {
@@ -293,8 +293,8 @@ impl PersonalStatus {
         }
     }
 
-    pub fn read<R: Read>(reader: &mut R) -> io::Result<PersonalStatus> {
-        Ok(PersonalStatus {
+    pub fn read<R: Read>(reader: &mut R) -> io::Result<PlayerStatus> {
+        Ok(PlayerStatus {
             latest_created_at: read_uint(reader)?,
             revisit_ongoing_created_at: Some(read_uint(reader)?).filter(|t| *t != 0),
             indexed_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(reader)?),
@@ -382,14 +382,14 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_personal() {
+    fn test_merge_player() {
         let uci = Uci::Normal {
             from: Square::E2,
             to: Square::E4,
             promotion: None,
         };
 
-        let a = PersonalEntry::new_single(
+        let a = PlayerEntry::new_single(
             uci.clone(),
             Speed::Bullet,
             Mode::Rated,
@@ -400,7 +400,7 @@ mod tests {
             1600,
         );
 
-        let b = PersonalEntry::new_single(
+        let b = PlayerEntry::new_single(
             uci.clone(),
             Speed::Bullet,
             Mode::Rated,
@@ -415,11 +415,11 @@ mod tests {
         a.write(&mut cursor).unwrap();
         assert_eq!(
             cursor.position() as usize,
-            PersonalEntry::SIZE_HINT,
+            PlayerEntry::SIZE_HINT,
             "optimized for single entries"
         );
 
-        let mut deserialized = PersonalEntry::default();
+        let mut deserialized = PlayerEntry::default();
         deserialized
             .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
             .unwrap();
