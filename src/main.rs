@@ -33,7 +33,7 @@ use tokio::sync::watch;
 use crate::{
     api::{
         Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, LichessQuery,
-        Limits, MastersQuery, NdJson, PersonalQuery, PersonalQueryFilter,
+        Limits, MastersQuery, NdJson, PlayerQuery, PlayerQueryFilter,
     },
     db::{Database, LichessDatabase},
     importer::{LichessGame, LichessImporter, MastersImporter},
@@ -88,10 +88,10 @@ async fn main() {
         .route("/masters/pgn/:id", get(masters_pgn))
         .route("/masters", get(masters))
         .route("/lichess", get(lichess))
-        .route("/player", get(personal))
+        .route("/player", get(player))
         .route("/master/pgn/:id", get(masters_pgn)) // bc
         .route("/master", get(masters)) // bc
-        .route("/personal", get(personal)) // bc
+        .route("/personal", get(player)) // bc
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
         .layer(AddExtensionLayer::new(masters_importer))
@@ -201,11 +201,11 @@ fn finalize_lichess_games(
         .collect()
 }
 
-struct PersonalStreamState {
+struct PlayerStreamState {
     indexing: Option<watch::Receiver<()>>,
     key: KeyPrefix,
     db: Arc<Database>,
-    filter: PersonalQueryFilter,
+    filter: PlayerQueryFilter,
     limits: Limits,
     pos: VariantPosition,
     opening: Option<&'static Opening>,
@@ -213,11 +213,11 @@ struct PersonalStreamState {
     done: bool,
 }
 
-async fn personal(
+async fn player(
     Extension(openings): Extension<&'static Openings>,
     Extension(db): Extension<Arc<Database>>,
     Extension(indexer): Extension<IndexerStub>,
-    Query(query): Query<PersonalQuery>,
+    Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let indexing = indexer.index_player(&player).await;
@@ -231,9 +231,9 @@ async fn personal(
 
     let opening = openings.classify_and_play(&mut pos, query.play)?;
 
-    let key = KeyBuilder::personal(&player, query.color).with_zobrist(variant, pos.zobrist_hash());
+    let key = KeyBuilder::player(&player, query.color).with_zobrist(variant, pos.zobrist_hash());
 
-    let state = PersonalStreamState {
+    let state = PlayerStreamState {
         filter: query.filter,
         limits: query.limits,
         db,
@@ -266,7 +266,7 @@ async fn personal(
             let lichess_db = state.db.lichess();
             let mut filtered = lichess_db
                 .read_player(&state.key, state.filter.since, state.filter.until)
-                .expect("get personal")
+                .expect("read player")
                 .prepare(&state.filter);
 
             filtered.moves.truncate(state.limits.moves.unwrap_or(usize::MAX));

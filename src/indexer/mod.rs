@@ -195,7 +195,7 @@ impl IndexerActor {
             }
         };
 
-        let hash = ByColor::new_with(|color| KeyBuilder::personal(player, color));
+        let hash = ByColor::new_with(|color| KeyBuilder::player(player, color));
 
         let mut num_games = 0;
         loop {

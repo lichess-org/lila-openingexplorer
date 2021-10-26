@@ -11,7 +11,7 @@ use shakmaty::{uci::Uci, Outcome};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    api::PersonalQueryFilter,
+    api::PlayerQueryFilter,
     model::{
         read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode,
         PreparedMove, PreparedResponse, Speed, Stats,
@@ -170,7 +170,7 @@ impl PersonalEntry {
         Ok(())
     }
 
-    pub fn prepare(self, filter: &PersonalQueryFilter) -> PreparedResponse {
+    pub fn prepare(self, filter: &PlayerQueryFilter) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
         let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
