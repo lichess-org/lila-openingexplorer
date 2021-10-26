@@ -76,8 +76,9 @@ async fn main() {
     let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
     let app = Router::new()
-        .route("/cf/:cf/:prop", get(cf_prop))
-        .route("/admin/explorer.indexing", get(num_indexing))
+        .route("/monitor/db/:cf/:prop", get(cf_prop))
+        .route("/monitor/db/:prop", get(db_prop))
+        .route("/monitor/indexing", get(num_indexing))
         .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
         .route("/masters/pgn/:id", get(masters_pgn))
@@ -132,6 +133,16 @@ async fn cf_prop(
                 .property_value_cf(cf, &path.prop)
                 .expect("property value")
         })
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+async fn db_prop(
+    Path(prop): Path<String>,
+    Extension(db): Extension<Arc<Database>>,
+) -> Result<String, StatusCode> {
+    db.inner
+        .property_value(&prop)
+        .expect("property value")
         .ok_or(StatusCode::NOT_FOUND)
 }
 
