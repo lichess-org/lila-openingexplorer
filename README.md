@@ -85,6 +85,7 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
                     "name": null,
                     "rating": null
                 },
+                "year": 2015,
                 "month": "2015-09"
             }
         },
@@ -106,6 +107,7 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
                 "name": null,
                 "rating": null
             },
+            "year": 2015,
             "month": "2015-09"
         },
         // ...
