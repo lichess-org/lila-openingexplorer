@@ -374,21 +374,24 @@ impl LichessEntry {
                                 }
                             }
 
-                            recent_games.extend(
-                                group
-                                    .games
-                                    .iter()
-                                    .copied()
-                                    .map(|(idx, game)| (idx, uci.to_owned(), game)),
-                            );
-
-                            if !skipped_rating_group && top_games.len() < 4 {
+                            if !skipped_rating_group
+                                && top_games.len() < 4
+                                && rating_group >= RatingGroup::Group2200
+                            {
                                 top_games.extend(
                                     group
                                         .games
                                         .iter()
                                         .copied()
                                         .map(|(_, game)| (uci.to_owned(), game)),
+                                );
+                            } else {
+                                recent_games.extend(
+                                    group
+                                        .games
+                                        .iter()
+                                        .copied()
+                                        .map(|(idx, game)| (idx, uci.to_owned(), game)),
                                 );
                             }
                         }
@@ -411,7 +414,7 @@ impl LichessEntry {
             total += stats;
         }
 
-        top_games.truncate(4);
+        top_games.truncate(MAX_LICHESS_GAMES as usize);
 
         moves.sort_by_key(|row| Reverse(row.stats.total()));
         recent_games.sort_by_key(|(idx, _, _)| Reverse(*idx));
