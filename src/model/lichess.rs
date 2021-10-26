@@ -31,7 +31,7 @@ pub enum RatingGroup {
 }
 
 impl RatingGroup {
-    const ALL: [RatingGroup; 8] = [
+    pub const ALL: [RatingGroup; 8] = [
         RatingGroup::GroupLow,
         RatingGroup::Group1600,
         RatingGroup::Group1800,
@@ -343,7 +343,7 @@ impl LichessEntry {
     pub fn prepare(self, filter: &LichessQueryFilter) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut games: Vec<(RatingGroup, Speed, u64, Uci, GameId)> = Vec::new();
+        let mut recent_games: Vec<(RatingGroup, Speed, u64, Uci, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
             let mut latest_game: Option<(u64, GameId)> = None;
@@ -363,7 +363,7 @@ impl LichessEntry {
                                 }
                             }
 
-                            games.extend(group.games.iter().copied().map(|(idx, game)| {
+                            recent_games.extend(group.games.iter().copied().map(|(idx, game)| {
                                 (rating_group, speed, idx, uci.to_owned(), game)
                             }));
                         }
@@ -386,41 +386,34 @@ impl LichessEntry {
 
         moves.sort_by_key(|row| Reverse(row.stats.total()));
 
-        // Determine which rating groups will be considered for top games.
-        let mut top_group = RatingGroup::Group2000;
-        for group in RatingGroup::ALL.into_iter().rev() {
-            if group > RatingGroup::Group2000 && filter.contains_rating_group(group) {
-                top_group = group;
-            } else {
-                break;
-            }
-        }
-
-        dbg!(&games);
-
         // Split out top games from recent games.
-        games.sort_by_key(|(rating_group, speed, idx, _, _)| {
-            (Reverse(*rating_group), Reverse(*speed), Reverse(*idx))
-        });
-        let mut top_games = Vec::with_capacity(MAX_TOP_GAMES);
-        games.retain(|(rating_group, _, _, uci, game)| {
-            if top_games.len() < MAX_TOP_GAMES && *rating_group >= top_group {
-                top_games.push((uci.to_owned(), *game));
-                false
-            } else {
-                true
-            }
-        });
+        let top_games = if let Some(top_group) = filter.top_group() {
+            recent_games.sort_by_key(|(rating_group, speed, idx, _, _)| {
+                (Reverse(*rating_group), Reverse(*speed), Reverse(*idx))
+            });
+            let mut top_games = Vec::with_capacity(MAX_TOP_GAMES);
+            recent_games.retain(|(rating_group, _, _, uci, game)| {
+                if top_games.len() < MAX_TOP_GAMES && *rating_group >= top_group {
+                    top_games.push((uci.to_owned(), *game));
+                    false
+                } else {
+                    true
+                }
+            });
+            top_games
+        } else {
+            Vec::new()
+        };
 
         // Prepare recent games.
-        games.sort_by_key(|(_, _, idx, _, _)| Reverse(*idx));
-        games.truncate(MAX_LICHESS_GAMES.saturating_sub(top_games.len()));
+        recent_games.sort_by_key(|(_, _, idx, _, _)| Reverse(*idx));
+        recent_games.truncate(MAX_LICHESS_GAMES - top_games.len());
 
         PreparedResponse {
             total,
             moves,
             top_games,
-            recent_games: games
+            recent_games: recent_games
                 .into_iter()
                 .map(|(_, _, _, uci, game)| (uci, game))
                 .collect(),

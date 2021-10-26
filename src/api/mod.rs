@@ -88,6 +88,18 @@ impl LichessQueryFilter {
             ratings.contains(&min(rating_group, RatingGroup::Group2500))
         })
     }
+
+    pub fn top_group(&self) -> Option<RatingGroup> {
+        let mut top_group = None;
+        for group in RatingGroup::ALL.into_iter().rev() {
+            if !self.contains_rating_group(group) || group < RatingGroup::Group2000 {
+                break;
+            } else {
+                top_group = Some(group);
+            }
+        }
+        top_group
+    }
 }
 
 #[serde_as]
