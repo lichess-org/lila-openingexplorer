@@ -150,7 +150,7 @@ impl LichessImporter {
 
         let mut pos: Zobrist<_, u128> = Zobrist::new(match game.fen {
             Some(fen) => {
-                VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)?
+                VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)?
             }
             None => VariantPosition::new(variant),
         });

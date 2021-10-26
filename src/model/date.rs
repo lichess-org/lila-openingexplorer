@@ -41,7 +41,7 @@ impl FromStr for LaxDate {
     type Err = InvalidDate;
 
     fn from_str(s: &str) -> Result<LaxDate, InvalidDate> {
-        let mut parts = s.splitn(3, ".");
+        let mut parts = s.splitn(3, '.');
         let year_part = parts.next().expect("non-empty split");
         Ok(LaxDate {
             year: Year::try_from(
