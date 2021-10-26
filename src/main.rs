@@ -45,7 +45,7 @@ use crate::{
 
 #[derive(Parser)]
 struct Opt {
-    #[clap(long, default_value = "127.0.0.1:9000")]
+    #[clap(long, default_value = "127.0.0.1:9001")]
     bind: SocketAddr,
     #[clap(long, default_value = "_db")]
     db: PathBuf,
@@ -83,11 +83,11 @@ async fn main() {
         .route("/import/lichess", put(lichess_import))
         .route("/masters/pgn/:id", get(masters_pgn))
         .route("/masters", get(masters))
+        .route("/lichess", get(lichess))
+        .route("/player", get(personal))
         .route("/master/pgn/:id", get(masters_pgn)) // bc
         .route("/master", get(masters)) // bc
         .route("/personal", get(personal)) // bc
-        .route("/player", get(personal))
-        .route("/lichess", get(lichess))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
         .layer(AddExtensionLayer::new(masters_importer))

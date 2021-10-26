@@ -12,7 +12,7 @@ def main(pgn):
         if game is None:
             break
 
-        res = session.put("http://localhost:9000/import/master", json={
+        res = session.put("http://localhost:9001/import/masters", json={
             "id": game.headers["LichessId"],
             "event": game.headers["Event"],
             "site": game.headers["Site"],
