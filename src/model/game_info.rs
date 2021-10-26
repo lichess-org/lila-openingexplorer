@@ -85,12 +85,7 @@ impl GameInfo {
             .read_u16::<LittleEndian>()?
             .try_into()
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-        let indexed_lichess = match reader.read_u8() {
-            Ok(0) => false,
-            Ok(_) => true,
-            Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => false, // bc
-            Err(err) => return Err(err),
-        };
+        let indexed_lichess = reader.read_u8()? != 0;
         Ok(GameInfo {
             outcome,
             speed,

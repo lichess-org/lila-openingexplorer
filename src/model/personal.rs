@@ -298,11 +298,7 @@ impl PersonalStatus {
             latest_created_at: read_uint(reader)?,
             revisit_ongoing_created_at: Some(read_uint(reader)?).filter(|t| *t != 0),
             indexed_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(reader)?),
-            revisited_at: match read_uint(reader) {
-                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => SystemTime::UNIX_EPOCH, // bc
-                Err(err) => return Err(err),
-                Ok(secs) => SystemTime::UNIX_EPOCH + Duration::from_secs(secs),
-            },
+            revisited_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(reader)?),
         })
     }
 
