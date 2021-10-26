@@ -89,8 +89,8 @@ impl IndexerStub {
         // Check player indexing status.
         let mut status = self
             .db
-            .queryable()
-            .get_player_status(player)
+            .lichess()
+            .player_status(player)
             .expect("get player status")
             .unwrap_or_default();
 
@@ -214,7 +214,7 @@ impl IndexerActor {
             num_games += 1;
             if num_games % 1024 == 0 {
                 self.db
-                    .queryable()
+                    .lichess()
                     .put_player_status(player, &status)
                     .expect("put player status");
 
@@ -229,7 +229,7 @@ impl IndexerActor {
 
         status.finish_run(index_run);
         self.db
-            .queryable()
+            .lichess()
             .put_player_status(player, &status)
             .expect("put player status");
 
@@ -302,9 +302,9 @@ impl IndexerActor {
         // Skip game if already indexed from this side. This cannot race with
         // writes, because all writes for the same player are sequenced by
         // this actor. So making a transaction is not required.
-        let queryable = self.db.queryable();
-        if queryable
-            .get_game_info(game.id)
+        let lichess_db = self.db.lichess();
+        if lichess_db
+            .game(game.id)
             .expect("get game info")
             .map_or(false, |info| info.indexed_personal.into_color(color))
         {
@@ -378,9 +378,9 @@ impl IndexerActor {
         // Write to database. All writes regarding this game are batched and
         // atomically committed, so the database will always be in a consistent
         // state.
-        let mut batch = queryable.batch();
+        let mut batch = lichess_db.batch();
 
-        batch.merge_game_info(
+        batch.merge_game(
             game.id,
             GameInfo {
                 outcome,
@@ -397,7 +397,7 @@ impl IndexerActor {
         );
 
         for (zobrist, uci) in table {
-            batch.merge_personal(
+            batch.merge_player(
                 hash.by_color(color)
                     .with_zobrist(variant, zobrist)
                     .with_month(month),
@@ -412,7 +412,7 @@ impl IndexerActor {
             );
         }
 
-        batch.write().expect("atomically commit game and moves");
+        batch.commit().expect("atomically commit game and moves");
     }
 }
 

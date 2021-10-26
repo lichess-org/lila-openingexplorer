@@ -13,7 +13,7 @@ use crate::model::{
 
 #[derive(Debug)]
 pub struct Database {
-    inner: DB,
+    pub inner: DB,
 }
 
 fn column_family(
@@ -52,46 +52,52 @@ impl Database {
             &db_opts,
             path,
             vec![
-                column_family(
-                    "lichess",
-                    Some("lichess merge"),
-                    lichess_merge,
-                    Some(KeyPrefix::SIZE),
-                    8 * 1024,
-                    3,
-                ),
-                column_family(
-                    "personal",
-                    Some("personal merge"),
-                    personal_merge,
-                    Some(KeyPrefix::SIZE),
-                    8 * 1024,
-                    3,
-                ),
-                column_family("game", Some("game merge"), game_merge, None, 4 * 1024, 0),
-                column_family("player", None, void_merge, None, 4 * 1024, 0),
+                // Masters database
                 column_family(
                     "masters",
-                    Some("masters merge"),
+                    Some("masters_merge"),
                     masters_merge,
                     Some(KeyPrefix::SIZE),
                     8 * 1024,
                     3,
                 ),
                 column_family("masters_game", None, void_merge, None, 4 * 1024, 0),
+                // Lichess database
+                column_family(
+                    "lichess",
+                    Some("lichess_merge"),
+                    lichess_merge,
+                    Some(KeyPrefix::SIZE),
+                    8 * 1024,
+                    3,
+                ),
+                column_family(
+                    "lichess_game",
+                    Some("lichess_game_merge"),
+                    lichess_game_merge,
+                    None,
+                    4 * 1024,
+                    0,
+                ),
+                // Player database (also shares lichess_game)
+                column_family(
+                    "player",
+                    Some("player_merge"),
+                    player_merge,
+                    Some(KeyPrefix::SIZE),
+                    8 * 1024,
+                    3,
+                ),
+                column_family("player_status", None, void_merge, None, 4 * 1024, 0),
             ],
         )?;
 
         Ok(Database { inner })
     }
 
-    pub fn queryable(&self) -> QueryableDatabase<'_> {
-        QueryableDatabase {
-            db: &self.inner,
-            cf_lichess: self.inner.cf_handle("lichess").expect("cf lichess"),
-            cf_personal: self.inner.cf_handle("personal").expect("cf personal"),
-            cf_game: self.inner.cf_handle("game").expect("cf game"),
-            cf_player: self.inner.cf_handle("player").expect("cf player"),
+    pub fn masters(&self) -> MastersDatabase<'_> {
+        MastersDatabase {
+            inner: &self.inner,
             cf_masters: self.inner.cf_handle("masters").expect("cf masters"),
             cf_masters_game: self
                 .inner
@@ -99,128 +105,52 @@ impl Database {
                 .expect("cf masters_game"),
         }
     }
+
+    pub fn lichess(&self) -> LichessDatabase<'_> {
+        LichessDatabase {
+            inner: &self.inner,
+            cf_lichess: self.inner.cf_handle("lichess").expect("cf lichess"),
+            cf_lichess_game: self
+                .inner
+                .cf_handle("lichess_game")
+                .expect("cf lichess_game"),
+
+            cf_player: self.inner.cf_handle("player").expect("cf player"),
+            cf_player_status: self
+                .inner
+                .cf_handle("player_status")
+                .expect("cf player_status"),
+        }
+    }
 }
 
-pub struct QueryableDatabase<'a> {
-    db: &'a DB,
-    cf_lichess: &'a ColumnFamily,
-    cf_personal: &'a ColumnFamily,
-    cf_game: &'a ColumnFamily,
-    cf_player: &'a ColumnFamily,
+pub struct MastersDatabase<'a> {
+    inner: &'a DB,
     cf_masters: &'a ColumnFamily,
     cf_masters_game: &'a ColumnFamily,
 }
 
-impl QueryableDatabase<'_> {
-    pub fn db_property(&self, name: &str) -> Result<Option<String>, rocksdb::Error> {
-        self.db.property_value(name)
-    }
-
-    pub fn game_property(&self, name: &str) -> Result<Option<String>, rocksdb::Error> {
-        self.db.property_value_cf(self.cf_game, name)
-    }
-
-    pub fn personal_property(&self, name: &str) -> Result<Option<String>, rocksdb::Error> {
-        self.db.property_value_cf(self.cf_personal, name)
-    }
-
-    pub fn get_game_info(&self, id: GameId) -> Result<Option<GameInfo>, rocksdb::Error> {
-        Ok(self.db.get_cf(self.cf_game, id.to_bytes())?.map(|buf| {
-            let mut cursor = Cursor::new(buf);
-            GameInfo::read(&mut cursor).expect("deserialize game info")
-        }))
-    }
-
-    pub fn get_lichess(
-        &self,
-        key: &KeyPrefix,
-        since: Month,
-        until: Month,
-    ) -> Result<LichessEntry, rocksdb::Error> {
-        let mut opt = ReadOptions::default();
-        opt.set_prefix_same_as_start(true);
-        opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
-        opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
-
-        let iterator = self
-            .db
-            .iterator_cf_opt(self.cf_lichess, opt, IteratorMode::Start);
-
-        let mut entry = LichessEntry::default();
-        for (_key, value) in iterator {
-            let mut cursor = Cursor::new(value);
-            entry
-                .extend_from_reader(&mut cursor)
-                .expect("deserialize lichess entry");
-        }
-
-        Ok(entry)
-    }
-
-    pub fn get_personal(
-        &self,
-        key: &KeyPrefix,
-        since: Month,
-        until: Month,
-    ) -> Result<PersonalEntry, rocksdb::Error> {
-        let mut opt = ReadOptions::default();
-        opt.set_prefix_same_as_start(true);
-        opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
-        opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
-
-        let iterator = self
-            .db
-            .iterator_cf_opt(self.cf_personal, opt, IteratorMode::Start);
-
-        let mut entry = PersonalEntry::default();
-        for (_key, value) in iterator {
-            let mut cursor = Cursor::new(value);
-            entry
-                .extend_from_reader(&mut cursor)
-                .expect("deserialize personal entry");
-        }
-
-        Ok(entry)
-    }
-
-    pub fn get_player_status(&self, id: &UserId) -> Result<Option<PersonalStatus>, rocksdb::Error> {
-        Ok(self.db.get_cf(self.cf_player, id.as_str())?.map(|buf| {
-            let mut cursor = Cursor::new(buf);
-            PersonalStatus::read(&mut cursor).expect("deserialize status")
-        }))
-    }
-
-    pub fn put_player_status(
-        &self,
-        id: &UserId,
-        status: &PersonalStatus,
-    ) -> Result<(), rocksdb::Error> {
-        let mut cursor = Cursor::new(Vec::with_capacity(PersonalStatus::SIZE_HINT));
-        status.write(&mut cursor).expect("serialize status");
-        self.db
-            .put_cf(self.cf_player, id.as_str(), cursor.into_inner())
-    }
-
-    pub fn has_masters_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
-        self.db
+impl MastersDatabase<'_> {
+    pub fn has_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
+        self.inner
             .get_cf(self.cf_masters_game, id.to_bytes())
             .map(|maybe_entry| maybe_entry.is_some())
     }
 
-    pub fn get_masters_game(&self, id: GameId) -> Result<Option<MastersGame>, rocksdb::Error> {
+    pub fn game(&self, id: GameId) -> Result<Option<MastersGame>, rocksdb::Error> {
         Ok(self
-            .db
+            .inner
             .get_cf(self.cf_masters_game, id.to_bytes())?
             .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game")))
     }
 
-    pub fn has_masters(&self, key: Key) -> Result<bool, rocksdb::Error> {
-        self.db
+    pub fn has(&self, key: Key) -> Result<bool, rocksdb::Error> {
+        self.inner
             .get_cf(self.cf_masters, key.into_bytes())
             .map(|maybe_entry| maybe_entry.is_some())
     }
 
-    pub fn get_masters(
+    pub fn read(
         &self,
         key: KeyPrefix,
         since: Year,
@@ -232,7 +162,7 @@ impl QueryableDatabase<'_> {
         opt.set_iterate_upper_bound(key.with_year(until.add_years_saturating(1)).into_bytes());
 
         let iterator = self
-            .db
+            .inner
             .iterator_cf_opt(self.cf_masters, opt, IteratorMode::Start);
 
         let mut entry = MastersEntry::default();
@@ -246,67 +176,173 @@ impl QueryableDatabase<'_> {
         Ok(entry)
     }
 
-    pub fn batch(&self) -> Batch<'_> {
-        Batch {
-            queryable: self,
+    pub fn batch(&self) -> MastersBatch<'_> {
+        MastersBatch {
+            db: self,
             batch: WriteBatch::default(),
         }
     }
 }
 
-pub struct Batch<'a> {
-    queryable: &'a QueryableDatabase<'a>,
+pub struct MastersBatch<'a> {
+    db: &'a MastersDatabase<'a>,
     batch: WriteBatch,
 }
 
-impl Batch<'_> {
-    pub fn merge_lichess(&mut self, key: Key, entry: LichessEntry) {
-        let mut cursor = Cursor::new(Vec::with_capacity(LichessEntry::SIZE_HINT));
-        entry.write(&mut cursor).expect("serialize lichess entry");
-        self.batch.merge_cf(
-            self.queryable.cf_lichess,
-            key.into_bytes(),
-            cursor.into_inner(),
-        );
-    }
-
-    pub fn merge_personal(&mut self, key: Key, entry: PersonalEntry) {
-        let mut cursor = Cursor::new(Vec::with_capacity(PersonalEntry::SIZE_HINT));
-        entry.write(&mut cursor).expect("serialize personal entry");
-        self.batch.merge_cf(
-            self.queryable.cf_personal,
-            key.into_bytes(),
-            cursor.into_inner(),
-        );
-    }
-
-    pub fn merge_game_info(&mut self, id: GameId, info: GameInfo) {
-        let mut cursor = Cursor::new(Vec::with_capacity(GameInfo::SIZE_HINT));
-        info.write(&mut cursor).expect("serialize game info");
-        self.batch
-            .merge_cf(self.queryable.cf_game, id.to_bytes(), cursor.into_inner());
-    }
-
-    pub fn merge_masters(&mut self, key: Key, entry: MastersEntry) {
+impl MastersBatch<'_> {
+    pub fn merge(&mut self, key: Key, entry: MastersEntry) {
         let mut cursor = Cursor::new(Vec::with_capacity(MastersEntry::SIZE_HINT));
         entry.write(&mut cursor).expect("serialize masters entry");
-        self.batch.merge_cf(
-            self.queryable.cf_masters,
-            key.into_bytes(),
-            cursor.into_inner(),
-        );
+        self.batch
+            .merge_cf(self.db.cf_masters, key.into_bytes(), cursor.into_inner());
     }
 
-    pub fn put_masters_game(&mut self, id: GameId, game: &MastersGame) {
+    pub fn put_game(&mut self, id: GameId, game: &MastersGame) {
         self.batch.put_cf(
-            self.queryable.cf_masters_game,
+            self.db.cf_masters_game,
             id.to_bytes(),
             serde_json::to_vec(game).expect("serialize masters game"),
         );
     }
 
-    pub fn write(self) -> Result<(), rocksdb::Error> {
-        self.queryable.db.write(self.batch)
+    pub fn commit(self) -> Result<(), rocksdb::Error> {
+        self.db.inner.write(self.batch)
+    }
+}
+
+pub struct LichessDatabase<'a> {
+    inner: &'a DB,
+    cf_lichess: &'a ColumnFamily,
+    cf_lichess_game: &'a ColumnFamily,
+
+    cf_player: &'a ColumnFamily,
+    cf_player_status: &'a ColumnFamily,
+}
+
+impl LichessDatabase<'_> {
+    pub fn game(&self, id: GameId) -> Result<Option<GameInfo>, rocksdb::Error> {
+        Ok(self
+            .inner
+            .get_cf(self.cf_lichess_game, id.to_bytes())?
+            .map(|buf| {
+                let mut cursor = Cursor::new(buf);
+                GameInfo::read(&mut cursor).expect("deserialize game info")
+            }))
+    }
+
+    pub fn read_lichess(
+        &self,
+        key: &KeyPrefix,
+        since: Month,
+        until: Month,
+    ) -> Result<LichessEntry, rocksdb::Error> {
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
+        opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
+
+        let iterator = self
+            .inner
+            .iterator_cf_opt(self.cf_lichess, opt, IteratorMode::Start);
+
+        let mut entry = LichessEntry::default();
+        for (_key, value) in iterator {
+            let mut cursor = Cursor::new(value);
+            entry
+                .extend_from_reader(&mut cursor)
+                .expect("deserialize lichess entry");
+        }
+
+        Ok(entry)
+    }
+
+    pub fn read_player(
+        &self,
+        key: &KeyPrefix,
+        since: Month,
+        until: Month,
+    ) -> Result<PersonalEntry, rocksdb::Error> {
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
+        opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
+
+        let iterator = self
+            .inner
+            .iterator_cf_opt(self.cf_player, opt, IteratorMode::Start);
+
+        let mut entry = PersonalEntry::default();
+        for (_key, value) in iterator {
+            let mut cursor = Cursor::new(value);
+            entry
+                .extend_from_reader(&mut cursor)
+                .expect("deserialize personal entry");
+        }
+
+        Ok(entry)
+    }
+
+    pub fn player_status(&self, id: &UserId) -> Result<Option<PersonalStatus>, rocksdb::Error> {
+        Ok(self
+            .inner
+            .get_cf(self.cf_player_status, id.as_str())?
+            .map(|buf| {
+                let mut cursor = Cursor::new(buf);
+                PersonalStatus::read(&mut cursor).expect("deserialize status")
+            }))
+    }
+
+    pub fn put_player_status(
+        &self,
+        id: &UserId,
+        status: &PersonalStatus,
+    ) -> Result<(), rocksdb::Error> {
+        let mut cursor = Cursor::new(Vec::with_capacity(PersonalStatus::SIZE_HINT));
+        status.write(&mut cursor).expect("serialize status");
+        self.inner
+            .put_cf(self.cf_player_status, id.as_str(), cursor.into_inner())
+    }
+
+    pub fn batch(&self) -> LichessBatch<'_> {
+        LichessBatch {
+            inner: self,
+            batch: WriteBatch::default(),
+        }
+    }
+}
+
+pub struct LichessBatch<'a> {
+    inner: &'a LichessDatabase<'a>,
+    batch: WriteBatch,
+}
+
+impl LichessBatch<'_> {
+    pub fn merge_lichess(&mut self, key: Key, entry: LichessEntry) {
+        let mut cursor = Cursor::new(Vec::with_capacity(LichessEntry::SIZE_HINT));
+        entry.write(&mut cursor).expect("serialize lichess entry");
+        self.batch
+            .merge_cf(self.inner.cf_lichess, key.into_bytes(), cursor.into_inner());
+    }
+
+    pub fn merge_game(&mut self, id: GameId, info: GameInfo) {
+        let mut cursor = Cursor::new(Vec::with_capacity(GameInfo::SIZE_HINT));
+        info.write(&mut cursor).expect("serialize game info");
+        self.batch.merge_cf(
+            self.inner.cf_lichess_game,
+            id.to_bytes(),
+            cursor.into_inner(),
+        );
+    }
+
+    pub fn merge_player(&mut self, key: Key, entry: PersonalEntry) {
+        let mut cursor = Cursor::new(Vec::with_capacity(PersonalEntry::SIZE_HINT));
+        entry.write(&mut cursor).expect("serialize personal entry");
+        self.batch
+            .merge_cf(self.inner.cf_player, key.into_bytes(), cursor.into_inner());
+    }
+
+    pub fn commit(self) -> Result<(), rocksdb::Error> {
+        self.inner.inner.write(self.batch)
     }
 }
 
@@ -329,7 +365,7 @@ fn lichess_merge(
     Some(cursor.into_inner())
 }
 
-fn game_merge(
+fn lichess_game_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
     operands: &mut MergeOperands,
@@ -339,7 +375,7 @@ fn game_merge(
     let mut size_hint = 0;
     for op in existing.into_iter().chain(operands.into_iter()) {
         let mut cursor = Cursor::new(op);
-        let mut new_info = GameInfo::read(&mut cursor).expect("read for game merge");
+        let mut new_info = GameInfo::read(&mut cursor).expect("read for lichess game merge");
         if let Some(old_info) = info {
             new_info.indexed_personal.white |= old_info.indexed_personal.white;
             new_info.indexed_personal.black |= old_info.indexed_personal.black;
@@ -350,12 +386,12 @@ fn game_merge(
     }
     info.map(|info| {
         let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
-        info.write(&mut cursor).expect("write game");
+        info.write(&mut cursor).expect("write lichess game");
         cursor.into_inner()
     })
 }
 
-fn personal_merge(
+fn player_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
     operands: &mut MergeOperands,
@@ -366,11 +402,11 @@ fn personal_merge(
         let mut cursor = Cursor::new(op);
         entry
             .extend_from_reader(&mut cursor)
-            .expect("deserialize for personal merge");
+            .expect("deserialize for player merge");
         size_hint += op.len();
     }
     let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
-    entry.write(&mut cursor).expect("write personal entry");
+    entry.write(&mut cursor).expect("write player entry");
     Some(cursor.into_inner())
 }
 
@@ -398,5 +434,5 @@ fn void_merge(
     _existing: Option<&[u8]>,
     _operands: &mut MergeOperands,
 ) -> Option<Vec<u8>> {
-    unreachable!("void merge operator only used to satisfy type checker")
+    unreachable!("void merge")
 }

@@ -43,9 +43,9 @@ impl MastersImporter {
         }
 
         let _guard = self.mutex.lock();
-        let queryable = self.db.queryable();
-        if queryable
-            .has_masters_game(body.id)
+        let masters_db = self.db.masters();
+        if masters_db
+            .has_game(body.id)
             .expect("check for masters game")
         {
             return Err(Error::DuplicateGame(body.id));
@@ -66,18 +66,15 @@ impl MastersImporter {
         }
 
         if let Some(final_key) = final_key {
-            if queryable
-                .has_masters(final_key)
-                .expect("check for masters entry")
-            {
+            if masters_db.has(final_key).expect("check for masters entry") {
                 return Err(Error::DuplicateGame(body.id));
             }
         }
 
-        let mut batch = queryable.batch();
-        batch.put_masters_game(body.id, &body.game);
+        let mut batch = masters_db.batch();
+        batch.put_game(body.id, &body.game);
         for (key, (uci, turn)) in without_loops {
-            batch.merge_masters(
+            batch.merge(
                 key,
                 MastersEntry::new_single(
                     uci,
@@ -89,7 +86,7 @@ impl MastersImporter {
             );
         }
 
-        batch.write().expect("commit masters game");
+        batch.commit().expect("commit masters game");
         Ok(())
     }
 }
@@ -130,10 +127,10 @@ impl LichessImporter {
     pub async fn import(&self, game: LichessGame) -> Result<(), Error> {
         let _guard = self.mutex.lock();
 
-        let queryable = self.db.queryable();
+        let lichess_db = self.db.lichess();
 
-        if queryable
-            .get_game_info(game.id)
+        if lichess_db
+            .game(game.id)
             .expect("get game info")
             .map_or(false, |info| info.indexed_lichess)
         {
@@ -171,8 +168,8 @@ impl LichessImporter {
             pos.play_unchecked(&m);
         }
 
-        let mut batch = queryable.batch();
-        batch.merge_game_info(
+        let mut batch = lichess_db.batch();
+        batch.merge_game(
             game.id,
             GameInfo {
                 mode: Mode::Rated,
@@ -198,7 +195,7 @@ impl LichessImporter {
             );
         }
 
-        batch.write().expect("commit lichess game");
+        batch.commit().expect("commit lichess game");
         Ok(())
     }
 }

@@ -35,7 +35,7 @@ use crate::{
         Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, LichessQuery,
         Limits, MastersQuery, NdJson, PersonalQuery, PersonalQueryFilter,
     },
-    db::{Database, QueryableDatabase},
+    db::{Database, LichessDatabase},
     importer::{LichessGame, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
@@ -76,9 +76,6 @@ async fn main() {
     let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
     let app = Router::new()
-        .route("/admin/db/:prop", get(db_property))
-        .route("/admin/game/:prop", get(game_property))
-        .route("/admin/personal/:prop", get(personal_property))
         .route("/admin/explorer.indexing", get(num_indexing))
         .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
@@ -116,36 +113,6 @@ async fn main() {
     }
 }
 
-async fn db_property(
-    Extension(db): Extension<Arc<Database>>,
-    Path(prop): Path<String>,
-) -> Result<String, StatusCode> {
-    db.queryable()
-        .db_property(&prop)
-        .expect("get property")
-        .ok_or(StatusCode::NOT_FOUND)
-}
-
-async fn game_property(
-    Extension(db): Extension<Arc<Database>>,
-    Path(prop): Path<String>,
-) -> Result<String, StatusCode> {
-    db.queryable()
-        .game_property(&prop)
-        .expect("get property")
-        .ok_or(StatusCode::NOT_FOUND)
-}
-
-async fn personal_property(
-    Extension(db): Extension<Arc<Database>>,
-    Path(prop): Path<String>,
-) -> Result<String, StatusCode> {
-    db.queryable()
-        .personal_property(&prop)
-        .expect("get property")
-        .ok_or(StatusCode::NOT_FOUND)
-}
-
 async fn num_indexing(Extension(indexer): Extension<IndexerStub>) -> String {
     indexer.num_indexing().await.to_string()
 }
@@ -165,7 +132,7 @@ struct PersonalStreamState {
 fn finalize_lichess_moves(
     moves: Vec<PreparedMove>,
     pos: &VariantPosition,
-    queryable: &QueryableDatabase,
+    lichess_db: &LichessDatabase,
 ) -> Vec<ExplorerMove> {
     moves
         .into_iter()
@@ -182,8 +149,8 @@ fn finalize_lichess_moves(
             average_rating: p.average_rating,
             average_opponent_rating: p.average_opponent_rating,
             game: p.game.and_then(|id| {
-                queryable
-                    .get_game_info(id)
+                lichess_db
+                    .game(id)
                     .expect("get game")
                     .map(|info| ExplorerGame::from_lichess(id, info))
             }),
@@ -193,13 +160,13 @@ fn finalize_lichess_moves(
 
 fn finalize_lichess_games(
     games: Vec<(Uci, GameId)>,
-    queryable: &QueryableDatabase,
+    lichess_db: &LichessDatabase,
 ) -> Vec<ExplorerGameWithUci> {
     games
         .into_iter()
         .flat_map(|(uci, id)| {
-            queryable
-                .get_game_info(id)
+            lichess_db
+                .game(id)
                 .expect("get game")
                 .map(|info| ExplorerGameWithUci {
                     uci,
@@ -259,9 +226,9 @@ async fn personal(
                 None => true,
             };
 
-            let queryable = state.db.queryable();
-            let mut filtered = queryable
-                .get_personal(&state.key, state.filter.since, state.filter.until)
+            let lichess_db = state.db.lichess();
+            let mut filtered = lichess_db
+                .read_player(&state.key, state.filter.since, state.filter.until)
                 .expect("get personal")
                 .prepare(&state.filter);
 
@@ -271,8 +238,8 @@ async fn personal(
             Some((
                 ExplorerResponse {
                     total: filtered.total,
-                    moves: finalize_lichess_moves(filtered.moves, &state.pos, &queryable),
-                    recent_games: Some(finalize_lichess_games(filtered.recent_games, &queryable)),
+                    moves: finalize_lichess_moves(filtered.moves, &state.pos, &lichess_db),
+                    recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
                     top_games: None,
                     opening: state.opening,
                 },
@@ -297,7 +264,7 @@ async fn masters_pgn(
     Path(MastersGameId(id)): Path<MastersGameId>,
     Extension(db): Extension<Arc<Database>>,
 ) -> Result<MastersGame, StatusCode> {
-    match db.queryable().get_masters_game(id).expect("get masters game") {
+    match db.masters().game(id).expect("get masters game") {
         Some(game) => Ok(game),
         None => Err(StatusCode::NOT_FOUND),
     }
@@ -317,9 +284,9 @@ async fn masters(
 
     let opening = openings.classify_and_play(&mut pos, query.play)?;
     let key = KeyBuilder::masters().with_zobrist(Variant::Chess, pos.zobrist_hash());
-    let queryable = db.queryable();
-    let mut entry = queryable
-        .get_masters(key, query.since, query.until)
+    let masters_db = db.masters();
+    let mut entry = masters_db
+        .read(key, query.since, query.until)
         .expect("get masters")
         .prepare();
 
@@ -344,8 +311,8 @@ async fn masters(
                 average_opponent_rating: p.average_opponent_rating,
                 stats: p.stats,
                 game: p.game.and_then(|id| {
-                    queryable
-                        .get_masters_game(id)
+                    masters_db
+                        .game(id)
                         .expect("get masters game")
                         .map(|info| ExplorerGame::from_masters(id, info))
                 }),
@@ -356,8 +323,8 @@ async fn masters(
                 .top_games
                 .into_iter()
                 .flat_map(|(uci, id)| {
-                    queryable
-                        .get_masters_game(id)
+                    masters_db
+                        .game(id)
                         .expect("get masters game")
                         .map(|info| ExplorerGameWithUci {
                             uci,
@@ -395,9 +362,9 @@ async fn lichess(
     let opening = openings.classify_and_play(&mut pos, query.play)?;
 
     let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
-    let queryable = db.queryable();
-    let mut filtered = queryable
-        .get_lichess(&key, query.filter.since, query.filter.until)
+    let lichess_db = db.lichess();
+    let mut filtered = lichess_db
+        .read_lichess(&key, query.filter.since, query.filter.until)
         .expect("get lichess")
         .prepare(&dbg!(query.filter));
 
@@ -407,9 +374,9 @@ async fn lichess(
 
     Ok(Json(ExplorerResponse {
         total: filtered.total,
-        moves: finalize_lichess_moves(filtered.moves, pos.as_inner(), &queryable),
-        recent_games: Some(finalize_lichess_games(filtered.recent_games, &queryable)),
-        top_games: Some(finalize_lichess_games(filtered.top_games, &queryable)),
+        moves: finalize_lichess_moves(filtered.moves, pos.as_inner(), &lichess_db),
+        recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
+        top_games: Some(finalize_lichess_games(filtered.top_games, &lichess_db)),
         opening,
     }))
 }
