@@ -80,7 +80,7 @@ async fn main() {
     let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
     let app = Router::new()
-        .route("/monitor/db/:cf/:prop", get(cf_prop))
+        .route("/monitor/cf/:cf/:prop", get(cf_prop))
         .route("/monitor/db/:prop", get(db_prop))
         .route("/monitor/indexing", get(num_indexing))
         .route("/import/masters", put(masters_import))
