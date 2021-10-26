@@ -17,7 +17,7 @@ use crate::{
     api::{Error, LilaVariant},
     db::Database,
     model::{
-        GameId, GameInfo, GameInfoPlayer, Key, KeyBuilder, LaxDate, LichessEntry, MastersEntry,
+        GameId, GamePlayer, Key, KeyBuilder, LaxDate, LichessEntry, LichessGame, MastersEntry,
         MastersGameWithId, Mode, Speed,
     },
     util::ByColorDef,
@@ -93,7 +93,7 @@ impl MastersImporter {
 
 #[serde_as]
 #[derive(Deserialize)]
-pub struct LichessGame {
+pub struct LichessGameImport {
     variant: LilaVariant,
     speed: Speed,
     #[serde_as(as = "Option<DisplayFromStr>")]
@@ -103,7 +103,7 @@ pub struct LichessGame {
     #[serde_as(as = "DisplayFromStr")]
     date: LaxDate,
     #[serde(flatten, with = "ByColorDef")]
-    players: ByColor<GameInfoPlayer>,
+    players: ByColor<GamePlayer>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     winner: Option<Color>,
     #[serde_as(as = "StringWithSeparator<SpaceSeparator, San>")]
@@ -124,7 +124,7 @@ impl LichessImporter {
         }
     }
 
-    pub async fn import(&self, game: LichessGame) -> Result<(), Error> {
+    pub async fn import(&self, game: LichessGameImport) -> Result<(), Error> {
         let _guard = self.mutex.lock();
 
         let lichess_db = self.db.lichess();
@@ -171,7 +171,7 @@ impl LichessImporter {
         let mut batch = lichess_db.batch();
         batch.merge_game(
             game.id,
-            GameInfo {
+            LichessGame {
                 mode: Mode::Rated,
                 indexed_player: Default::default(),
                 indexed_lichess: true,

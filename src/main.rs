@@ -36,7 +36,7 @@ use crate::{
         Limits, MastersQuery, NdJson, PlayerQuery, PlayerQueryFilter,
     },
     db::{Database, LichessDatabase},
-    importer::{LichessGame, LichessImporter, MastersImporter},
+    importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
@@ -376,7 +376,7 @@ async fn masters(
 }
 
 async fn lichess_import(
-    Json(body): Json<Vec<LichessGame>>,
+    Json(body): Json<Vec<LichessGameImport>>,
     Extension(importer): Extension<LichessImporter>,
 ) -> Result<(), Error> {
     for game in body {

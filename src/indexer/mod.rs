@@ -21,7 +21,7 @@ use tokio::{
 use crate::{
     db::Database,
     model::{
-        GameInfo, GameInfoPlayer, IndexRun, KeyBuilder, Mode, Month, PlayerEntry, PlayerStatus,
+        GamePlayer, IndexRun, KeyBuilder, LichessGame, Mode, Month, PlayerEntry, PlayerStatus,
         UserId,
     },
 };
@@ -385,12 +385,12 @@ impl IndexerActor {
 
         batch.merge_game(
             game.id,
-            GameInfo {
+            LichessGame {
                 outcome,
                 speed: game.speed,
                 mode: Mode::from_rated(game.rated),
                 month,
-                players: game.players.map(|p| GameInfoPlayer {
+                players: game.players.map(|p| GamePlayer {
                     name: p.user.map_or(String::new(), |u| u.name.to_string()),
                     rating: p.rating.unwrap_or_default(),
                 }),

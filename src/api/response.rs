@@ -3,7 +3,7 @@ use serde_with::{serde_as, DisplayFromStr, TryFromInto};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Color};
 
 use crate::{
-    model::{GameId, GameInfo, GameInfoPlayer, MastersGame, Mode, Month, Speed, Stats, Year},
+    model::{GameId, GamePlayer, LichessGame, MastersGame, Mode, Month, Speed, Stats, Year},
     opening::Opening,
     util::ByColorDef,
 };
@@ -60,7 +60,7 @@ pub struct ExplorerGame {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<Mode>,
     #[serde(flatten, with = "ByColorDef")]
-    pub players: ByColor<GameInfoPlayer>,
+    pub players: ByColor<GamePlayer>,
     #[serde_as(as = "TryFromInto<u16>")]
     pub year: Year,
     #[serde_as(as = "Option<DisplayFromStr>")]
@@ -68,7 +68,7 @@ pub struct ExplorerGame {
 }
 
 impl ExplorerGame {
-    pub fn from_lichess(id: GameId, info: GameInfo) -> ExplorerGame {
+    pub fn from_lichess(id: GameId, info: LichessGame) -> ExplorerGame {
         ExplorerGame {
             id,
             winner: info.outcome.winner(),

@@ -15,7 +15,7 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::{
     model::{
-        read_uci, write_uci, GameId, GameInfoPlayer, LaxDate, PreparedMove, PreparedResponse, Stats,
+        read_uci, write_uci, GameId, GamePlayer, LaxDate, PreparedMove, PreparedResponse, Stats,
     },
     util::ByColorDef,
 };
@@ -38,7 +38,7 @@ pub struct MastersGame {
     pub date: LaxDate,
     pub round: String,
     #[serde(flatten, with = "ByColorDef")]
-    pub players: ByColor<GameInfoPlayer>,
+    pub players: ByColor<GamePlayer>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub winner: Option<Color>,
     #[serde_as(as = "StringWithSeparator<SpaceSeparator, Uci>")]

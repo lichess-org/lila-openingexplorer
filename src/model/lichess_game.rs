@@ -10,17 +10,17 @@ use shakmaty::{ByColor, Color, Outcome};
 use crate::model::{read_uint, write_uint, Mode, Month, Speed};
 
 #[derive(Debug)]
-pub struct GameInfo {
+pub struct LichessGame {
     pub outcome: Outcome,
     pub speed: Speed,
     pub mode: Mode,
-    pub players: ByColor<GameInfoPlayer>,
+    pub players: ByColor<GamePlayer>,
     pub month: Month,
     pub indexed_player: ByColor<bool>,
     pub indexed_lichess: bool,
 }
 
-impl GameInfo {
+impl LichessGame {
     pub const SIZE_HINT: usize = 1 + 2 * (1 + 20 + 2) + 2;
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
@@ -51,7 +51,7 @@ impl GameInfo {
         writer.write_u8(if self.indexed_lichess { 1 } else { 0 })
     }
 
-    pub fn read<R: Read>(reader: &mut R) -> io::Result<GameInfo> {
+    pub fn read<R: Read>(reader: &mut R) -> io::Result<LichessGame> {
         let byte = reader.read_u8()?;
         let speed = match byte & 7 {
             0 => Speed::UltraBullet,
@@ -78,15 +78,15 @@ impl GameInfo {
             black: (byte >> 7) & 1 == 1,
         };
         let players = ByColor {
-            white: GameInfoPlayer::read(reader)?,
-            black: GameInfoPlayer::read(reader)?,
+            white: GamePlayer::read(reader)?,
+            black: GamePlayer::read(reader)?,
         };
         let month = reader
             .read_u16::<LittleEndian>()?
             .try_into()
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         let indexed_lichess = reader.read_u8()? != 0;
-        Ok(GameInfo {
+        Ok(LichessGame {
             outcome,
             speed,
             mode,
@@ -99,24 +99,24 @@ impl GameInfo {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct GameInfoPlayer {
+pub struct GamePlayer {
     pub name: String,
     pub rating: u16,
 }
 
-impl GameInfoPlayer {
+impl GamePlayer {
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         write_uint(writer, self.name.len() as u64)?;
         writer.write_all(self.name.as_bytes())?;
         writer.write_u16::<LittleEndian>(self.rating)
     }
 
-    fn read<R: Read>(reader: &mut R) -> io::Result<GameInfoPlayer> {
+    fn read<R: Read>(reader: &mut R) -> io::Result<GamePlayer> {
         let len = usize::try_from(read_uint(reader)?)
             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
         let mut buf = vec![0; len as usize];
         reader.read_exact(&mut buf)?;
-        Ok(GameInfoPlayer {
+        Ok(GamePlayer {
             name: String::from_utf8(buf)
                 .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?,
             rating: reader.read_u16::<LittleEndian>()?,

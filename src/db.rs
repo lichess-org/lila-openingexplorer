@@ -7,8 +7,8 @@ use rocksdb::{
 };
 
 use crate::model::{
-    GameId, GameInfo, Key, KeyPrefix, LichessEntry, MastersEntry, MastersGame, Month, PlayerEntry,
-    PlayerStatus, UserId, Year,
+    GameId, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry, MastersGame, Month,
+    PlayerEntry, PlayerStatus, UserId, Year,
 };
 
 #[derive(Debug)]
@@ -220,13 +220,13 @@ pub struct LichessDatabase<'a> {
 }
 
 impl LichessDatabase<'_> {
-    pub fn game(&self, id: GameId) -> Result<Option<GameInfo>, rocksdb::Error> {
+    pub fn game(&self, id: GameId) -> Result<Option<LichessGame>, rocksdb::Error> {
         Ok(self
             .inner
             .get_cf(self.cf_lichess_game, id.to_bytes())?
             .map(|buf| {
                 let mut cursor = Cursor::new(buf);
-                GameInfo::read(&mut cursor).expect("deserialize game info")
+                LichessGame::read(&mut cursor).expect("deserialize game info")
             }))
     }
 
@@ -327,8 +327,8 @@ impl LichessBatch<'_> {
             .merge_cf(self.inner.cf_lichess, key.into_bytes(), cursor.into_inner());
     }
 
-    pub fn merge_game(&mut self, id: GameId, info: GameInfo) {
-        let mut cursor = Cursor::new(Vec::with_capacity(GameInfo::SIZE_HINT));
+    pub fn merge_game(&mut self, id: GameId, info: LichessGame) {
+        let mut cursor = Cursor::new(Vec::with_capacity(LichessGame::SIZE_HINT));
         info.write(&mut cursor).expect("serialize game info");
         self.batch.merge_cf(
             self.inner.cf_lichess_game,
@@ -374,11 +374,11 @@ fn lichess_game_merge(
     operands: &mut MergeOperands,
 ) -> Option<Vec<u8>> {
     // Take latest game info, but merge index status.
-    let mut info: Option<GameInfo> = None;
+    let mut info: Option<LichessGame> = None;
     let mut size_hint = 0;
     for op in existing.into_iter().chain(operands.into_iter()) {
         let mut cursor = Cursor::new(op);
-        let mut new_info = GameInfo::read(&mut cursor).expect("read for lichess game merge");
+        let mut new_info = LichessGame::read(&mut cursor).expect("read for lichess game merge");
         if let Some(old_info) = info {
             new_info.indexed_player.white |= old_info.indexed_player.white;
             new_info.indexed_player.black |= old_info.indexed_player.black;
