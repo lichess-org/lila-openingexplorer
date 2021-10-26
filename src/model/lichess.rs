@@ -376,7 +376,7 @@ impl LichessEntry {
 
                             if !skipped_rating_group
                                 && top_games.len() < 4
-                                && rating_group >= RatingGroup::Group2200
+                                && rating_group >= RatingGroup::Group2000
                             {
                                 top_games.extend(
                                     group
