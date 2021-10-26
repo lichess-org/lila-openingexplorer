@@ -403,7 +403,7 @@ async fn lichess(
 
     filtered.moves.truncate(query.limits.moves.unwrap_or(12));
     filtered.recent_games.truncate(query.limits.recent_games);
-    filtered.top_games.truncate(query.limits.recent_games);
+    filtered.top_games.truncate(query.limits.top_games);
 
     Ok(Json(ExplorerResponse {
         total: filtered.total,
