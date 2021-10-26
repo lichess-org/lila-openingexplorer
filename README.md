@@ -16,7 +16,7 @@ git submodule update --init
 EXPLORER_LOG=lila_openingexplorer=debug cargo run -- --lila https://lichess:***@lichess.dev --bearer lip_***
 ```
 
-Note that administrative endpoints must be protected using a reverse proxy.
+:warning: Note that administrative endpoints must be protected using a reverse proxy.
 
 HTTP API
 --------
