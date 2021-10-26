@@ -15,7 +15,8 @@ use crate::{
     model::{read_uci, read_uint, write_uci, write_uint, BySpeed, GameId, Speed, Stats},
 };
 
-const MAX_LICHESS_GAMES: u64 = 15;
+const MAX_LICHESS_GAMES: usize = 8;
+const MAX_TOP_GAMES: usize = 4; // <= MAX_LICHESS_GAMES
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RatingGroup {
@@ -179,7 +180,7 @@ impl LichessHeader {
             speed,
             rating_group,
             num_games: if at_least_num_games >= 3 {
-                usize::from(reader.read_u8()?)
+                read_uint(reader)? as usize
             } else {
                 at_least_num_games
             },
@@ -304,41 +305,28 @@ impl LichessEntry {
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        let retained_game_idx = self
-            .max_game_idx
-            .and_then(|idx| (idx + 1).checked_sub(MAX_LICHESS_GAMES))
-            .unwrap_or(0);
-
         for (uci, sub_entry) in &self.sub_entries {
             write_uci(writer, uci)?;
 
             sub_entry.as_ref().try_map(|speed, by_rating_group| {
                 by_rating_group.as_ref().try_map(|rating_group, group| {
-                    let num_games = if group.games.len() == 1 {
-                        1
-                    } else {
-                        group
-                            .games
-                            .iter()
-                            .filter(|(game_idx, _)| *game_idx >= retained_game_idx)
-                            .count()
-                    };
-
-                    if num_games > 0 || !group.stats.is_empty() {
+                    if !group.games.is_empty() || !group.stats.is_empty() {
                         LichessHeader::Group {
                             speed,
                             rating_group,
-                            num_games,
+                            num_games: min(group.games.len(), MAX_LICHESS_GAMES),
                         }
                         .write(writer)?;
 
                         group.stats.write(writer)?;
 
-                        for (game_idx, game) in &group.games {
-                            if *game_idx >= retained_game_idx || group.games.len() == 1 {
-                                write_uint(writer, *game_idx)?;
-                                game.write(writer)?;
-                            }
+                        for (game_idx, game) in group
+                            .games
+                            .iter()
+                            .skip(group.games.len().saturating_sub(MAX_LICHESS_GAMES))
+                        {
+                            write_uint(writer, *game_idx)?;
+                            game.write(writer)?;
                         }
                     }
 
@@ -408,30 +396,34 @@ impl LichessEntry {
             }
         }
 
+        dbg!(&games);
+
         // Split out top games from recent games.
         games.sort_by_key(|(rating_group, speed, idx, _, _)| {
             (Reverse(*rating_group), Reverse(*speed), Reverse(*idx))
         });
-        let mut top_games = Vec::new();
+        let mut top_games = Vec::with_capacity(MAX_TOP_GAMES);
         games.retain(|(rating_group, _, _, uci, game)| {
-            if top_games.len() < 4 && *rating_group >= top_group {
+            if top_games.len() < MAX_TOP_GAMES && *rating_group >= top_group {
                 top_games.push((uci.to_owned(), *game));
                 false
             } else {
                 true
             }
         });
+
+        // Prepare recent games.
         games.sort_by_key(|(_, _, idx, _, _)| Reverse(*idx));
+        games.truncate(MAX_LICHESS_GAMES.saturating_sub(top_games.len()));
 
         PreparedResponse {
             total,
             moves,
+            top_games,
             recent_games: games
                 .into_iter()
                 .map(|(_, _, _, uci, game)| (uci, game))
-                .take((MAX_LICHESS_GAMES as usize).saturating_sub(top_games.len()))
                 .collect(),
-            top_games,
         }
     }
 }
