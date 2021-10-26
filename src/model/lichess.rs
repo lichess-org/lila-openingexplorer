@@ -239,7 +239,7 @@ impl AddAssign for LichessGroup {
 #[derive(Default)]
 pub struct LichessEntry {
     sub_entries: FxHashMap<Uci, BySpeed<ByRatingGroup<LichessGroup>>>,
-    max_game_idx: u64,
+    max_game_idx: Option<u64>,
 }
 
 impl LichessEntry {
@@ -265,7 +265,7 @@ impl LichessEntry {
         sub_entries.insert(uci, sub_entry);
         LichessEntry {
             sub_entries,
-            max_game_idx: 0,
+            max_game_idx: Some(0),
         }
     }
 
@@ -279,7 +279,7 @@ impl LichessEntry {
 
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
-            let base_game_idx = self.max_game_idx + 1;
+            let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
             while let LichessHeader::Group {
                 speed,
@@ -291,7 +291,7 @@ impl LichessEntry {
                 let mut games = SmallVec::with_capacity(num_games);
                 for _ in 0..num_games {
                     let game_idx = base_game_idx + read_uint(reader)?;
-                    self.max_game_idx = max(self.max_game_idx, game_idx);
+                    self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
                     let game = GameId::read(reader)?;
                     games.push((game_idx, game));
                 }
@@ -304,7 +304,10 @@ impl LichessEntry {
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        let discarded_game_idx = self.max_game_idx.saturating_sub(MAX_LICHESS_GAMES);
+        let retained_game_idx = self
+            .max_game_idx
+            .and_then(|idx| (idx + 1).checked_sub(MAX_LICHESS_GAMES))
+            .unwrap_or(0);
 
         for (uci, sub_entry) in &self.sub_entries {
             write_uci(writer, uci)?;
@@ -317,7 +320,7 @@ impl LichessEntry {
                         group
                             .games
                             .iter()
-                            .filter(|(game_idx, _)| *game_idx > discarded_game_idx)
+                            .filter(|(game_idx, _)| *game_idx >= retained_game_idx)
                             .count()
                     };
 
@@ -332,7 +335,7 @@ impl LichessEntry {
                         group.stats.write(writer)?;
 
                         for (game_idx, game) in &group.games {
-                            if *game_idx > discarded_game_idx || group.games.len() == 1 {
+                            if *game_idx >= retained_game_idx || group.games.len() == 1 {
                                 write_uint(writer, *game_idx)?;
                                 game.write(writer)?;
                             }
