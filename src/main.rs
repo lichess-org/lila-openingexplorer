@@ -16,6 +16,7 @@ use axum::{
     http::StatusCode,
     AddExtensionLayer, Json, Router,
 };
+use clap::Parser;
 use futures_util::stream::Stream;
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -28,7 +29,6 @@ use shakmaty::{
     CastlingMode,
 };
 use tokio::sync::watch;
-use clap::Parser;
 
 use crate::{
     api::{
@@ -45,10 +45,12 @@ use crate::{
 
 #[derive(Parser)]
 struct Opt {
-    #[clap(long = "bind", default_value = "127.0.0.1:9000")]
+    #[clap(long, default_value = "127.0.0.1:9000")]
     bind: SocketAddr,
-    #[clap(long = "db", default_value = "_db")]
+    #[clap(long, default_value = "_db")]
     db: PathBuf,
+    #[clap(long)]
+    cors: bool,
     #[clap(flatten)]
     indexer: IndexerOpt,
 }
@@ -90,14 +92,17 @@ async fn main() {
         .layer(AddExtensionLayer::new(lichess_importer))
         .layer(AddExtensionLayer::new(indexer));
 
-    #[cfg(feature = "cors")]
-    let app = app.layer(tower_http::set_header::SetResponseHeaderLayer::<
-        _,
-        axum::body::Body,
-    >::if_not_present(
-        axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-        axum::http::HeaderValue::from_static("*"),
-    ));
+    let app = if opt.cors {
+        app.layer(tower_http::set_header::SetResponseHeaderLayer::<
+            _,
+            axum::body::Body,
+        >::if_not_present(
+            axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            axum::http::HeaderValue::from_static("*"),
+        ))
+    } else {
+        app
+    };
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())

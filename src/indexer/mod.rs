@@ -21,7 +21,8 @@ use tokio::{
 use crate::{
     db::Database,
     model::{
-        GameInfo, GameInfoPlayer, KeyBuilder, Mode, Month, PersonalEntry, PersonalStatus, UserId, IndexRun,
+        GameInfo, GameInfoPlayer, IndexRun, KeyBuilder, Mode, Month, PersonalEntry, PersonalStatus,
+        UserId,
     },
 };
 
@@ -145,7 +146,7 @@ impl IndexerActor {
                 IndexerMessage::IndexPlayer {
                     player,
                     status,
-                    index_run
+                    index_run,
                 } => {
                     self.index_player(&player, status, index_run).await;
 
@@ -156,12 +157,7 @@ impl IndexerActor {
         }
     }
 
-    async fn index_player(
-        &self,
-        player: &UserId,
-        mut status: PersonalStatus,
-        index_run: IndexRun,
-    ) {
+    async fn index_player(&self, player: &UserId, mut status: PersonalStatus, index_run: IndexRun) {
         let started_at = Instant::now();
         log::info!(
             "indexer {:02}: starting {} ({})",
