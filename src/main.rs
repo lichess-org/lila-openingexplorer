@@ -45,10 +45,14 @@ use crate::{
 
 #[derive(Parser)]
 struct Opt {
+    /// Binding address. Note that administrative endpoints must be protected
+    /// using a reverse proxy.
     #[clap(long, default_value = "127.0.0.1:9001")]
     bind: SocketAddr,
+    /// Path to RocksDB database
     #[clap(long, default_value = "_db")]
     db: PathBuf,
+    /// Allow access from all origins.
     #[clap(long)]
     cors: bool,
     #[clap(flatten)]

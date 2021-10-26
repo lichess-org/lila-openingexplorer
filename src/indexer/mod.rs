@@ -34,10 +34,13 @@ const MAX_PLIES: usize = 50;
 
 #[derive(Parser, Clone)]
 pub struct IndexerOpt {
+    /// Base url for the indexer.
     #[clap(long = "lila", default_value = "https://lichess.org")]
     lila: String,
+    /// Token of https://lichess.org/@/OpeningExplorer to speed up indexing.
     #[clap(long = "bearer")]
     bearer: Option<String>,
+    /// Number of parallel indexing tasks.
     #[clap(long = "indexers", default_value = "16")]
     indexers: usize,
 }

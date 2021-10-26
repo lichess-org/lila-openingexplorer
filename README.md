@@ -1,20 +1,33 @@
-lila-openingexplorer3
-=====================
+lila-openingexplorer
+====================
 
-Personal opening explorer
-[under development](https://github.com/niklasf/lila-openingexplorer3/projects/1)
-and maybe future replacement for [lila-openingexplorer](https://github.com/niklasf/lila-openingexplorer).
+[Opening explorer](https://lichess.org/blog/Vs0xMTAAAD4We4Ey/opening-explorer)
+for lichess.org, capable of handling billions of positions, featuring:
+
+* A database of master games
+* Sampled games from Lichess itself
+* An on-demand database of [openings by player](https://lichess.org/blog/YXMPxxMAACEAy3g4/announcing-the-personal-opening-explorer)
 
 Usage
 -----
 
 ```sh
 git submodule update --init
-EXPLORER_LOG=lila_openingexplorer3=debug cargo run -- --lila https://lichess:***@lichess.dev --bearer lip_***
+EXPLORER_LOG=lila_openingexplorer=debug cargo run -- --lila https://lichess:***@lichess.dev --bearer lip_***
 ```
+
+Note that administrative endpoints must be protected using a reverse proxy.
 
 HTTP API
 --------
+
+See https://lichess.org/api#tag/Opening-Explorer.
+
+### `/masters`
+
+### `/lichess`
+
+### `/player`
 
 Example:
 
@@ -103,58 +116,6 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
     }
 }
 ```
-
-Indexing process
-----------------
-
-At each point in time, there will never be more than one game stream requested
-for each player, and no more than `--indexers` (default 16) in total.
-
-Indexing requests are added to a bounded queue. If the queue is full,
-the indexing request will be ignored.
-
-Once started, indexing will run until completed, even if all requesters
-disconnect.
-
-Indexing requests are also ignored if they are submitted within 60 seconds of
-the last indexing request for the same player, but there can be multiple
-concurrent streams watching one indexing process. Ongoing games are revisited
-only once every 24 hours.
-
-Column families
----------------
-
-### `game`
-
-* Key
-  * Game ID (6 bytes)
-* Value
-  * Game information
-
-### `personal`
-
-* Key
-  * Hash (12 bytes)
-    * Player
-    * Color
-    * Zobrist hash of position and variant
-  * Tree (2 byte)
-    * Year and month
-* Value (>= 14 bytes)
-  * Move
-    * Speed
-      * Mode
-        * Stats
-        * Game IDs with sequence number
-
-### `player`
-
-* Key
-  * User ID
-* Value
-  * `createdAt` of last seen game
-  * `createdAt` of oldest seen ongoing game
-  * Time of last index run
 
 License
 -------

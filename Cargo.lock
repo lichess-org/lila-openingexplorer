@@ -746,8 +746,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "lila-openingexplorer3"
-version = "0.1.0"
+name = "lila-openingexplorer"
+version = "3.0.0"
 dependencies = [
  "async-channel",
  "axum",

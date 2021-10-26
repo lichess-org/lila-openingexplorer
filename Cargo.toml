@@ -1,10 +1,10 @@
 [package]
-name = "lila-openingexplorer3"
-version = "0.1.0"
+name = "lila-openingexplorer"
+version = "3.0.0"
 publish = false
 description = "An opening explorer for lichess.org"
 homepage = "https://explorer.lichess.ovh"
-repository = "https://github.com/niklasf/lila-openingexplorer3"
+repository = "https://github.com/niklasf/lila-openingexplorer"
 readme = "README.md"
 license = "AGPL-3.0+"
 authors = ["Niklas Fiekas <niklas.fiekas@backscattering.de>"]
