@@ -354,11 +354,11 @@ impl LichessEntry {
         let mut moves = Vec::with_capacity(self.sub_entries.len());
         let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
         let mut top_games: Vec<(Uci, GameId)> = Vec::new();
-        let mut skipped_rating_group = false;
 
         for (uci, sub_entry) in self.sub_entries {
             let mut latest_game: Option<(u64, GameId)> = None;
             let mut stats = Stats::default();
+            let mut skipped_rating_group = false;
 
             for rating_group in RatingGroup::ALL.into_iter().rev() {
                 if filter.contains_rating_group(rating_group) {
@@ -432,6 +432,7 @@ impl LichessEntry {
     }
 }
 
+#[derive(Debug)]
 pub struct PreparedResponse {
     pub total: Stats,
     pub moves: Vec<PreparedMove>,
@@ -439,6 +440,7 @@ pub struct PreparedResponse {
     pub top_games: Vec<(Uci, GameId)>,
 }
 
+#[derive(Debug)]
 pub struct PreparedMove {
     pub uci: Uci,
     pub stats: Stats,
