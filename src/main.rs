@@ -82,6 +82,7 @@ async fn main() {
         .route("/import/lichess", put(lichess_import))
         .route("/masters/pgn/:id", get(masters_pgn))
         .route("/masters", get(masters))
+        .route("/master/pgn/:id", get(masters_pgn)) // bc
         .route("/master", get(masters)) // bc
         .route("/personal", get(personal)) // bc
         .route("/player", get(personal))
