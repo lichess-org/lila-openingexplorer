@@ -33,12 +33,12 @@ use tokio::sync::watch;
 use crate::{
     api::{
         Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, LichessQuery,
-        Limits, MasterQuery, NdJson, PersonalQuery, PersonalQueryFilter,
+        Limits, MastersQuery, NdJson, PersonalQuery, PersonalQueryFilter,
     },
     db::{Database, QueryableDatabase},
-    importer::{LichessGame, LichessImporter, MasterImporter},
+    importer::{LichessGame, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub},
-    model::{GameId, KeyBuilder, KeyPrefix, MasterGame, MasterGameWithId, PreparedMove, UserId},
+    model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
@@ -72,7 +72,7 @@ async fn main() {
     let openings: &'static Openings = Box::leak(Box::new(Openings::build_table()));
     let db = Arc::new(Database::open(opt.db).expect("db"));
     let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
-    let master_importer = MasterImporter::new(Arc::clone(&db));
+    let masters_importer = MastersImporter::new(Arc::clone(&db));
     let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
     let app = Router::new()
@@ -80,17 +80,17 @@ async fn main() {
         .route("/admin/game/:prop", get(game_property))
         .route("/admin/personal/:prop", get(personal_property))
         .route("/admin/explorer.indexing", get(num_indexing))
-        .route("/import/masters", put(master_import))
+        .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
-        .route("/masters/pgn/:id", get(master_pgn))
-        .route("/masters", get(master))
-        .route("/master", get(master)) // bc
+        .route("/masters/pgn/:id", get(masters_pgn))
+        .route("/masters", get(masters))
+        .route("/master", get(masters)) // bc
         .route("/personal", get(personal)) // bc
         .route("/player", get(personal))
         .route("/lichess", get(lichess))
         .layer(AddExtensionLayer::new(openings))
         .layer(AddExtensionLayer::new(db))
-        .layer(AddExtensionLayer::new(master_importer))
+        .layer(AddExtensionLayer::new(masters_importer))
         .layer(AddExtensionLayer::new(lichess_importer))
         .layer(AddExtensionLayer::new(indexer));
 
@@ -282,31 +282,31 @@ async fn personal(
     ).dedup_by_key(|res| res.total.total())))
 }
 
-async fn master_import(
-    Json(body): Json<MasterGameWithId>,
-    Extension(importer): Extension<MasterImporter>,
+async fn masters_import(
+    Json(body): Json<MastersGameWithId>,
+    Extension(importer): Extension<MastersImporter>,
 ) -> Result<(), Error> {
     importer.import(body).await
 }
 
 #[serde_as]
 #[derive(Deserialize)]
-struct MasterGameId(#[serde_as(as = "DisplayFromStr")] GameId);
+struct MastersGameId(#[serde_as(as = "DisplayFromStr")] GameId);
 
-async fn master_pgn(
-    Path(MasterGameId(id)): Path<MasterGameId>,
+async fn masters_pgn(
+    Path(MastersGameId(id)): Path<MastersGameId>,
     Extension(db): Extension<Arc<Database>>,
-) -> Result<MasterGame, StatusCode> {
-    match db.queryable().get_master_game(id).expect("get master game") {
+) -> Result<MastersGame, StatusCode> {
+    match db.queryable().get_masters_game(id).expect("get masters game") {
         Some(game) => Ok(game),
         None => Err(StatusCode::NOT_FOUND),
     }
 }
 
-async fn master(
+async fn masters(
     Extension(openings): Extension<&'static Openings>,
     Extension(db): Extension<Arc<Database>>,
-    Query(query): Query<MasterQuery>,
+    Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     let mut pos = Zobrist::new(match query.fen {
         Some(fen) => {
@@ -316,11 +316,11 @@ async fn master(
     });
 
     let opening = openings.classify_and_play(&mut pos, query.play)?;
-    let key = KeyBuilder::master().with_zobrist(Variant::Chess, pos.zobrist_hash());
+    let key = KeyBuilder::masters().with_zobrist(Variant::Chess, pos.zobrist_hash());
     let queryable = db.queryable();
     let mut entry = queryable
-        .get_master(key, query.since, query.until)
-        .expect("get master")
+        .get_masters(key, query.since, query.until)
+        .expect("get masters")
         .prepare();
 
     entry.moves.truncate(query.limits.moves.unwrap_or(12));
@@ -345,9 +345,9 @@ async fn master(
                 stats: p.stats,
                 game: p.game.and_then(|id| {
                     queryable
-                        .get_master_game(id)
-                        .expect("get master game")
-                        .map(|info| ExplorerGame::from_master(id, info))
+                        .get_masters_game(id)
+                        .expect("get masters game")
+                        .map(|info| ExplorerGame::from_masters(id, info))
                 }),
             })
             .collect(),
@@ -357,11 +357,11 @@ async fn master(
                 .into_iter()
                 .flat_map(|(uci, id)| {
                     queryable
-                        .get_master_game(id)
-                        .expect("get master game")
+                        .get_masters_game(id)
+                        .expect("get masters game")
                         .map(|info| ExplorerGameWithUci {
                             uci,
-                            row: ExplorerGame::from_master(id, info),
+                            row: ExplorerGame::from_masters(id, info),
                         })
                 })
                 .collect(),

@@ -17,27 +17,27 @@ use crate::{
     api::{Error, LilaVariant},
     db::Database,
     model::{
-        GameId, GameInfo, GameInfoPlayer, Key, KeyBuilder, LaxDate, LichessEntry, MasterEntry,
-        MasterGameWithId, Mode, Speed,
+        GameId, GameInfo, GameInfoPlayer, Key, KeyBuilder, LaxDate, LichessEntry, MastersEntry,
+        MastersGameWithId, Mode, Speed,
     },
     util::ByColorDef,
 };
 
 #[derive(Clone)]
-pub struct MasterImporter {
+pub struct MastersImporter {
     db: Arc<Database>,
     mutex: Arc<Mutex<()>>,
 }
 
-impl MasterImporter {
-    pub fn new(db: Arc<Database>) -> MasterImporter {
-        MasterImporter {
+impl MastersImporter {
+    pub fn new(db: Arc<Database>) -> MastersImporter {
+        MastersImporter {
             db,
             mutex: Arc::new(Mutex::new(())),
         }
     }
 
-    pub async fn import(&self, body: MasterGameWithId) -> Result<(), Error> {
+    pub async fn import(&self, body: MastersGameWithId) -> Result<(), Error> {
         if body.game.players.white.rating / 2 + body.game.players.black.rating / 2 < 2200 {
             return Err(Error::RejectedImport(body.id));
         }
@@ -45,8 +45,8 @@ impl MasterImporter {
         let _guard = self.mutex.lock();
         let queryable = self.db.queryable();
         if queryable
-            .has_master_game(body.id)
-            .expect("check for master game")
+            .has_masters_game(body.id)
+            .expect("check for masters game")
         {
             return Err(Error::DuplicateGame(body.id));
         }
@@ -56,7 +56,7 @@ impl MasterImporter {
         let mut pos: Zobrist<Chess, u128> = Zobrist::default();
         let mut final_key = None;
         for uci in &body.game.moves {
-            let key = KeyBuilder::master()
+            let key = KeyBuilder::masters()
                 .with_zobrist(Variant::Chess, pos.zobrist_hash())
                 .with_year(body.game.date.year());
             final_key = Some(key.clone());
@@ -67,19 +67,19 @@ impl MasterImporter {
 
         if let Some(final_key) = final_key {
             if queryable
-                .has_master(final_key)
-                .expect("check for master entry")
+                .has_masters(final_key)
+                .expect("check for masters entry")
             {
                 return Err(Error::DuplicateGame(body.id));
             }
         }
 
         let mut batch = queryable.batch();
-        batch.put_master_game(body.id, &body.game);
+        batch.put_masters_game(body.id, &body.game);
         for (key, (uci, turn)) in without_loops {
-            batch.merge_master(
+            batch.merge_masters(
                 key,
-                MasterEntry::new_single(
+                MastersEntry::new_single(
                     uci,
                     body.id,
                     Outcome::from_winner(body.game.winner),
@@ -89,7 +89,7 @@ impl MasterImporter {
             );
         }
 
-        batch.write().expect("commit master game");
+        batch.write().expect("commit masters game");
         Ok(())
     }
 }

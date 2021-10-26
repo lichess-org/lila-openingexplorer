@@ -20,7 +20,7 @@ impl KeyBuilder {
         }
     }
 
-    pub fn master() -> KeyBuilder {
+    pub fn masters() -> KeyBuilder {
         KeyBuilder { base: 0 }
     }
 

@@ -22,16 +22,16 @@ use crate::{
 
 #[serde_as]
 #[derive(Deserialize, Debug)]
-pub struct MasterGameWithId {
+pub struct MastersGameWithId {
     #[serde_as(as = "DisplayFromStr")]
     pub id: GameId,
     #[serde(flatten)]
-    pub game: MasterGame,
+    pub game: MastersGame,
 }
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
-pub struct MasterGame {
+pub struct MastersGame {
     pub event: String,
     pub site: String,
     #[serde_as(as = "DisplayFromStr")]
@@ -45,7 +45,7 @@ pub struct MasterGame {
     pub moves: Vec<Uci>,
 }
 
-impl MasterGame {
+impl MastersGame {
     fn outcome(&self) -> Outcome {
         Outcome::from_winner(self.winner)
     }
@@ -85,7 +85,7 @@ impl MasterGame {
     }
 }
 
-impl IntoResponse for MasterGame {
+impl IntoResponse for MastersGame {
     type Body = Body;
     type BodyError = <Body as axum::body::HttpBody>::Error;
 
@@ -101,24 +101,24 @@ impl IntoResponse for MasterGame {
 }
 
 #[derive(Debug, Default)]
-pub struct MasterGroup {
+pub struct MastersGroup {
     pub stats: Stats,
     pub games: SmallVec<[(u16, GameId); 1]>,
 }
 
-impl AddAssign for MasterGroup {
-    fn add_assign(&mut self, rhs: MasterGroup) {
+impl AddAssign for MastersGroup {
+    fn add_assign(&mut self, rhs: MastersGroup) {
         self.stats += rhs.stats;
         self.games.extend(rhs.games);
     }
 }
 
 #[derive(Default, Debug)]
-pub struct MasterEntry {
-    pub groups: FxHashMap<Uci, MasterGroup>,
+pub struct MastersEntry {
+    pub groups: FxHashMap<Uci, MastersGroup>,
 }
 
-impl MasterEntry {
+impl MastersEntry {
     pub const SIZE_HINT: usize = 14;
 
     pub fn new_single(
@@ -127,16 +127,16 @@ impl MasterEntry {
         outcome: Outcome,
         mover_rating: u16,
         opponent_rating: u16,
-    ) -> MasterEntry {
+    ) -> MastersEntry {
         let mut groups = FxHashMap::with_capacity_and_hasher(1, Default::default());
         groups.insert(
             uci,
-            MasterGroup {
+            MastersGroup {
                 stats: Stats::new_single(outcome, mover_rating),
                 games: smallvec![(mover_rating.saturating_add(opponent_rating), id)],
             },
         );
-        MasterEntry { groups }
+        MastersEntry { groups }
     }
 
     pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
@@ -253,25 +253,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_master_entry() {
+    fn test_masters_entry() {
         let uci = Uci::Normal {
             from: Square::E2,
             to: Square::E4,
             promotion: None,
         };
         let game = "aaaaaaaa".parse().unwrap();
-        let a = MasterEntry::new_single(uci.clone(), game, Outcome::Draw, 1600, 1700);
+        let a = MastersEntry::new_single(uci.clone(), game, Outcome::Draw, 1600, 1700);
 
-        let mut writer = Cursor::new(Vec::with_capacity(MasterEntry::SIZE_HINT));
+        let mut writer = Cursor::new(Vec::with_capacity(MastersEntry::SIZE_HINT));
         a.write(&mut writer).unwrap();
         assert_eq!(
             writer.position() as usize,
-            MasterEntry::SIZE_HINT,
+            MastersEntry::SIZE_HINT,
             "optimized for single entries"
         );
 
         let mut reader = Cursor::new(writer.into_inner());
-        let mut deserialized = MasterEntry::default();
+        let mut deserialized = MastersEntry::default();
         deserialized.extend_from_reader(&mut reader).unwrap();
 
         let group = deserialized.groups.get(&uci).unwrap();

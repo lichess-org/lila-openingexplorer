@@ -7,8 +7,8 @@ use rocksdb::{
 };
 
 use crate::model::{
-    GameId, GameInfo, Key, KeyPrefix, LichessEntry, MasterEntry, MasterGame, Month, PersonalEntry,
-    PersonalStatus, UserId, Year,
+    GameId, GameInfo, Key, KeyPrefix, LichessEntry, MastersEntry, MastersGame, Month,
+    PersonalEntry, PersonalStatus, UserId, Year,
 };
 
 #[derive(Debug)]
@@ -71,14 +71,14 @@ impl Database {
                 column_family("game", Some("game merge"), game_merge, None, 1024, 0),
                 column_family("player", None, void_merge, None, 1024, 0),
                 column_family(
-                    "master",
-                    Some("master merge"),
-                    master_merge,
+                    "masters",
+                    Some("masters merge"),
+                    masters_merge,
                     Some(KeyPrefix::SIZE),
                     4 * 1024,
                     3,
                 ),
-                column_family("master_game", None, void_merge, None, 4 * 1024, 0),
+                column_family("masters_game", None, void_merge, None, 4 * 1024, 0),
             ],
         )?;
 
@@ -92,8 +92,11 @@ impl Database {
             cf_personal: self.inner.cf_handle("personal").expect("cf personal"),
             cf_game: self.inner.cf_handle("game").expect("cf game"),
             cf_player: self.inner.cf_handle("player").expect("cf player"),
-            cf_master: self.inner.cf_handle("master").expect("cf master"),
-            cf_master_game: self.inner.cf_handle("master_game").expect("cf master_game"),
+            cf_masters: self.inner.cf_handle("masters").expect("cf masters"),
+            cf_masters_game: self
+                .inner
+                .cf_handle("masters_game")
+                .expect("cf masters_game"),
         }
     }
 }
@@ -104,8 +107,8 @@ pub struct QueryableDatabase<'a> {
     cf_personal: &'a ColumnFamily,
     cf_game: &'a ColumnFamily,
     cf_player: &'a ColumnFamily,
-    cf_master: &'a ColumnFamily,
-    cf_master_game: &'a ColumnFamily,
+    cf_masters: &'a ColumnFamily,
+    cf_masters_game: &'a ColumnFamily,
 }
 
 impl QueryableDatabase<'_> {
@@ -198,31 +201,31 @@ impl QueryableDatabase<'_> {
             .put_cf(self.cf_player, id.as_str(), cursor.into_inner())
     }
 
-    pub fn has_master_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
+    pub fn has_masters_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
         self.db
-            .get_cf(self.cf_master_game, id.to_bytes())
+            .get_cf(self.cf_masters_game, id.to_bytes())
             .map(|maybe_entry| maybe_entry.is_some())
     }
 
-    pub fn get_master_game(&self, id: GameId) -> Result<Option<MasterGame>, rocksdb::Error> {
+    pub fn get_masters_game(&self, id: GameId) -> Result<Option<MastersGame>, rocksdb::Error> {
         Ok(self
             .db
-            .get_cf(self.cf_master_game, id.to_bytes())?
-            .map(|buf| serde_json::from_slice(&buf).expect("deserialize master game")))
+            .get_cf(self.cf_masters_game, id.to_bytes())?
+            .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game")))
     }
 
-    pub fn has_master(&self, key: Key) -> Result<bool, rocksdb::Error> {
+    pub fn has_masters(&self, key: Key) -> Result<bool, rocksdb::Error> {
         self.db
-            .get_cf(self.cf_master, key.into_bytes())
+            .get_cf(self.cf_masters, key.into_bytes())
             .map(|maybe_entry| maybe_entry.is_some())
     }
 
-    pub fn get_master(
+    pub fn get_masters(
         &self,
         key: KeyPrefix,
         since: Year,
         until: Year,
-    ) -> Result<MasterEntry, rocksdb::Error> {
+    ) -> Result<MastersEntry, rocksdb::Error> {
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
@@ -230,14 +233,14 @@ impl QueryableDatabase<'_> {
 
         let iterator = self
             .db
-            .iterator_cf_opt(self.cf_master, opt, IteratorMode::Start);
+            .iterator_cf_opt(self.cf_masters, opt, IteratorMode::Start);
 
-        let mut entry = MasterEntry::default();
+        let mut entry = MastersEntry::default();
         for (_key, value) in iterator {
             let mut cursor = Cursor::new(value);
             entry
                 .extend_from_reader(&mut cursor)
-                .expect("deserialize master entry");
+                .expect("deserialize masters entry");
         }
 
         Ok(entry)
@@ -284,21 +287,21 @@ impl Batch<'_> {
             .merge_cf(self.queryable.cf_game, id.to_bytes(), cursor.into_inner());
     }
 
-    pub fn merge_master(&mut self, key: Key, entry: MasterEntry) {
-        let mut cursor = Cursor::new(Vec::with_capacity(MasterEntry::SIZE_HINT));
-        entry.write(&mut cursor).expect("serialize master entry");
+    pub fn merge_masters(&mut self, key: Key, entry: MastersEntry) {
+        let mut cursor = Cursor::new(Vec::with_capacity(MastersEntry::SIZE_HINT));
+        entry.write(&mut cursor).expect("serialize masters entry");
         self.batch.merge_cf(
-            self.queryable.cf_master,
+            self.queryable.cf_masters,
             key.into_bytes(),
             cursor.into_inner(),
         );
     }
 
-    pub fn put_master_game(&mut self, id: GameId, game: &MasterGame) {
+    pub fn put_masters_game(&mut self, id: GameId, game: &MastersGame) {
         self.batch.put_cf(
-            self.queryable.cf_master_game,
+            self.queryable.cf_masters_game,
             id.to_bytes(),
-            serde_json::to_vec(game).expect("serialize master game"),
+            serde_json::to_vec(game).expect("serialize masters game"),
         );
     }
 
@@ -371,22 +374,22 @@ fn personal_merge(
     Some(cursor.into_inner())
 }
 
-fn master_merge(
+fn masters_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
     operands: &mut MergeOperands,
 ) -> Option<Vec<u8>> {
-    let mut entry = MasterEntry::default();
+    let mut entry = MastersEntry::default();
     let mut size_hint = 0;
     for op in existing.into_iter().chain(operands.into_iter()) {
         let mut cursor = Cursor::new(op);
         entry
             .extend_from_reader(&mut cursor)
-            .expect("deserialize for master merge");
+            .expect("deserialize for masters merge");
         size_hint += op.len();
     }
     let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
-    entry.write(&mut cursor).expect("write master entry");
+    entry.write(&mut cursor).expect("write masters entry");
     Some(cursor.into_inner())
 }
 

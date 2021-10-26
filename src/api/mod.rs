@@ -6,7 +6,7 @@ use shakmaty::{san::SanPlus, uci::Uci, ByColor, Color};
 
 use crate::{
     model::{
-        GameId, GameInfo, GameInfoPlayer, MasterGame, Mode, Month, RatingGroup, Speed, Stats,
+        GameId, GameInfo, GameInfoPlayer, MastersGame, Mode, Month, RatingGroup, Speed, Stats,
         UserName, Year,
     },
     opening::Opening,
@@ -25,7 +25,7 @@ pub use variant::LilaVariant;
 
 #[serde_as]
 #[derive(Deserialize, Debug)]
-pub struct MasterQuery {
+pub struct MastersQuery {
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     pub fen: Option<LaxFen>,
@@ -227,7 +227,7 @@ impl ExplorerGame {
         }
     }
 
-    pub fn from_master(id: GameId, info: MasterGame) -> ExplorerGame {
+    pub fn from_masters(id: GameId, info: MastersGame) -> ExplorerGame {
         ExplorerGame {
             id,
             winner: info.winner,
