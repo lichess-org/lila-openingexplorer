@@ -76,6 +76,7 @@ async fn main() {
     let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
     let app = Router::new()
+        .route("/cf/:cf/:prop", get(cf_prop))
         .route("/admin/explorer.indexing", get(num_indexing))
         .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
@@ -111,6 +112,26 @@ async fn main() {
     for join_handle in join_handles {
         join_handle.await.expect("indexer");
     }
+}
+
+#[derive(Deserialize)]
+struct ColumnFamilyProp {
+    cf: String,
+    prop: String,
+}
+
+async fn cf_prop(
+    Path(path): Path<ColumnFamilyProp>,
+    Extension(db): Extension<Arc<Database>>,
+) -> Result<String, StatusCode> {
+    db.inner
+        .cf_handle(&path.cf)
+        .and_then(|cf| {
+            db.inner
+                .property_value_cf(cf, &path.prop)
+                .expect("property value")
+        })
+        .ok_or(StatusCode::NOT_FOUND)
 }
 
 async fn num_indexing(Extension(indexer): Extension<IndexerStub>) -> String {
