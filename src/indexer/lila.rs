@@ -42,7 +42,7 @@ impl Lila {
             .get(format!(
                 "{}/api/games/user/{}?sort=dateAsc&ongoing=true",
                 self.opt.lila,
-                user.as_str()
+                user.as_lowercase_str()
             ))
             .query(&[("since", since_created_at)])
             .header("Accept", "application/x-ndjson");

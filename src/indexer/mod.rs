@@ -125,7 +125,7 @@ impl IndexerStub {
             Err(TrySendError::Full(_)) => {
                 log::error!(
                     "not queuing {} because indexer queue is full",
-                    player.as_str()
+                    player.as_lowercase_str()
                 );
                 None
             }
@@ -165,7 +165,7 @@ impl IndexerActor {
         log::info!(
             "indexer {:02}: starting {} ({})",
             self.idx,
-            player.as_str(),
+            player.as_lowercase_str(),
             index_run,
         );
 
@@ -180,7 +180,7 @@ impl IndexerActor {
                 log::warn!(
                     "indexer {:02}: did not find player {}",
                     self.idx,
-                    player.as_str()
+                    player.as_lowercase_str()
                 );
                 return;
             }
@@ -225,7 +225,7 @@ impl IndexerActor {
                     "indexer {:02}: indexed {} games for {} ...",
                     self.idx,
                     num_games,
-                    player.as_str()
+                    player.as_lowercase_str()
                 );
             }
         }
@@ -243,7 +243,7 @@ impl IndexerActor {
                 "indexer {:02}: finished {} games for {} in {:.3?} ({:.3?}/game, {:.1} games/s)",
                 self.idx,
                 num_games,
-                player.as_str(),
+                player.as_lowercase_str(),
                 elapsed,
                 Duration::from_nanos(elapsed.as_nanos() as u64) / num_games,
                 (num_games as f64) / elapsed.as_secs_f64()
@@ -252,7 +252,7 @@ impl IndexerActor {
             log::info!(
                 "indexer {:02}: no new games for {}",
                 self.idx,
-                player.as_str()
+                player.as_lowercase_str()
             );
         }
     }
@@ -295,7 +295,7 @@ impl IndexerActor {
                 log::error!(
                     "indexer {:02}: {} did not play in {}",
                     self.idx,
-                    player.as_str(),
+                    player.as_lowercase_str(),
                     game.id
                 );
                 return;

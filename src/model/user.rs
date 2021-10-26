@@ -75,7 +75,7 @@ impl From<UserName> for UserId {
 }
 
 impl UserId {
-    pub fn as_str(&self) -> &str {
+    pub fn as_lowercase_str(&self) -> &str {
         &self.0
     }
 }

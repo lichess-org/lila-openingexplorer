@@ -285,7 +285,7 @@ impl LichessDatabase<'_> {
     pub fn player_status(&self, id: &UserId) -> Result<Option<PlayerStatus>, rocksdb::Error> {
         Ok(self
             .inner
-            .get_cf(self.cf_player_status, id.as_str())?
+            .get_cf(self.cf_player_status, id.as_lowercase_str())?
             .map(|buf| {
                 let mut cursor = Cursor::new(buf);
                 PlayerStatus::read(&mut cursor).expect("deserialize status")
@@ -299,8 +299,11 @@ impl LichessDatabase<'_> {
     ) -> Result<(), rocksdb::Error> {
         let mut cursor = Cursor::new(Vec::with_capacity(PlayerStatus::SIZE_HINT));
         status.write(&mut cursor).expect("serialize status");
-        self.inner
-            .put_cf(self.cf_player_status, id.as_str(), cursor.into_inner())
+        self.inner.put_cf(
+            self.cf_player_status,
+            id.as_lowercase_str(),
+            cursor.into_inner(),
+        )
     }
 
     pub fn batch(&self) -> LichessBatch<'_> {

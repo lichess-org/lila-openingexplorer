@@ -13,7 +13,7 @@ impl KeyBuilder {
     pub fn player(user: &UserId, color: Color) -> KeyBuilder {
         let mut hash = Sha1::new();
         hash.update(&[color.char() as u8]);
-        hash.update(user.as_str());
+        hash.update(user.as_lowercase_str());
         let buf = hash.finalize();
         KeyBuilder {
             base: LittleEndian::read_u128(buf.as_slice()),
