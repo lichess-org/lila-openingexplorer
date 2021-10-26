@@ -1,5 +1,5 @@
 use std::{
-    cmp::{max, Reverse},
+    cmp::{max, min, Reverse},
     fmt,
     io::{self, Read, Write},
     time::{Duration, SystemTime},
@@ -18,7 +18,7 @@ use crate::{
     },
 };
 
-const MAX_PERSONAL_GAMES: u64 = 15; // 4 bits
+const MAX_PERSONAL_GAMES: usize = 8; // must fit into 4 bits
 
 #[derive(Debug, Eq, PartialEq)]
 enum Header {
@@ -74,7 +74,7 @@ impl Header {
 #[derive(Default, Debug)]
 pub struct PersonalEntry {
     sub_entries: FxHashMap<Uci, BySpeed<ByMode<LichessGroup>>>,
-    max_game_idx: u64,
+    max_game_idx: Option<u64>,
 }
 
 impl PersonalEntry {
@@ -98,7 +98,7 @@ impl PersonalEntry {
 
         PersonalEntry {
             sub_entries,
-            max_game_idx: 0,
+            max_game_idx: Some(0),
         }
     }
 
@@ -112,7 +112,7 @@ impl PersonalEntry {
 
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
-            let base_game_idx = self.max_game_idx + 1;
+            let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
             while let Header::Group {
                 speed,
@@ -124,7 +124,7 @@ impl PersonalEntry {
                 let mut games = SmallVec::with_capacity(num_games);
                 for _ in 0..num_games {
                     let game_idx = base_game_idx + read_uint(reader)?;
-                    self.max_game_idx = max(self.max_game_idx, game_idx);
+                    self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
                     let game = GameId::read(reader)?;
                     games.push((game_idx, game));
                 }
@@ -135,38 +135,28 @@ impl PersonalEntry {
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        let discarded_game_idx = self.max_game_idx.saturating_sub(MAX_PERSONAL_GAMES);
-
         for (uci, sub_entry) in &self.sub_entries {
             write_uci(writer, uci)?;
 
             sub_entry.as_ref().try_map(|speed, by_mode| {
                 by_mode.as_ref().try_map(|mode, group| {
-                    let num_games = if group.games.len() == 1 {
-                        1
-                    } else {
-                        group
-                            .games
-                            .iter()
-                            .filter(|(game_idx, _)| *game_idx > discarded_game_idx)
-                            .count()
-                    };
-
-                    if num_games > 0 || !group.stats.is_empty() {
+                    if !group.games.is_empty() || !group.stats.is_empty() {
                         Header::Group {
                             speed,
                             mode,
-                            num_games,
+                            num_games: min(group.games.len(), MAX_PERSONAL_GAMES),
                         }
                         .write(writer)?;
 
                         group.stats.write(writer)?;
 
-                        for (game_idx, game) in &group.games {
-                            if *game_idx > discarded_game_idx || group.games.len() == 1 {
-                                write_uint(writer, *game_idx)?;
-                                game.write(writer)?;
-                            }
+                        for (game_idx, game) in group
+                            .games
+                            .iter()
+                            .skip(group.games.len().saturating_sub(MAX_PERSONAL_GAMES))
+                        {
+                            write_uint(writer, *game_idx)?;
+                            game.write(writer)?;
                         }
                     }
 
