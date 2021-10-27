@@ -23,7 +23,7 @@ use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
     san::{San, SanPlus},
     uci::Uci,
-    variant::{VariantPosition},
+    variant::VariantPosition,
 };
 use tokio::sync::watch;
 
