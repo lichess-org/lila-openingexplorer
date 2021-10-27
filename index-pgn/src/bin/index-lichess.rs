@@ -176,7 +176,12 @@ impl Visitor for Importer {
                 _ => self.skip = true,
             }
         } else if key == b"FEN" {
-            self.current.fen = Some(value.decode_utf8().expect("FEN").into_owned());
+            if value.as_bytes() == b"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" {
+                // https://github.com/ornicar/lichess-db/issues/40
+                self.current.fen = None;
+            } else {
+                self.current.fen = Some(value.decode_utf8().expect("FEN").into_owned());
+            }
         }
     }
 
