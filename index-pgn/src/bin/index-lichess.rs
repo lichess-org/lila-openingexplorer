@@ -5,7 +5,7 @@ use rand::{distributions::OpenClosed01, thread_rng, Rng};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 
-const BATCH_SIZE: usize = 50;
+const BATCH_SIZE: usize = 1;
 
 #[derive(Debug, Serialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +50,7 @@ impl Speed {
 }
 
 struct Importer {
+    filename: String,
     client: reqwest::blocking::Client,
 
     current: Game,
@@ -58,7 +59,7 @@ struct Importer {
 }
 
 #[serde_as]
-#[derive(Default, Serialize)]
+#[derive(Default, Serialize, Debug)]
 struct Game {
     variant: Option<String>,
     speed: Option<Speed>,
@@ -73,15 +74,16 @@ struct Game {
     moves: Vec<SanPlus>,
 }
 
-#[derive(Default, Serialize)]
+#[derive(Default, Serialize, Debug)]
 struct Player {
     name: Option<String>,
     rating: Option<u16>,
 }
 
 impl Importer {
-    fn new() -> Importer {
+    fn new(filename: String) -> Importer {
         Importer {
+            filename,
             client: reqwest::blocking::Client::builder()
                 .timeout(Duration::from_secs(60))
                 .build()
@@ -93,12 +95,21 @@ impl Importer {
     }
 
     pub fn send(&mut self) {
-        let mut res = self
+        println!("{}", serde_json::to_string(&self.batch).expect("serialize"));
+
+        let res = self
             .client
             .put("http://127.0.0.1:9001/import/lichess")
             .json(&self.batch)
             .send()
             .expect("send batch");
+
+        println!(
+            "{}: {} - {}",
+            self.filename,
+            res.status(),
+            res.text().expect("decode response")
+        );
 
         self.batch.clear();
     }
@@ -113,7 +124,11 @@ impl Visitor for Importer {
     }
 
     fn header(&mut self, key: &[u8], value: RawHeader<'_>) {
-        if key == b"WhiteElo" {
+        if key == b"White" {
+            self.current.white.name = Some(value.decode_utf8().expect("White").into_owned());
+        } else if key == b"Black" {
+            self.current.black.name = Some(value.decode_utf8().expect("Black").into_owned());
+        } else if key == b"WhiteElo" {
             if value.as_bytes() != b"?" {
                 self.current.white.rating = Some(btoi::btoi(value.as_bytes()).expect("WhiteElo"));
             }
@@ -150,6 +165,8 @@ impl Visitor for Importer {
                 b"1/2-1/2" => self.current.winner = None,
                 _ => self.skip = true,
             }
+        } else if key == b"FEN" {
+            self.current.fen = Some(value.decode_utf8().expect("FEN").into_owned());
         }
     }
 
@@ -230,7 +247,7 @@ fn main() -> Result<(), io::Error> {
 
         let mut reader = BufferedReader::new(uncompressed);
 
-        let mut importer = Importer::new();
+        let mut importer = Importer::new(arg);
         reader.read_all(&mut importer)?;
     }
 

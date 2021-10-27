@@ -377,7 +377,7 @@ async fn lichess(
     let mut filtered = lichess_db
         .read_lichess(&key, query.filter.since, query.filter.until)
         .expect("get lichess")
-        .prepare(&dbg!(query.filter));
+        .prepare(&query.filter);
 
     filtered.moves.truncate(query.limits.moves.unwrap_or(12));
     filtered.recent_games.truncate(query.limits.recent_games);

@@ -96,8 +96,7 @@ impl MastersImporter {
 #[serde_as]
 #[derive(Deserialize)]
 pub struct LichessGameImport {
-    #[serde(default)]
-    variant: LilaVariant,
+    variant: Option<LilaVariant>,
     speed: Speed,
     #[serde_as(as = "Option<DisplayFromStr>")]
     fen: Option<Fen>,
@@ -149,7 +148,7 @@ impl LichessImporter {
             }
         };
         let outcome = Outcome::from_winner(game.winner);
-        let variant = Variant::from(game.variant);
+        let variant = Variant::from(game.variant.unwrap_or_default());
 
         let mut pos: Zobrist<_, u128> = Zobrist::new(match game.fen {
             Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)?,
