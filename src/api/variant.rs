@@ -11,17 +11,17 @@ pub enum LilaVariant {
     Chess960,
     #[serde(alias = "crazyhouse")]
     Crazyhouse,
-    #[serde(alias = "fromPosition")]
+    #[serde(alias = "fromPosition", alias = "From Position")]
     FromPosition,
     #[serde(alias = "horde")]
     Horde,
-    #[serde(alias = "kingOfTheHill")]
+    #[serde(alias = "kingOfTheHill", alias = "King of the Hill")]
     KingOfTheHill,
-    #[serde(alias = "racingKings")]
+    #[serde(alias = "racingKings", alias = "Racing Kings")]
     RacingKings,
     #[serde(alias = "chess", alias = "standard")]
     Standard,
-    #[serde(alias = "threeCheck")]
+    #[serde(alias = "threeCheck", alias = "Three-check")]
     ThreeCheck,
 }
 
