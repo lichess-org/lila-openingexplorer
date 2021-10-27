@@ -131,10 +131,10 @@ pub struct Play {
 }
 
 impl Play {
-    pub fn position<'a>(
+    pub fn position(
         self,
-        openings: &'a Openings,
-    ) -> Result<(Variant, Zobrist<VariantPosition, u128>, Option<&'a Opening>), Error> {
+        openings: &Openings,
+    ) -> Result<(Variant, Zobrist<VariantPosition, u128>, Option<&Opening>), Error> {
         let variant = Variant::from(self.variant);
         let mut pos = Zobrist::new(match self.fen {
             Some(fen) => {
