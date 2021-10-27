@@ -78,7 +78,7 @@ pub struct PlayerEntry {
 }
 
 impl PlayerEntry {
-    pub const SIZE_HINT: usize = 14;
+    pub const SIZE_HINT: usize = 13;
 
     pub fn new_single(
         uci: Uci,
@@ -105,37 +105,47 @@ impl PlayerEntry {
     pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
         loop {
             let uci = match read_uci(reader) {
-                Ok(uci) => uci,
                 Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
                 Err(err) => return Err(err),
+                Ok(uci) => uci,
             };
 
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
             let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
-            while let Header::Group {
-                speed,
-                mode,
-                num_games,
-            } = Header::read(reader)?
-            {
-                let stats = Stats::read(reader)?;
-                let mut games = SmallVec::with_capacity(num_games);
-                for _ in 0..num_games {
-                    let game_idx = base_game_idx + read_uint(reader)?;
-                    self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
-                    let game = GameId::read(reader)?;
-                    games.push((game_idx, game));
+            loop {
+                match Header::read(reader) {
+                    Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
+                    Err(err) => return Err(err),
+                    Ok(Header::End) => break,
+                    Ok(Header::Group {
+                        speed,
+                        mode,
+                        num_games,
+                    }) => {
+                        let stats = Stats::read(reader)?;
+                        let mut games = SmallVec::with_capacity(num_games);
+                        for _ in 0..num_games {
+                            let game_idx = base_game_idx + read_uint(reader)?;
+                            self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
+                            let game = GameId::read(reader)?;
+                            games.push((game_idx, game));
+                        }
+                        let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
+                        *group += LichessGroup { stats, games };
+                    }
                 }
-                let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
-                *group += LichessGroup { stats, games };
             }
         }
     }
 
     pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        for (uci, sub_entry) in &self.sub_entries {
+        for (i, (uci, sub_entry)) in self.sub_entries.iter().enumerate() {
+            if i > 0 {
+                Header::End.write(writer)?;
+            }
+
             write_uci(writer, uci)?;
 
             sub_entry.as_ref().try_map(|speed, by_mode| {
@@ -163,8 +173,6 @@ impl PlayerEntry {
                     Ok::<_, io::Error>(())
                 })
             })?;
-
-            Header::End.write(writer)?;
         }
 
         Ok(())
@@ -431,6 +439,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(deserialized.sub_entries.len(), 1);
+        assert_eq!(deserialized.max_game_idx, Some(1));
         let group = deserialized
             .sub_entries
             .get(&uci)
