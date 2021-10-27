@@ -206,10 +206,10 @@ impl Visitor for Importer {
                 Speed::Blitz if rating >= 1800 => 0.05,
                 Speed::Blitz if rating >= 1600 => 0.05,
 
-                Speed::Bullet if rating >= 2200 => 0.16,
-                Speed::Bullet if rating >= 2000 => 0.07,
-                Speed::Bullet if rating >= 1800 => 0.05,
-                Speed::Bullet if rating >= 1600 => 0.05,
+                Speed::Bullet if rating >= 2200 => 0.20,
+                Speed::Bullet if rating >= 2000 => 0.11,
+                Speed::Bullet if rating >= 1800 => 0.07,
+                Speed::Bullet if rating >= 1600 => 0.07,
 
                 Speed::UltraBullet => 1.0,
 
