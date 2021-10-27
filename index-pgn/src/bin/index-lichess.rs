@@ -218,12 +218,11 @@ impl Visitor for Importer {
             }
         };
 
-        let rnd = thread_rng().sample(OpenClosed01);
         let accept = min(
             self.current.white.rating.unwrap_or(0),
             self.current.black.rating.unwrap_or(0),
-        ) >= 1500
-            && probability >= rnd
+        ) >= 1501
+            && probability >= thread_rng().sample(OpenClosed01)
             && !self.skip;
 
         self.skip = !accept;
