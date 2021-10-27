@@ -5,7 +5,7 @@ use rand::{distributions::OpenClosed01, thread_rng, Rng};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 
-const BATCH_SIZE: usize = 1;
+const BATCH_SIZE: usize = 50;
 
 #[derive(Debug, Serialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -95,7 +95,7 @@ impl Importer {
     }
 
     pub fn send(&mut self) {
-        println!("{}", serde_json::to_string(&self.batch).expect("serialize"));
+        // println!("{}", serde_json::to_string(&self.batch).expect("serialize"));
 
         let res = self
             .client
