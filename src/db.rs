@@ -2,8 +2,8 @@ use std::{io::Cursor, path::Path};
 
 use rocksdb::{
     merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, ColumnFamily,
-    ColumnFamilyDescriptor, DBWithThreadMode, IteratorMode, MergeOperands, Options, ReadOptions,
-    SliceTransform, WriteBatch, DB,
+    ColumnFamilyDescriptor, IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform,
+    WriteBatch, DB,
 };
 
 use crate::model::{
@@ -91,11 +91,6 @@ impl Database {
                 column_family("player_status_2", None, void_merge, None, 4 * 1024, 0),
             ],
         )?;
-
-        let _ = inner.drop_cf("lichess");
-        let _ = inner.drop_cf("lichess_game");
-        let _ = inner.drop_cf("player");
-        let _ = inner.drop_cf("player_status");
 
         Ok(Database { inner })
     }
