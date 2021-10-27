@@ -1,31 +1,15 @@
-extern crate pgn_reader;
-extern crate memmap;
-extern crate madvise;
-extern crate btoi;
-extern crate rand;
-extern crate reqwest;
+use std::{cmp::min, env, fs::File, io, mem, time::Duration};
 
-use std::env;
-use std::mem;
-use std::str;
-use std::cmp::min;
-use std::fs::File;
-use std::io::Read;
-use std::time::Duration;
-
-use memmap::Mmap;
-use madvise::{AccessPattern, AdviseMemory};
-use pgn_reader::{Visitor, Skip, Reader, San};
-use btoi::ParseIntegerError;
-use rand::{thread_rng, Rng};
-use rand::distributions::OpenClosed01;
+use pgn_reader::{BufferedReader, Color, RawHeader, SanPlus, Skip, Visitor};
+use rand::{distributions::OpenClosed01, thread_rng, Rng};
+use serde::Serialize;
+use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 
 const BATCH_SIZE: usize = 50;
 
-const MAX_PLIES: usize = 50;
-
-#[derive(Debug)]
-enum TimeControl {
+#[derive(Debug, Serialize, Copy, Clone)]
+#[serde(rename_all = "camelCase")]
+enum Speed {
     UltraBullet,
     Bullet,
     Blitz,
@@ -34,231 +18,221 @@ enum TimeControl {
     Correspondence,
 }
 
-#[derive(Debug)]
-struct TimeControlError;
-
-impl From<ParseIntegerError> for TimeControlError {
-    fn from(_: ParseIntegerError) -> TimeControlError {
-        TimeControlError { }
-    }
-}
-
-impl TimeControl {
-    fn from_seconds_and_increment(seconds: u64, increment: u64) -> TimeControl {
+impl Speed {
+    fn from_seconds_and_increment(seconds: u64, increment: u64) -> Speed {
         let total = seconds + 40 * increment;
 
         if total < 30 {
-            TimeControl::UltraBullet
+            Speed::UltraBullet
         } else if total < 180 {
-            TimeControl::Bullet
+            Speed::Bullet
         } else if total < 480 {
-            TimeControl::Blitz
+            Speed::Blitz
         } else if total < 1500 {
-            TimeControl::Rapid
+            Speed::Rapid
         } else if total < 21_600 {
-            TimeControl::Classical
+            Speed::Classical
         } else {
-            TimeControl::Correspondence
+            Speed::Correspondence
         }
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<TimeControl, TimeControlError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Speed, ()> {
         if bytes == b"-" {
-            return Ok(TimeControl::Correspondence);
+            return Ok(Speed::Correspondence);
         }
 
         let mut parts = bytes.splitn(2, |ch| *ch == b'+');
-        let seconds = btoi::btou(parts.next().ok_or(TimeControlError)?)?;
-        let increment = btoi::btou(parts.next().ok_or(TimeControlError)?)?;
-        Ok(TimeControl::from_seconds_and_increment(seconds, increment))
+        let seconds = btoi::btou(parts.next().ok_or(())?).map_err(|_| ())?;
+        let increment = btoi::btou(parts.next().ok_or(())?).map_err(|_| ())?;
+        Ok(Speed::from_seconds_and_increment(seconds, increment))
     }
 }
 
-struct Indexer<'pgn> {
+struct Importer {
     client: reqwest::blocking::Client,
 
-    filename: String,
-    date: &'pgn [u8],
-
-    white_elo: i16,
-    black_elo: i16,
-    time_control: TimeControl,
-    bot: bool,
+    current: Game,
     skip: bool,
-
-    current_game: Vec<u8>,
-    plies: usize,
-    standard: bool,
-
-    batch: Vec<u8>,
-    batch_size: usize,
+    batch: Vec<Game>,
 }
 
-impl<'pgn> Indexer<'pgn> {
-    fn new(filename: &str) -> Indexer {
-        Indexer {
-            client: reqwest::blocking::Client::builder().timeout(Duration::from_secs(60)).build().expect("client"),
+#[serde_as]
+#[derive(Default, Serialize)]
+struct Game {
+    variant: Option<String>,
+    speed: Option<Speed>,
+    fen: Option<String>,
+    id: Option<String>,
+    date: Option<String>,
+    white: Player,
+    black: Player,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    winner: Option<Color>,
+    #[serde_as(as = "StringWithSeparator<SpaceSeparator, SanPlus>")]
+    moves: Vec<SanPlus>,
+}
 
-            filename: filename.into(),
-            date: b"0000.00.00",
+#[derive(Default, Serialize)]
+struct Player {
+    name: Option<String>,
+    rating: Option<u16>,
+}
 
-            white_elo: 0,
-            black_elo: 0,
-            time_control: TimeControl::Correspondence,
-            bot: false,
-            skip: true,
-
-            current_game: Vec::new(),
-            plies: 0,
-            standard: true,
-
-            batch: Vec::new(),
-            batch_size: 0,
+impl Importer {
+    fn new() -> Importer {
+        Importer {
+            client: reqwest::blocking::Client::builder()
+                .timeout(Duration::from_secs(60))
+                .build()
+                .expect("client"),
+            current: Game::default(),
+            skip: false,
+            batch: Vec::with_capacity(BATCH_SIZE),
         }
     }
 
-    fn send(&mut self) {
-        if self.batch_size > 0 {
-            self.batch_size = 0;
+    pub fn send(&mut self) {
+        let mut res = self
+            .client
+            .put("http://127.0.0.1:9001/import/lichess")
+            .json(&self.batch)
+            .send()
+            .expect("send batch");
 
-            let mut res = self.client
-                .put("http://127.0.0.1:9000/import/lichess")
-                .header("Content-Type", "application/vnd.chess-pgn;charset=utf-8")
-                .body(mem::replace(&mut self.batch, Vec::new()))
-                .send().expect("send batch");
-
-            let mut answer = String::new();
-            res.read_to_string(&mut answer).expect("decode response");
-            println!("{} d: {} t: {}", self.filename, str::from_utf8(self.date).expect("date is valid utf8"), answer);
-            assert!(res.status().is_success());
-        }
+        self.batch.clear();
     }
 }
 
-impl<'pgn> Visitor<'pgn> for Indexer<'pgn> {
+impl Visitor for Importer {
     type Result = ();
 
     fn begin_game(&mut self) {
-        self.current_game.clear();
-        self.plies = 0;
+        self.skip = false;
+        self.current = Game::default();
     }
 
-    fn begin_headers(&mut self) {
-        self.white_elo = 0;
-        self.black_elo = 0;
-        self.time_control = TimeControl::Correspondence;
-        self.standard = true;
-        self.bot = false;
-    }
-
-    fn header(&mut self, key: &'pgn [u8], value: &'pgn [u8]) {
+    fn header(&mut self, key: &[u8], value: RawHeader<'_>) {
         if key == b"WhiteElo" {
-            self.white_elo = if value == b"?" { 0 } else { btoi::btoi(value).expect("WhiteElo") };
-        } else if key == b"BlackElo" {
-            self.black_elo = if value == b"?" { 0 } else { btoi::btoi(value).expect("BlackElo") };
-        } else if key == b"TimeControl" {
-            self.time_control = TimeControl::from_bytes(value).expect("TimeControl");
-        } else if key == b"Variant" {
-            self.standard = value == b"Standard";
-            if self.standard {
-                return; // we add this unconditionally later
+            if value.as_bytes() != b"?" {
+                self.current.white.rating = Some(btoi::btoi(value.as_bytes()).expect("WhiteElo"));
             }
+        } else if key == b"BlackElo" {
+            if value.as_bytes() != b"?" {
+                self.current.black.rating = Some(btoi::btoi(value.as_bytes()).expect("BlackElo"));
+            }
+        } else if key == b"TimeControl" {
+            self.current.speed = Some(Speed::from_bytes(value.as_bytes()).expect("TimeControl"));
+        } else if key == b"Variant" {
+            self.current.variant = Some(value.decode_utf8().expect("Variant").into_owned());
         } else if key == b"Date" || key == b"UTCDate" {
-            self.date = value;
+            self.current.date = Some(value.decode_utf8().expect("Date").into_owned());
         } else if key == b"WhiteTitle" || key == b"BlackTitle" {
-            if value == b"BOT" {
-                self.bot = true;
+            if value.as_bytes() == b"BOT" {
+                self.skip = true;
+            }
+        } else if key == b"Site" {
+            self.current.id = Some(
+                String::from_utf8(
+                    value
+                        .as_bytes()
+                        .rsplitn(2, |ch| *ch == b'/')
+                        .next()
+                        .expect("Site")
+                        .to_owned(),
+                )
+                .expect("Site"),
+            );
+        } else if key == b"Result" {
+            match value.as_bytes() {
+                b"1-0" => self.current.winner = Some(Color::White),
+                b"0-1" => self.current.winner = Some(Color::Black),
+                b"1/2-1/2" => self.current.winner = None,
+                _ => self.skip = true,
             }
         }
-
-        let (key, value) = if key == b"Site" {
-            (&b"LichessID"[..], value.rsplitn(2, |ch| *ch == b'/').next().expect("Site"))
-        } else {
-            (key, value)
-        };
-
-        self.current_game.push(b'[');
-        self.current_game.extend(key);
-        self.current_game.extend(b" \"");
-        self.current_game.extend(value);
-        self.current_game.extend(b"\"]\n");
     }
 
     fn end_headers(&mut self) -> Skip {
-        let rating = (self.white_elo + self.black_elo) / 2;
+        let rating =
+            (self.current.white.rating.unwrap_or(0) + self.current.black.rating.unwrap_or(0)) / 2;
 
-        let probability = if self.standard {
-            self.current_game.extend(b"[Variant \"Standard\"]\n");
+        let standard = self
+            .current
+            .variant
+            .as_ref()
+            .map_or(false, |name| name != "Standard");
 
-            match self.time_control {
-                TimeControl::Correspondence | TimeControl::Classical => 1.0,
-                TimeControl::Rapid if rating >= 2000 => 1.0,
-                TimeControl::Rapid if rating >= 1800 => 2.0 / 5.0,
-                TimeControl::Rapid => 1.0 / 8.0,
-                TimeControl::Blitz if rating >= 2000 => 1.0,
-                TimeControl::Blitz if rating >= 1800 => 1.0 / 4.0,
-                TimeControl::Blitz => 1.0 / 15.0,
-                TimeControl::Bullet if rating >= 2300 => 1.0,
-                TimeControl::Bullet if rating >= 2200 => 4.0 / 5.0,
-                TimeControl::Bullet if rating >= 2000 => 1.0 / 4.0,
-                TimeControl::Bullet if rating >= 1800 => 1.0 / 7.0,
+        let probability = if standard {
+            match self.current.speed.unwrap_or(Speed::Correspondence) {
+                Speed::Correspondence | Speed::Classical => 1.0,
+                Speed::Rapid if rating >= 2000 => 1.0,
+                Speed::Rapid if rating >= 1800 => 2.0 / 5.0,
+                Speed::Rapid => 1.0 / 8.0,
+                Speed::Blitz if rating >= 2000 => 1.0,
+                Speed::Blitz if rating >= 1800 => 1.0 / 4.0,
+                Speed::Blitz => 1.0 / 15.0,
+                Speed::Bullet if rating >= 2300 => 1.0,
+                Speed::Bullet if rating >= 2200 => 4.0 / 5.0,
+                Speed::Bullet if rating >= 2000 => 1.0 / 4.0,
+                Speed::Bullet if rating >= 1800 => 1.0 / 7.0,
                 _ => 1.0 / 20.0,
             }
         } else {
-            if rating >= 1600 { 1.0 } else { 0.5 } // variant games
+            if rating >= 1600 {
+                1.0
+            } else {
+                0.5
+            } // variant games
         };
 
-        self.current_game.push(b'\n');
-
         let rnd = thread_rng().sample(OpenClosed01);
-        let accept = min(self.white_elo, self.black_elo) >= 1500 && probability >= rnd && !self.bot;
+        let accept = min(
+            self.current.white.rating.unwrap_or(0),
+            self.current.black.rating.unwrap_or(0),
+        ) >= 1500
+            && probability >= rnd
+            && !self.skip;
 
         self.skip = !accept;
         Skip(self.skip)
     }
 
-    fn san(&mut self, san: San) {
-        if self.plies < MAX_PLIES {
-            if self.plies > 0 {
-                self.current_game.push(b' ');
-            }
-
-            self.current_game.extend(san.to_string().as_bytes());
-            self.plies += 1;
-        }
+    fn san(&mut self, san: SanPlus) {
+        self.current.moves.push(san);
     }
 
     fn begin_variation(&mut self) -> Skip {
         Skip(true) // stay in the mainline
     }
 
-    fn end_game(&mut self, _game: &'pgn [u8]) {
-        if !self.skip && self.plies > 8 {
-            if self.batch_size >= BATCH_SIZE {
+    fn end_game(&mut self) {
+        if !self.skip {
+            self.batch
+                .push(mem::replace(&mut self.current, Default::default()));
+
+            if self.batch.len() >= BATCH_SIZE {
                 self.send();
             }
-
-            if self.batch_size > 0 {
-                self.batch.extend(b"\n\n\n");
-            }
-
-            self.batch.extend(&self.current_game);
-            self.batch_size += 1;
         }
     }
 }
 
-fn main() {
+fn main() -> Result<(), io::Error> {
     for arg in env::args().skip(1) {
-        eprintln!("% indexing lichess games from {} ...", arg);
-        let file = File::open(&arg).expect("fopen");
-        if file.metadata().expect("meta").len() != 0 {
-            let pgn = unsafe { Mmap::map(&file).expect("mmap") };
-            pgn.advise_memory_access(AccessPattern::Sequential).expect("madvise");
+        let file = File::open(&arg)?;
 
-            let mut indexer = Indexer::new(&arg);
-            Reader::new(&mut indexer, &pgn[..]).read_all();
-            indexer.send(); // send last
-        }
+        let uncompressed: Box<dyn io::Read> = if arg.ends_with(".bz2") {
+            Box::new(bzip2::read::MultiBzDecoder::new(file))
+        } else {
+            Box::new(file)
+        };
+
+        let mut reader = BufferedReader::new(uncompressed);
+
+        let mut importer = Importer::new();
+        reader.read_all(&mut importer)?;
     }
+
+    Ok(())
 }

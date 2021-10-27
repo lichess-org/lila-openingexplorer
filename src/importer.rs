@@ -96,6 +96,7 @@ impl MastersImporter {
 #[serde_as]
 #[derive(Deserialize)]
 pub struct LichessGameImport {
+    #[serde(default)]
     variant: LilaVariant,
     speed: Speed,
     #[serde_as(as = "Option<DisplayFromStr>")]
