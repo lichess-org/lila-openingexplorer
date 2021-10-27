@@ -48,7 +48,7 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
 
-        let inner = DBWithThreadMode::open_cf_descriptors(
+        let mut inner = DB::open_cf_descriptors(
             &db_opts,
             path,
             vec![
@@ -64,7 +64,7 @@ impl Database {
                 column_family("masters_game", None, void_merge, None, 4 * 1024, 0),
                 // Lichess database
                 column_family(
-                    "lichess",
+                    "lichess_2",
                     Some("lichess_merge"),
                     lichess_merge,
                     Some(KeyPrefix::SIZE),
@@ -72,7 +72,7 @@ impl Database {
                     3,
                 ),
                 column_family(
-                    "lichess_game",
+                    "lichess_game_2",
                     Some("lichess_game_merge"),
                     lichess_game_merge,
                     None,
@@ -81,16 +81,21 @@ impl Database {
                 ),
                 // Player database (also shares lichess_game)
                 column_family(
-                    "player",
+                    "player_2",
                     Some("player_merge"),
                     player_merge,
                     Some(KeyPrefix::SIZE),
                     8 * 1024,
                     3,
                 ),
-                column_family("player_status", None, void_merge, None, 4 * 1024, 0),
+                column_family("player_status_2", None, void_merge, None, 4 * 1024, 0),
             ],
         )?;
+
+        let _ = inner.drop_cf("lichess");
+        let _ = inner.drop_cf("lichess_game");
+        let _ = inner.drop_cf("player");
+        let _ = inner.drop_cf("player_status");
 
         Ok(Database { inner })
     }
@@ -109,17 +114,17 @@ impl Database {
     pub fn lichess(&self) -> LichessDatabase<'_> {
         LichessDatabase {
             inner: &self.inner,
-            cf_lichess: self.inner.cf_handle("lichess").expect("cf lichess"),
+            cf_lichess: self.inner.cf_handle("lichess_2").expect("cf lichess"),
             cf_lichess_game: self
                 .inner
-                .cf_handle("lichess_game")
-                .expect("cf lichess_game"),
+                .cf_handle("lichess_game_2")
+                .expect("cf lichess_game_2"),
 
-            cf_player: self.inner.cf_handle("player").expect("cf player"),
+            cf_player: self.inner.cf_handle("player_2").expect("cf player"),
             cf_player_status: self
                 .inner
-                .cf_handle("player_status")
-                .expect("cf player_status"),
+                .cf_handle("player_status_2")
+                .expect("cf player_status_2"),
         }
     }
 }
