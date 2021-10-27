@@ -21,12 +21,9 @@ use futures_util::stream::Stream;
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
-    fen::Fen,
     san::{San, SanPlus},
     uci::Uci,
-    variant::{Variant, VariantPosition},
-    zobrist::Zobrist,
-    CastlingMode,
+    variant::{VariantPosition},
 };
 use tokio::sync::watch;
 
@@ -221,16 +218,7 @@ async fn player(
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let indexing = indexer.index_player(&player).await;
-
-    let variant = query.variant.into();
-
-    let mut pos = Zobrist::new(match query.fen {
-        Some(fen) => VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)?,
-        None => VariantPosition::new(variant),
-    });
-
-    let opening = openings.classify_and_play(&mut pos, query.play)?;
-
+    let (variant, pos, opening) = query.play.position(openings)?;
     let key = KeyBuilder::player(&player, query.color).with_zobrist(variant, pos.zobrist_hash());
 
     let state = PlayerStreamState {
@@ -312,15 +300,8 @@ async fn masters(
     Extension(db): Extension<Arc<Database>>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    let mut pos = Zobrist::new(match query.fen {
-        Some(fen) => {
-            VariantPosition::from_setup(Variant::Chess, &Fen::from(fen), CastlingMode::Chess960)?
-        }
-        None => VariantPosition::new(Variant::Chess),
-    });
-
-    let opening = openings.classify_and_play(&mut pos, query.play)?;
-    let key = KeyBuilder::masters().with_zobrist(Variant::Chess, pos.zobrist_hash());
+    let (variant, pos, opening) = query.play.position(openings)?;
+    let key = KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash());
     let masters_db = db.masters();
     let mut entry = masters_db
         .read(key, query.since, query.until)
@@ -390,14 +371,7 @@ async fn lichess(
     Extension(db): Extension<Arc<Database>>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    let variant = Variant::from(query.variant);
-    let mut pos = Zobrist::new(match query.fen {
-        Some(fen) => VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)?,
-        None => VariantPosition::new(variant),
-    });
-
-    let opening = openings.classify_and_play(&mut pos, query.play)?;
-
+    let (variant, pos, opening) = query.play.position(openings)?;
     let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
     let lichess_db = db.lichess();
     let mut filtered = lichess_db
