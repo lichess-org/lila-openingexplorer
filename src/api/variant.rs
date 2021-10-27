@@ -2,18 +2,26 @@ use serde::Deserialize;
 use shakmaty::variant::Variant;
 
 #[derive(Debug, Deserialize, Copy, Clone)]
-#[serde(rename_all = "camelCase")]
 pub enum LilaVariant {
+    #[serde(alias = "antichess")]
     Antichess,
+    #[serde(alias = "atomic")]
     Atomic,
+    #[serde(alias = "chess960")]
     Chess960,
+    #[serde(alias = "crazyhouse")]
     Crazyhouse,
+    #[serde(alias = "fromPosition")]
     FromPosition,
+    #[serde(alias = "horde")]
     Horde,
+    #[serde(alias = "kingOfTheHill")]
     KingOfTheHill,
+    #[serde(alias = "racingKings")]
     RacingKings,
-    #[serde(alias = "chess")]
+    #[serde(alias = "chess", alias = "standard")]
     Standard,
+    #[serde(alias = "threeCheck")]
     ThreeCheck,
 }
 
