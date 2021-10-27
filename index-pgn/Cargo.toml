@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 pgn-reader = "0.19"
 btoi = "0.4"
-rand = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 bzip2 = "0.4"
 serde = { version = "1", features = ["derive"] }

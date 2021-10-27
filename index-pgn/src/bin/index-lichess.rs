@@ -1,7 +1,7 @@
 use std::{cmp::min, env, fs::File, io, mem, time::Duration};
 
 use pgn_reader::{BufferedReader, Color, RawHeader, SanPlus, Skip, Visitor};
-use rand::{distributions::OpenClosed01, thread_rng, Rng};
+use rand::{distributions::OpenClosed01, rngs::SmallRng, Rng, SeedableRng};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 
@@ -52,6 +52,7 @@ impl Speed {
 struct Importer {
     filename: String,
     client: reqwest::blocking::Client,
+    rng: SmallRng,
 
     current: Game,
     skip: bool,
@@ -88,6 +89,11 @@ impl Importer {
                 .timeout(Duration::from_secs(60))
                 .build()
                 .expect("client"),
+            rng: SmallRng::from_seed([
+                0x19, 0x29, 0xab, 0x17, 0xc6, 0xfa, 0xb0, 0xe9, 0x4b, 0x44, 0xd8, 0x07, 0x09, 0xbf,
+                0x1d, 0x87, 0xbd, 0xd8, 0xb3, 0x2f, 0xe1, 0xe2, 0xa0, 0x1a, 0x9e, 0x30, 0x98, 0xd7,
+                0xef, 0xd5, 0x7a, 0x1d,
+            ]),
             current: Game::default(),
             skip: false,
             batch: Vec::with_capacity(BATCH_SIZE),
@@ -222,7 +228,7 @@ impl Visitor for Importer {
             self.current.white.rating.unwrap_or(0),
             self.current.black.rating.unwrap_or(0),
         ) >= 1501
-            && probability >= thread_rng().sample(OpenClosed01)
+            && probability >= self.rng.sample(OpenClosed01)
             && !self.skip;
 
         self.skip = !accept;
