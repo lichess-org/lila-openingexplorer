@@ -1,4 +1,4 @@
-use std::cmp::min;
+use std::cmp::{max, min};
 
 use serde::Deserialize;
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator, TryFromInto};
@@ -68,7 +68,10 @@ impl LichessQueryFilter {
 
     pub fn contains_rating_group(&self, rating_group: RatingGroup) -> bool {
         self.ratings.as_ref().map_or(true, |ratings| {
-            ratings.contains(&min(rating_group, RatingGroup::Group2500))
+            ratings.contains(&max(
+                RatingGroup::Group1600,
+                min(rating_group, RatingGroup::Group2500),
+            ))
         })
     }
 
