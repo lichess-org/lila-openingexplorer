@@ -105,8 +105,12 @@ impl Importer {
             .expect("send batch");
 
         println!(
-            "{}: {} - {}",
+            "{}: {}: {} - {}",
             self.filename,
+            self.batch
+                .last()
+                .and_then(|g| g.date.as_ref())
+                .unwrap_or(&String::new()),
             res.status(),
             res.text().expect("decode response")
         );
