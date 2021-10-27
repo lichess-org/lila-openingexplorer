@@ -193,7 +193,7 @@ impl Visitor for Importer {
             .current
             .variant
             .as_ref()
-            .map_or(false, |name| name != "Standard");
+            .map_or(true, |name| name == "Standard");
 
         let probability = if standard {
             match self.current.speed.unwrap_or(Speed::Correspondence) {
