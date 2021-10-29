@@ -32,7 +32,7 @@ See https://lichess.org/api#tag/Opening-Explorer.
 Example:
 
 ```
-curl https://explorer.lichess.ovh/personal?player=foo&color=white&play=e2e4
+curl https://explorer.lichess.ovh/player?player=foo&color=white&play=e2e4
 ```
 
 Query parameters:
