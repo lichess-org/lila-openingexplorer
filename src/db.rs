@@ -48,7 +48,7 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
 
-        let mut inner = DB::open_cf_descriptors(
+        let inner = DB::open_cf_descriptors(
             &db_opts,
             path,
             vec![
