@@ -8,7 +8,14 @@ pub mod model;
 pub mod opening;
 pub mod util;
 
-use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    cmp::{max, min},
+    mem,
+    net::SocketAddr,
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 
 use axum::{
     extract::{Extension, Path, Query},
@@ -35,7 +42,9 @@ use crate::{
     db::{Database, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub},
-    model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
+    model::{
+        GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId, Year,
+    },
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
@@ -304,7 +313,11 @@ async fn masters(
     let key = KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash());
     let masters_db = db.masters();
     let mut entry = masters_db
-        .read(key, query.since, query.until)
+        .read(
+            key,
+            max(Year::min_masters(), query.since),
+            min(query.until, Year::max_masters()),
+        )
         .expect("get masters")
         .prepare();
 

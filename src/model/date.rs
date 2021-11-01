@@ -82,6 +82,14 @@ impl Year {
         Year(MAX_YEAR)
     }
 
+    pub fn min_masters() -> Year {
+        Year(1952)
+    }
+
+    pub fn max_masters() -> Year {
+        Year(2021)
+    }
+
     pub fn add_years_saturating(self, years: u16) -> Year {
         min(Year(self.0.saturating_add(years)), Year::max_value())
     }

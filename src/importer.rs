@@ -18,7 +18,7 @@ use crate::{
     db::Database,
     model::{
         GameId, GamePlayer, Key, KeyBuilder, LaxDate, LichessEntry, LichessGame, MastersEntry,
-        MastersGameWithId, Mode, Speed,
+        MastersGameWithId, Mode, Speed, Year,
     },
     util::ByColorDef,
 };
@@ -44,8 +44,8 @@ impl MastersImporter {
             return Err(Error::RejectedImport(body.id));
         }
 
-        let year = u16::from(body.game.date.year());
-        if year < 1952 || 2021 < year {
+        let year = body.game.date.year();
+        if year < Year::min_masters() || Year::max_masters() < year {
             return Err(Error::RejectedImport(body.id));
         }
 
@@ -65,7 +65,7 @@ impl MastersImporter {
         for uci in &body.game.moves {
             let key = KeyBuilder::masters()
                 .with_zobrist(Variant::Chess, pos.zobrist_hash())
-                .with_year(body.game.date.year());
+                .with_year(year);
             final_key = Some(key.clone());
             let m = uci.to_move(&pos)?;
             without_loops.insert(key, (Uci::from_chess960(&m), pos.turn()));
