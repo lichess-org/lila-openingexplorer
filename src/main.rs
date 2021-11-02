@@ -19,7 +19,7 @@ use std::{
 
 use axum::{
     extract::{Extension, Path, Query},
-    handler::{get, put},
+    routing::{get, put},
     http::StatusCode,
     AddExtensionLayer, Json, Router,
 };
