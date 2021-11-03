@@ -1,4 +1,4 @@
-use std::{cmp::min, env, fs::File, io, mem, time::Duration};
+use std::{cmp::min, env, fs::File, io, mem, num::Wrapping, time::Duration};
 
 use pgn_reader::{BufferedReader, Color, RawHeader, SanPlus, Skip, Visitor};
 use rand::{distributions::OpenClosed01, rngs::SmallRng, Rng, SeedableRng};
@@ -53,6 +53,7 @@ struct Importer {
     filename: String,
     client: reqwest::blocking::Client,
     rng: SmallRng,
+    spinner_idx: Wrapping<usize>,
 
     current: Game,
     skip: bool,
@@ -94,6 +95,7 @@ impl Importer {
                 0x1d, 0x87, 0xbd, 0xd8, 0xb3, 0x2f, 0xe1, 0xe2, 0xa0, 0x1a, 0x9e, 0x30, 0x98, 0xd7,
                 0xef, 0xd5, 0x7a, 0x1d,
             ]),
+            spinner_idx: Wrapping(0),
             current: Game::default(),
             skip: false,
             batch: Vec::with_capacity(BATCH_SIZE),
@@ -110,8 +112,12 @@ impl Importer {
             .send()
             .expect("send batch");
 
+        self.spinner_idx += Wrapping(1);
+        let spinner = &['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
+
         println!(
-            "{}: {}: {} - {}",
+            "{} {}: {}: {} - {}",
+            spinner[self.spinner_idx.0 % spinner.len()],
             self.filename,
             self.batch
                 .last()
