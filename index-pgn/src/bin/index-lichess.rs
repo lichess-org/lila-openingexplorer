@@ -281,8 +281,10 @@ fn main() -> Result<(), io::Error> {
         let file = File::open(&arg)?;
 
         let uncompressed: Box<dyn io::Read> = if arg.ends_with(".bz2") {
+            println!("Reading compressed {:?} ...", arg);
             Box::new(bzip2::read::MultiBzDecoder::new(file))
         } else {
+            println!("Reading {:?} ...", arg);
             Box::new(file)
         };
 
