@@ -5,7 +5,7 @@ use rand::{distributions::OpenClosed01, rngs::SmallRng, Rng, SeedableRng};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 
-const BATCH_SIZE: usize = 50;
+const BATCH_SIZE: usize = 100;
 
 #[derive(Debug, Serialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -105,7 +105,7 @@ impl Importer {
 
         let res = self
             .client
-            .put("http://127.0.0.1:9001/import/lichess")
+            .put("https://explorer.lichess.ovh/import/lichess")
             .json(&self.batch)
             .send()
             .expect("send batch");

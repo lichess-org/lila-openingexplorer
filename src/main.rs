@@ -19,8 +19,8 @@ use std::{
 
 use axum::{
     extract::{Extension, Path, Query},
-    routing::{get, put},
     http::StatusCode,
+    routing::{get, put},
     AddExtensionLayer, Json, Router,
 };
 use clap::Parser;
@@ -53,7 +53,7 @@ use crate::{
 struct Opt {
     /// Binding address. Note that administrative endpoints must be protected
     /// using a reverse proxy.
-    #[clap(long, default_value = "127.0.0.1:9001")]
+    #[clap(long, default_value = "127.0.0.1:9002")]
     bind: SocketAddr,
     /// Path to RocksDB database
     #[clap(long, default_value = "_db")]
@@ -313,11 +313,7 @@ async fn masters(
     let key = KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash());
     let masters_db = db.masters();
     let mut entry = masters_db
-        .read(
-            key,
-            max(Year::min_masters(), query.since),
-            min(query.until, Year::max_masters()),
-        )
+        .read(key, query.since, query.until)
         .expect("get masters")
         .prepare();
 

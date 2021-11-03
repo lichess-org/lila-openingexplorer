@@ -64,7 +64,7 @@ impl Database {
                 column_family("masters_game", None, void_merge, None, 4 * 1024, 0),
                 // Lichess database
                 column_family(
-                    "lichess_2",
+                    "lichess",
                     Some("lichess_merge"),
                     lichess_merge,
                     Some(KeyPrefix::SIZE),
@@ -72,7 +72,7 @@ impl Database {
                     2,
                 ),
                 column_family(
-                    "lichess_game_2",
+                    "lichess_game",
                     Some("lichess_game_merge"),
                     lichess_game_merge,
                     None,
@@ -81,14 +81,14 @@ impl Database {
                 ),
                 // Player database (also shares lichess_game)
                 column_family(
-                    "player_2",
+                    "player",
                     Some("player_merge"),
                     player_merge,
                     Some(KeyPrefix::SIZE),
                     16 * 1024,
                     2,
                 ),
-                column_family("player_status_2", None, void_merge, None, 4 * 1024, 0),
+                column_family("player_status", None, void_merge, None, 4 * 1024, 0),
             ],
         )?;
 
@@ -109,17 +109,17 @@ impl Database {
     pub fn lichess(&self) -> LichessDatabase<'_> {
         LichessDatabase {
             inner: &self.inner,
-            cf_lichess: self.inner.cf_handle("lichess_2").expect("cf lichess"),
+            cf_lichess: self.inner.cf_handle("lichess").expect("cf lichess"),
             cf_lichess_game: self
                 .inner
-                .cf_handle("lichess_game_2")
-                .expect("cf lichess_game_2"),
+                .cf_handle("lichess_game")
+                .expect("cf lichess_game"),
 
-            cf_player: self.inner.cf_handle("player_2").expect("cf player"),
+            cf_player: self.inner.cf_handle("player").expect("cf player"),
             cf_player_status: self
                 .inner
-                .cf_handle("player_status_2")
-                .expect("cf player_status_2"),
+                .cf_handle("player_status")
+                .expect("cf player_status"),
         }
     }
 }
