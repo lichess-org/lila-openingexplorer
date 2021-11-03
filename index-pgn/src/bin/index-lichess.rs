@@ -1,4 +1,4 @@
-use std::{cmp::min, fs::File, io, mem, num::Wrapping, path::PathBuf, time::Duration};
+use std::{cmp::min, ffi::OsStr, fs::File, io, mem, num::Wrapping, path::PathBuf, time::Duration};
 
 use clap::Parser;
 use pgn_reader::{BufferedReader, Color, RawHeader, SanPlus, Skip, Visitor};
@@ -280,7 +280,7 @@ fn main() -> Result<(), io::Error> {
     for arg in args.pgns {
         let file = File::open(&arg)?;
 
-        let uncompressed: Box<dyn io::Read> = if arg.ends_with(".bz2") {
+        let uncompressed: Box<dyn io::Read> = if arg.extension() == Some(OsStr::new("bz2")) {
             println!("Reading compressed {:?} ...", arg);
             Box::new(bzip2::read::MultiBzDecoder::new(file))
         } else {
