@@ -8,14 +8,7 @@ pub mod model;
 pub mod opening;
 pub mod util;
 
-use std::{
-    cmp::{max, min},
-    mem,
-    net::SocketAddr,
-    path::PathBuf,
-    sync::Arc,
-    time::Duration,
-};
+use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Extension, Path, Query},
@@ -42,9 +35,7 @@ use crate::{
     db::{Database, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub},
-    model::{
-        GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId, Year,
-    },
+    model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
