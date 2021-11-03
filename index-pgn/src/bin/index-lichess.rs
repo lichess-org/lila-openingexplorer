@@ -269,7 +269,7 @@ impl Visitor for Importer {
 
 #[derive(Parser)]
 struct Args {
-    #[clap(long, default_value = "http://locahost:9002")]
+    #[clap(long, default_value = "http://localhost:9002")]
     endpoint: String,
     pgns: Vec<PathBuf>,
 }
