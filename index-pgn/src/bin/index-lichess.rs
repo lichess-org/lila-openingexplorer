@@ -290,6 +290,7 @@ fn main() -> Result<(), io::Error> {
 
         let mut importer = Importer::new(&args.endpoint, arg);
         reader.read_all(&mut importer)?;
+        importer.send();
     }
 
     Ok(())
