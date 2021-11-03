@@ -1,5 +1,6 @@
-use std::{cmp::min, env, fs::File, io, mem, num::Wrapping, time::Duration};
+use std::{cmp::min, fs::File, io, mem, num::Wrapping, path::PathBuf, time::Duration};
 
+use clap::Parser;
 use pgn_reader::{BufferedReader, Color, RawHeader, SanPlus, Skip, Visitor};
 use rand::{distributions::OpenClosed01, rngs::SmallRng, Rng, SeedableRng};
 use serde::Serialize;
@@ -50,7 +51,8 @@ impl Speed {
 }
 
 struct Importer {
-    filename: String,
+    endpoint: String,
+    filename: PathBuf,
     client: reqwest::blocking::Client,
     rng: SmallRng,
     spinner_idx: Wrapping<usize>,
@@ -83,8 +85,9 @@ struct Player {
 }
 
 impl Importer {
-    fn new(filename: String) -> Importer {
+    fn new(endpoint: &str, filename: PathBuf) -> Importer {
         Importer {
+            endpoint: endpoint.to_owned(),
             filename,
             client: reqwest::blocking::Client::builder()
                 .timeout(Duration::from_secs(60))
@@ -107,7 +110,7 @@ impl Importer {
 
         let res = self
             .client
-            .put("https://explorer.lichess.ovh/import/lichess")
+            .put(format!("{}/import/lichess", self.endpoint))
             .json(&self.batch)
             .send()
             .expect("send batch");
@@ -116,7 +119,7 @@ impl Importer {
         let spinner = &['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
 
         println!(
-            "{} {}: {}: {} - {}",
+            "{} {:?}: {}: {} - {}",
             spinner[self.spinner_idx.0 % spinner.len()],
             self.filename,
             self.batch
@@ -264,8 +267,17 @@ impl Visitor for Importer {
     }
 }
 
+#[derive(Parser)]
+struct Args {
+    #[clap(long, default_value = "http://locahost:9002")]
+    endpoint: String,
+    pgns: Vec<PathBuf>,
+}
+
 fn main() -> Result<(), io::Error> {
-    for arg in env::args().skip(1) {
+    let args = Args::parse();
+
+    for arg in args.pgns {
         let file = File::open(&arg)?;
 
         let uncompressed: Box<dyn io::Read> = if arg.ends_with(".bz2") {
@@ -276,7 +288,7 @@ fn main() -> Result<(), io::Error> {
 
         let mut reader = BufferedReader::new(uncompressed);
 
-        let mut importer = Importer::new(arg);
+        let mut importer = Importer::new(&args.endpoint, arg);
         reader.read_all(&mut importer)?;
     }
 
