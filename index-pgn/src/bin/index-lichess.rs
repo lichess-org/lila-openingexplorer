@@ -197,35 +197,33 @@ impl Visitor for Importer {
 
         let probability = if standard {
             match self.current.speed.unwrap_or(Speed::Correspondence) {
-                Speed::Correspondence | Speed::Classical => 1.0,
+                Speed::Correspondence | Speed::Classical => 1.00,
 
-                _ if rating >= 2500 => 1.0,
+                _ if rating >= 2500 => 1.00,
 
-                Speed::Rapid if rating >= 2200 => 1.0,
-                Speed::Rapid if rating >= 2000 => 0.30,
-                Speed::Rapid if rating >= 1800 => 0.18,
-                Speed::Rapid if rating >= 1600 => 0.16,
+                Speed::Rapid if rating >= 2200 => 1.00,
+                Speed::Rapid if rating >= 2000 => 0.50,
+                Speed::Rapid if rating >= 1800 => 0.28,
+                Speed::Rapid if rating >= 1600 => 0.24,
 
-                Speed::Blitz if rating >= 2200 => 0.16,
-                Speed::Blitz if rating >= 2000 => 0.07,
-                Speed::Blitz if rating >= 1800 => 0.05,
-                Speed::Blitz if rating >= 1600 => 0.05,
+                Speed::Blitz if rating >= 2200 => 0.24,
+                Speed::Blitz if rating >= 2000 => 0.11,
+                Speed::Blitz if rating >= 1600 => 0.08,
 
-                Speed::Bullet if rating >= 2200 => 0.20,
-                Speed::Bullet if rating >= 2000 => 0.11,
-                Speed::Bullet if rating >= 1800 => 0.07,
-                Speed::Bullet if rating >= 1600 => 0.07,
+                Speed::Bullet if rating >= 2200 => 0.30,
+                Speed::Bullet if rating >= 2000 => 0.17,
+                Speed::Bullet if rating >= 1600 => 0.11,
 
-                Speed::UltraBullet => 1.0,
+                Speed::UltraBullet => 1.00,
 
                 _ => 0.02,
             }
         } else {
             // variant games
             if rating >= 1600 {
-                1.0
+                1.00
             } else {
-                0.5
+                0.50
             }
         };
 
