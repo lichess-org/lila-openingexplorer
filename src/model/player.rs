@@ -103,6 +103,8 @@ impl PlayerEntry {
     }
 
     pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
+        let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
+
         loop {
             let uci = match read_uci(reader) {
                 Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
@@ -111,8 +113,6 @@ impl PlayerEntry {
             };
 
             let sub_entry = self.sub_entries.entry(uci).or_default();
-
-            let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
             loop {
                 match Header::read(reader) {
@@ -391,17 +391,19 @@ mod tests {
 
     #[test]
     fn test_merge_player() {
-        let uci = Uci::Normal {
+        // Merge three entries, two of which are for the same move in the same
+        // group.
+        let uci_ab = Uci::Normal {
             from: Square::E2,
             to: Square::E4,
             promotion: None,
         };
 
         let a = PlayerEntry::new_single(
-            uci.clone(),
+            uci_ab.clone(),
             Speed::Bullet,
             Mode::Rated,
-            "12345678".parse().unwrap(),
+            "aaaaaaaa".parse().unwrap(),
             Outcome::Decisive {
                 winner: Color::White,
             },
@@ -409,14 +411,29 @@ mod tests {
         );
 
         let b = PlayerEntry::new_single(
-            uci.clone(),
+            uci_ab.clone(),
             Speed::Bullet,
             Mode::Rated,
-            "87654321".parse().unwrap(),
+            "bbbbbbbb".parse().unwrap(),
             Outcome::Decisive {
                 winner: Color::Black,
             },
             1800,
+        );
+
+        let uci_c = Uci::Normal {
+            from: Square::D2,
+            to: Square::D4,
+            promotion: None,
+        };
+
+        let c = PlayerEntry::new_single(
+            uci_c,
+            Speed::Bullet,
+            Mode::Rated,
+            "cccccccc".parse().unwrap(),
+            Outcome::Draw,
+            1700,
         );
 
         let mut cursor = Cursor::new(Vec::new());
@@ -438,11 +455,17 @@ mod tests {
             .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
             .unwrap();
 
-        assert_eq!(deserialized.sub_entries.len(), 1);
-        assert_eq!(deserialized.max_game_idx, Some(1));
+        let mut cursor = Cursor::new(Vec::new());
+        c.write(&mut cursor).unwrap();
+        deserialized
+            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .unwrap();
+
+        assert_eq!(deserialized.sub_entries.len(), 2);
+        assert_eq!(deserialized.max_game_idx, Some(2));
         let group = deserialized
             .sub_entries
-            .get(&uci)
+            .get(&uci_ab)
             .unwrap()
             .by_speed(Speed::Bullet)
             .by_mode(Mode::Rated);
@@ -451,5 +474,15 @@ mod tests {
         assert_eq!(group.stats.black, 1);
         assert_eq!(group.stats.average_rating(), Some(1700));
         assert_eq!(group.games.len(), 2);
+
+        // Roundtrip the combined entry.
+        let mut cursor = Cursor::new(Vec::new());
+        deserialized.write(&mut cursor).unwrap();
+        let mut deserialized = PlayerEntry::default();
+        deserialized
+            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .unwrap();
+        assert_eq!(deserialized.sub_entries.len(), 2);
+        assert_eq!(deserialized.max_game_idx, Some(2));
     }
 }

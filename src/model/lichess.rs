@@ -271,6 +271,8 @@ impl LichessEntry {
     }
 
     pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
+        let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
+
         loop {
             let uci = match read_uci(reader) {
                 Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
@@ -279,8 +281,6 @@ impl LichessEntry {
             };
 
             let sub_entry = self.sub_entries.entry(uci).or_default();
-
-            let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
             loop {
                 match LichessHeader::read(reader) {
@@ -450,22 +450,23 @@ pub struct PreparedMove {
 mod tests {
     use std::io::Cursor;
 
-    use shakmaty::Square;
+    use shakmaty::{Color, Square};
 
     use super::*;
 
     #[test]
     fn test_lichess_entry() {
-        let uci = Uci::Normal {
+        // Roundtrip with a single entry.
+        let uci_a = Uci::Normal {
             from: Square::G1,
             to: Square::F3,
             promotion: None,
         };
 
         let a = LichessEntry::new_single(
-            uci,
+            uci_a,
             Speed::Blitz,
-            "99999999".parse().unwrap(),
+            "aaaaaaaa".parse().unwrap(),
             Outcome::Draw,
             2000,
             2200,
@@ -485,5 +486,44 @@ mod tests {
             .unwrap();
 
         assert_eq!(deserialized.sub_entries.len(), 1);
+        assert_eq!(deserialized.max_game_idx, Some(0));
+
+        // Merge a second entry.
+        let uci_b = Uci::Normal {
+            from: Square::D2,
+            to: Square::D4,
+            promotion: None,
+        };
+
+        let b = LichessEntry::new_single(
+            uci_b,
+            Speed::Blitz,
+            "bbbbbbbb".parse().unwrap(),
+            Outcome::Decisive {
+                winner: Color::White,
+            },
+            2000,
+            2200,
+        );
+
+        let mut cursor = Cursor::new(Vec::new());
+        b.write(&mut cursor).unwrap();
+        deserialized
+            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .unwrap();
+
+        assert_eq!(deserialized.sub_entries.len(), 2);
+        assert_eq!(deserialized.max_game_idx, Some(1));
+
+        // Roundtrip the combined entry.
+        let mut cursor = Cursor::new(Vec::new());
+        deserialized.write(&mut cursor).unwrap();
+        let mut deserialized = LichessEntry::default();
+        deserialized
+            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .unwrap();
+
+        assert_eq!(deserialized.sub_entries.len(), 2);
+        assert_eq!(deserialized.max_game_idx, Some(1));
     }
 }
