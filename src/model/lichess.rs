@@ -397,11 +397,18 @@ impl LichessEntry {
         // Split out top games from recent games.
         let top_games = if let Some(top_group) = filter.top_group() {
             recent_games.sort_by_key(|(rating_group, speed, idx, _, _)| {
-                (Reverse(*rating_group), Reverse(*speed), Reverse(*idx))
+                (
+                    Reverse(max(*rating_group, RatingGroup::Group2800)),
+                    Reverse(*speed),
+                    Reverse(*idx),
+                )
             });
             let mut top_games = Vec::with_capacity(MAX_TOP_GAMES);
-            recent_games.retain(|(rating_group, _, _, uci, game)| {
-                if top_games.len() < MAX_TOP_GAMES && *rating_group >= top_group {
+            recent_games.retain(|(rating_group, speed, _, uci, game)| {
+                if top_games.len() < MAX_TOP_GAMES
+                    && *rating_group >= top_group
+                    && *speed != Speed::Correspondence
+                {
                     top_games.push((uci.to_owned(), *game));
                     false
                 } else {
