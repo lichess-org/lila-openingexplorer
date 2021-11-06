@@ -453,6 +453,7 @@ mod tests {
     use shakmaty::{Color, Square};
 
     use super::*;
+    use crate::model::Month;
 
     #[test]
     fn test_lichess_entry() {
@@ -464,7 +465,7 @@ mod tests {
         };
 
         let a = LichessEntry::new_single(
-            uci_a,
+            uci_a.clone(),
             Speed::Blitz,
             "aaaaaaaa".parse().unwrap(),
             Outcome::Draw,
@@ -496,7 +497,7 @@ mod tests {
         };
 
         let b = LichessEntry::new_single(
-            uci_b,
+            uci_b.clone(),
             Speed::Blitz,
             "bbbbbbbb".parse().unwrap(),
             Outcome::Decisive {
@@ -525,5 +526,20 @@ mod tests {
 
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(1));
+
+        // Run query.
+        let res = deserialized.prepare(&LichessQueryFilter {
+            speeds: None,
+            ratings: Some(vec![RatingGroup::Group2000]),
+            since: Month::default(),
+            until: Month::max_value(),
+        });
+        assert_eq!(
+            res.recent_games,
+            &[
+                (uci_b, "bbbbbbbb".parse().unwrap()),
+                (uci_a, "aaaaaaaa".parse().unwrap()),
+            ]
+        );
     }
 }
