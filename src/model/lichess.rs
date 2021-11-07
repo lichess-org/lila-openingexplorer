@@ -396,10 +396,9 @@ impl LichessEntry {
 
         // Split out top games from recent games.
         let top_games = if let Some(top_group) = filter.top_group() {
-            recent_games.sort_by_key(|(rating_group, speed, idx, _, _)| {
+            recent_games.sort_by_key(|(rating_group, _, idx, _, _)| {
                 (
                     Reverse(min(*rating_group, RatingGroup::Group2500)),
-                    Reverse(*speed),
                     Reverse(*idx),
                 )
             });
