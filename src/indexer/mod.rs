@@ -268,7 +268,7 @@ impl IndexerActor {
 
         if game.status.is_ongoing() {
             if status.revisit_ongoing_created_at.is_none() {
-                log::debug!(
+                log::info!(
                     "indexer {:02}: will revisit ongoing game {} eventually",
                     self.idx,
                     game.id

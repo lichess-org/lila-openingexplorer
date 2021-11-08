@@ -141,7 +141,7 @@ impl LichessImporter {
             .expect("get game info")
             .map_or(false, |info| info.indexed_lichess)
         {
-            log::warn!("lichess game {} already imported", game.id);
+            log::debug!("lichess game {} already imported", game.id);
             return Ok(());
         }
 
