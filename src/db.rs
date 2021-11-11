@@ -5,6 +5,7 @@ use rocksdb::{
     ColumnFamilyDescriptor, IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform,
     WriteBatch, DB,
 };
+use tokio::task::block_in_place;
 
 use crate::model::{
     GameId, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry, MastersGame, Month,
@@ -132,22 +133,28 @@ pub struct MastersDatabase<'a> {
 
 impl MastersDatabase<'_> {
     pub fn has_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
-        self.inner
-            .get_cf(self.cf_masters_game, id.to_bytes())
-            .map(|maybe_entry| maybe_entry.is_some())
+        block_in_place(|| {
+            self.inner
+                .get_cf(self.cf_masters_game, id.to_bytes())
+                .map(|maybe_entry| maybe_entry.is_some())
+        })
     }
 
     pub fn game(&self, id: GameId) -> Result<Option<MastersGame>, rocksdb::Error> {
-        Ok(self
-            .inner
-            .get_cf(self.cf_masters_game, id.to_bytes())?
-            .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game")))
+        block_in_place(|| {
+            Ok(self
+                .inner
+                .get_cf(self.cf_masters_game, id.to_bytes())?
+                .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game")))
+        })
     }
 
     pub fn has(&self, key: Key) -> Result<bool, rocksdb::Error> {
-        self.inner
-            .get_cf(self.cf_masters, key.into_bytes())
-            .map(|maybe_entry| maybe_entry.is_some())
+        block_in_place(|| {
+            self.inner
+                .get_cf(self.cf_masters, key.into_bytes())
+                .map(|maybe_entry| maybe_entry.is_some())
+        })
     }
 
     pub fn read(
@@ -156,7 +163,7 @@ impl MastersDatabase<'_> {
         since: Year,
         until: Year,
     ) -> Result<MastersEntry, rocksdb::Error> {
-        tokio::task::block_in_place(move || {
+        block_in_place(|| {
             let mut opt = ReadOptions::default();
             opt.set_prefix_same_as_start(true);
             opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
@@ -208,7 +215,7 @@ impl MastersBatch<'_> {
     }
 
     pub fn commit(self) -> Result<(), rocksdb::Error> {
-        tokio::task::block_in_place(move || self.db.inner.write(self.batch))
+        block_in_place(|| self.db.inner.write(self.batch))
     }
 }
 
@@ -223,13 +230,15 @@ pub struct LichessDatabase<'a> {
 
 impl LichessDatabase<'_> {
     pub fn game(&self, id: GameId) -> Result<Option<LichessGame>, rocksdb::Error> {
-        Ok(self
-            .inner
-            .get_cf(self.cf_lichess_game, id.to_bytes())?
-            .map(|buf| {
-                let mut cursor = Cursor::new(buf);
-                LichessGame::read(&mut cursor).expect("deserialize game info")
-            }))
+        block_in_place(|| {
+            Ok(self
+                .inner
+                .get_cf(self.cf_lichess_game, id.to_bytes())?
+                .map(|buf| {
+                    let mut cursor = Cursor::new(buf);
+                    LichessGame::read(&mut cursor).expect("deserialize game info")
+                }))
+        })
     }
 
     pub fn read_lichess(
@@ -238,7 +247,7 @@ impl LichessDatabase<'_> {
         since: Month,
         until: Month,
     ) -> Result<LichessEntry, rocksdb::Error> {
-        tokio::task::block_in_place(move || {
+        block_in_place(|| {
             let mut opt = ReadOptions::default();
             opt.set_prefix_same_as_start(true);
             opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
@@ -268,7 +277,7 @@ impl LichessDatabase<'_> {
         since: Month,
         until: Month,
     ) -> Result<PlayerEntry, rocksdb::Error> {
-        tokio::task::block_in_place(move || {
+        block_in_place(|| {
             let mut opt = ReadOptions::default();
             opt.set_prefix_same_as_start(true);
             opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
@@ -293,13 +302,15 @@ impl LichessDatabase<'_> {
     }
 
     pub fn player_status(&self, id: &UserId) -> Result<Option<PlayerStatus>, rocksdb::Error> {
-        Ok(self
-            .inner
-            .get_cf(self.cf_player_status, id.as_lowercase_str())?
-            .map(|buf| {
-                let mut cursor = Cursor::new(buf);
-                PlayerStatus::read(&mut cursor).expect("deserialize status")
-            }))
+        block_in_place(|| {
+            Ok(self
+                .inner
+                .get_cf(self.cf_player_status, id.as_lowercase_str())?
+                .map(|buf| {
+                    let mut cursor = Cursor::new(buf);
+                    PlayerStatus::read(&mut cursor).expect("deserialize status")
+                }))
+        })
     }
 
     pub fn put_player_status(
@@ -307,13 +318,15 @@ impl LichessDatabase<'_> {
         id: &UserId,
         status: &PlayerStatus,
     ) -> Result<(), rocksdb::Error> {
-        let mut cursor = Cursor::new(Vec::with_capacity(PlayerStatus::SIZE_HINT));
-        status.write(&mut cursor).expect("serialize status");
-        self.inner.put_cf(
-            self.cf_player_status,
-            id.as_lowercase_str(),
-            cursor.into_inner(),
-        )
+        block_in_place(|| {
+            let mut cursor = Cursor::new(Vec::with_capacity(PlayerStatus::SIZE_HINT));
+            status.write(&mut cursor).expect("serialize status");
+            self.inner.put_cf(
+                self.cf_player_status,
+                id.as_lowercase_str(),
+                cursor.into_inner(),
+            )
+        })
     }
 
     pub fn batch(&self) -> LichessBatch<'_> {
@@ -355,7 +368,7 @@ impl LichessBatch<'_> {
     }
 
     pub fn commit(self) -> Result<(), rocksdb::Error> {
-        tokio::task::block_in_place(|| self.inner.inner.write(self.batch))
+        block_in_place(|| self.inner.inner.write(self.batch))
     }
 }
 
