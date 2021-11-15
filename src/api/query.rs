@@ -143,8 +143,7 @@ impl Play {
             Some(fen) => {
                 VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)
                     .or_else(PositionError::ignore_invalid_castling_rights)
-                    .or_else(PositionError::ignore_invalid_ep_square)
-                    .or_else(PositionError::ignore_impossible_material)?
+                    .or_else(PositionError::ignore_invalid_ep_square)?
             }
             None => VariantPosition::new(variant),
         });
