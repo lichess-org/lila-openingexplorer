@@ -7,7 +7,7 @@ use shakmaty::{
     uci::Uci,
     variant::{Variant, VariantPosition},
     zobrist::Zobrist,
-    CastlingMode, Color,
+    CastlingMode, Color, PositionError,
 };
 
 use crate::{
@@ -141,7 +141,10 @@ impl Play {
         let variant = Variant::from(self.variant);
         let mut pos = Zobrist::new(match self.fen {
             Some(fen) => {
-                VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)?
+                VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)
+                    .or_else(PositionError::ignore_invalid_castling_rights)
+                    .or_else(PositionError::ignore_invalid_ep_square)
+                    .or_else(PositionError::ignore_impossible_material)?
             }
             None => VariantPosition::new(variant),
         });
