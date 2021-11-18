@@ -59,6 +59,13 @@ impl Column<'_> {
 
 impl Database {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Database, rocksdb::Error> {
+        // Note on usage in async contexts: All database operations are
+        // blocking (https://github.com/facebook/rocksdb/issues/3254).
+        // Calls could be run in a thread-pool to avoid blocking other
+        // requests, but (as benchmarked) this doesn't do much, because all
+        // other requests are doing the same kind of briefly-blocking i/o
+        // anyway.
+
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
