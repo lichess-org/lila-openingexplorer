@@ -1,6 +1,9 @@
-import requests
+import base64
 import chess
 import chess.pgn
+import hashlib
+import json
+import requests
 import sys
 
 
@@ -12,8 +15,7 @@ def main(pgn):
         if game is None:
             break
 
-        res = session.put("http://localhost:9002/import/masters", json={
-            "id": game.headers["LichessId"],
+        obj = {
             "event": game.headers["Event"],
             "site": game.headers["Site"],
             "date": game.headers["Date"],
@@ -28,12 +30,16 @@ def main(pgn):
             },
             "winner": winner(game),
             "moves": " ".join(m.uci() for m in game.end().board().move_stack)
-        })
+        }
+
+        obj["LichessId"] = game.headers.get("LichessId") or deterministic_id(obj)
+
+        res = session.put("http://localhost:9002/import/masters", json=obj)
 
         if res.status_code != 200:
             print(res.text)
         else:
-            print(game.headers["LichessId"])
+            print(obj["LichessId"])
 
 
 def winner(game):
@@ -45,6 +51,12 @@ def winner(game):
         return None
     else:
         assert False, "invalid result"
+
+
+def deterministic_id(obj):
+    digest = hashlib.sha256()
+    digest.update(json.dumps(obj, sort_keys=True).encode("utf-8"))
+    return base64.b64encode(digest.digest(), b"ab")[0:8].decode("utf-8")
 
 
 if __name__ == "__main__":
