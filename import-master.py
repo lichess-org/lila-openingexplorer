@@ -60,5 +60,5 @@ def deterministic_id(obj):
 
 
 if __name__ == "__main__":
-    main(open(sys.argv[1]))
+    main(open(sys.argv[1], errors="ignore"))
 
