@@ -32,14 +32,14 @@ def main(pgn):
             "moves": " ".join(m.uci() for m in game.end().board().move_stack)
         }
 
-        obj["LichessId"] = game.headers.get("LichessId") or deterministic_id(obj)
+        obj["id"] = game.headers.get("LichessId") or deterministic_id(obj)
 
         res = session.put("http://localhost:9002/import/masters", json=obj)
 
         if res.status_code != 200:
             print(res.text)
         else:
-            print(obj["LichessId"])
+            print(obj["id"])
 
 
 def winner(game):
