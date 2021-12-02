@@ -1,7 +1,7 @@
 use std::{io::Cursor, path::Path};
 
 use rocksdb::{
-    merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, ColumnFamily,
+    merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, Cache, ColumnFamily,
     ColumnFamilyDescriptor, IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform,
     WriteBatch, DB,
 };
@@ -23,6 +23,7 @@ fn column_family(
     prefix: Option<usize>,
     block_size: usize,
     bloom_filter: i32,
+    cache: &Cache,
 ) -> ColumnFamilyDescriptor {
     let mut opts = Options::default();
     if let Some(merge) = merge {
@@ -33,6 +34,7 @@ fn column_family(
         None => SliceTransform::create_noop(),
     });
     let mut block_opts = BlockBasedOptions::default();
+    block_opts.set_block_cache(cache);
     block_opts.set_index_type(BlockBasedIndexType::HashSearch);
     block_opts.set_block_size(block_size);
     if bloom_filter > 0 {
@@ -48,6 +50,8 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
 
+        let cache = Cache::new_lru_cache(512 * 1024 * 1024)?;
+
         let inner = DB::open_cf_descriptors(
             &db_opts,
             path,
@@ -60,8 +64,9 @@ impl Database {
                     Some(KeyPrefix::SIZE),
                     8 * 1024,
                     3,
+                    &cache,
                 ),
-                column_family("masters_game", None, void_merge, None, 4 * 1024, 0),
+                column_family("masters_game", None, void_merge, None, 4 * 1024, 0, &cache),
                 // Lichess database
                 column_family(
                     "lichess",
@@ -70,6 +75,7 @@ impl Database {
                     Some(KeyPrefix::SIZE),
                     16 * 1024,
                     2,
+                    &cache,
                 ),
                 column_family(
                     "lichess_game",
@@ -78,6 +84,7 @@ impl Database {
                     None,
                     4 * 1024,
                     0,
+                    &cache,
                 ),
                 // Player database (also shares lichess_game)
                 column_family(
@@ -87,8 +94,9 @@ impl Database {
                     Some(KeyPrefix::SIZE),
                     16 * 1024,
                     2,
+                    &cache,
                 ),
-                column_family("player_status", None, void_merge, None, 4 * 1024, 0),
+                column_family("player_status", None, void_merge, None, 4 * 1024, 0, &cache),
             ],
         )?;
 
