@@ -184,16 +184,16 @@ fn finalize_lichess_games(
     games: Vec<(Uci, GameId)>,
     lichess_db: &LichessDatabase,
 ) -> Vec<ExplorerGameWithUci> {
-    games
+    lichess_db
+        .games(games.iter().map(|(_, id)| *id))
+        .expect("get games")
         .into_iter()
-        .flat_map(|(uci, id)| {
-            lichess_db
-                .game(id)
-                .expect("get game")
-                .map(|info| ExplorerGameWithUci {
-                    uci,
-                    row: ExplorerGame::from_lichess(id, info),
-                })
+        .zip(games.into_iter())
+        .flat_map(|(info, (uci, id))| {
+            info.map(|info| ExplorerGameWithUci {
+                uci,
+                row: ExplorerGame::from_lichess(id, info),
+            })
         })
         .collect()
 }

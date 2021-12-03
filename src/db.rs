@@ -257,6 +257,27 @@ impl LichessDatabase<'_> {
             }))
     }
 
+    pub fn games<I: IntoIterator<Item = GameId>>(
+        &self,
+        ids: I,
+    ) -> Result<Vec<Option<LichessGame>>, rocksdb::Error> {
+        self.inner
+            .multi_get_cf(
+                ids.into_iter()
+                    .map(|id| (self.cf_lichess_game, id.to_bytes())),
+            )
+            .into_iter()
+            .map(|maybe_buf_or_err| {
+                maybe_buf_or_err.map(|maybe_buf| {
+                    maybe_buf.map(|buf| {
+                        let mut cursor = Cursor::new(buf);
+                        LichessGame::read(&mut cursor).expect("deserialize game info")
+                    })
+                })
+            })
+            .collect()
+    }
+
     pub fn read_lichess(
         &self,
         key: &KeyPrefix,
