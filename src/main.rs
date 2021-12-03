@@ -337,17 +337,16 @@ async fn masters(
             })
             .collect(),
         top_games: Some(
-            entry
-                .top_games
+            masters_db
+                .games(entry.top_games.iter().map(|(_, id)| *id))
+                .expect("get masters games")
                 .into_iter()
-                .flat_map(|(uci, id)| {
-                    masters_db
-                        .game(id)
-                        .expect("get masters game")
-                        .map(|info| ExplorerGameWithUci {
-                            uci,
-                            row: ExplorerGame::from_masters(id, info),
-                        })
+                .zip(entry.top_games.into_iter())
+                .flat_map(|(info, (uci, id))| {
+                    info.map(|info| ExplorerGameWithUci {
+                        uci: uci.clone(),
+                        row: ExplorerGame::from_masters(id, info),
+                    })
                 })
                 .collect(),
         ),

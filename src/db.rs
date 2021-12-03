@@ -152,6 +152,25 @@ impl MastersDatabase<'_> {
             .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game")))
     }
 
+    pub fn games<I: IntoIterator<Item = GameId>>(
+        &self,
+        ids: I,
+    ) -> Result<Vec<Option<MastersGame>>, rocksdb::Error> {
+        self.inner
+            .multi_get_cf(
+                ids.into_iter()
+                    .map(|id| (self.cf_masters_game, id.to_bytes())),
+            )
+            .into_iter()
+            .map(|maybe_buf_or_err| {
+                maybe_buf_or_err.map(|maybe_buf| {
+                    maybe_buf
+                        .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game"))
+                })
+            })
+            .collect()
+    }
+
     pub fn has(&self, key: Key) -> Result<bool, rocksdb::Error> {
         self.inner
             .get_cf(self.cf_masters, key.into_bytes())
