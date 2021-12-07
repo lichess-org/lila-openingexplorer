@@ -6,9 +6,9 @@ use std::{
 };
 
 use axum::{
-    body::HttpBody,
-    http::{HeaderMap, Response},
-    response::IntoResponse,
+    body::{self, HttpBody},
+    http::HeaderMap,
+    response::{IntoResponse, Response},
 };
 use bytes::Bytes;
 use futures_util::{ready, stream::Stream};
@@ -27,17 +27,14 @@ where
     S: Stream<Item = T> + Send + 'static,
     T: Serialize,
 {
-    type Body = NdJsonBody<S>;
-    type BodyError = serde_json::Error;
-
-    fn into_response(self) -> Response<NdJsonBody<S>> {
+    fn into_response(self) -> Response {
         Response::builder()
             .header("X-Accel-Buffering", "no")
             .header(axum::http::header::CONTENT_TYPE, "application/x-ndjson")
-            .body(NdJsonBody {
+            .body(body::boxed(NdJsonBody {
                 stream: SyncWrapper::new(self.0),
                 keep_alive: KeepAlive::new(Duration::from_secs(8)),
-            })
+            }))
             .unwrap()
     }
 }

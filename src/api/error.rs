@@ -1,6 +1,6 @@
 use std::{error::Error as StdError, fmt};
 
-use axum::http::StatusCode;
+use axum::{body, http::StatusCode, response::Response};
 use shakmaty::{san::SanError, uci::IllegalUciError, variant::VariantPosition, PositionError};
 
 use crate::model::GameId;
@@ -47,13 +47,10 @@ impl fmt::Display for Error {
 }
 
 impl axum::response::IntoResponse for Error {
-    type Body = axum::body::Body;
-    type BodyError = <Self::Body as axum::body::HttpBody>::Error;
-
-    fn into_response(self) -> axum::http::Response<Self::Body> {
-        axum::http::Response::builder()
+    fn into_response(self) -> Response {
+        Response::builder()
             .status(StatusCode::BAD_REQUEST)
-            .body(Self::Body::from(self.to_string()))
+            .body(body::boxed(body::Full::from(self.to_string())))
             .unwrap()
     }
 }

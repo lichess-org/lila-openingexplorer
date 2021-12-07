@@ -96,13 +96,12 @@ async fn main() {
         .layer(AddExtensionLayer::new(indexer));
 
     let app = if opt.cors {
-        app.layer(tower_http::set_header::SetResponseHeaderLayer::<
-            _,
-            axum::body::Body,
-        >::if_not_present(
-            axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-            axum::http::HeaderValue::from_static("*"),
-        ))
+        app.layer(
+            tower_http::set_header::SetResponseHeaderLayer::if_not_present(
+                axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                axum::http::HeaderValue::from_static("*"),
+            ),
+        )
     } else {
         app
     };

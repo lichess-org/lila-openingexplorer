@@ -5,7 +5,10 @@ use std::{
     ops::AddAssign,
 };
 
-use axum::{body::Body, http::Response, response::IntoResponse};
+use axum::{
+    body,
+    response::{IntoResponse, Response},
+};
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -86,16 +89,13 @@ impl MastersGame {
 }
 
 impl IntoResponse for MastersGame {
-    type Body = Body;
-    type BodyError = <Body as axum::body::HttpBody>::Error;
-
-    fn into_response(self) -> Response<Body> {
+    fn into_response(self) -> Response {
         let mut buf = Cursor::new(Vec::new());
         self.write_pgn(&mut buf).expect("write pgn");
 
         Response::builder()
             .header(axum::http::header::CONTENT_TYPE, "application/x-chess-pgn")
-            .body(Body::from(buf.into_inner()))
+            .body(body::boxed(body::Full::from(buf.into_inner())))
             .unwrap()
     }
 }
