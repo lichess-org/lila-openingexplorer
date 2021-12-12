@@ -1,7 +1,7 @@
 use std::{cmp::min, ffi::OsStr, fs::File, io, mem, num::Wrapping, path::PathBuf, time::Duration};
 
 use clap::Parser;
-use pgn_reader::{BufferedReader, Color, RawHeader, SanPlus, Skip, Visitor};
+use pgn_reader::{BufferedReader, Color, Outcome, RawHeader, SanPlus, Skip, Visitor};
 use rand::{distributions::OpenClosed01, rngs::SmallRng, Rng, SeedableRng};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
@@ -178,11 +178,9 @@ impl Visitor for Importer {
                 .expect("Site"),
             );
         } else if key == b"Result" {
-            match value.as_bytes() {
-                b"1-0" => self.current.winner = Some(Color::White),
-                b"0-1" => self.current.winner = Some(Color::Black),
-                b"1/2-1/2" => self.current.winner = None,
-                _ => self.skip = true,
+            match Outcome::from_ascii(value.as_bytes()) {
+                Ok(outcome) => self.current.winner = outcome.winner(),
+                Err(_) => self.skip = true,
             }
         } else if key == b"FEN" {
             if value.as_bytes() == b"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" {
