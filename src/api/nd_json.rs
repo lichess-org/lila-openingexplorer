@@ -1,5 +1,4 @@
 use std::{
-    future::Future as _,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
@@ -17,7 +16,7 @@ use serde::Serialize;
 use sync_wrapper::SyncWrapper;
 use tokio::{
     time,
-    time::{Instant, Sleep},
+    time::{Interval, MissedTickBehavior},
 };
 
 pub struct NdJson<S>(pub S);
@@ -28,12 +27,15 @@ where
     T: Serialize,
 {
     fn into_response(self) -> Response {
+        let mut keep_alive = time::interval(Duration::from_secs(8));
+        keep_alive.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
         Response::builder()
             .header("X-Accel-Buffering", "no")
             .header(axum::http::header::CONTENT_TYPE, "application/x-ndjson")
             .body(body::boxed(NdJsonBody {
                 stream: SyncWrapper::new(self.0),
-                keep_alive: KeepAlive::new(Duration::from_secs(8)),
+                keep_alive,
             }))
             .unwrap()
     }
@@ -43,8 +45,7 @@ pin_project! {
     pub struct NdJsonBody<S> {
         #[pin]
         stream: SyncWrapper<S>,
-        #[pin]
-        keep_alive: KeepAlive,
+        keep_alive: Interval,
     }
 }
 
@@ -73,7 +74,7 @@ where
 
         match without_keepalive {
             Poll::Pending => {
-                ready!(this.keep_alive.poll_interval(cx));
+                ready!(this.keep_alive.poll_tick(cx));
                 Poll::Ready(Some(Ok(Bytes::from("\n"))))
             }
             Poll::Ready(Some(Ok(event))) => {
@@ -89,34 +90,5 @@ where
         _cx: &mut Context<'_>,
     ) -> Poll<Result<Option<HeaderMap>, Self::Error>> {
         Poll::Ready(Ok(None))
-    }
-}
-
-pin_project! {
-    struct KeepAlive {
-        interval: Duration,
-        #[pin]
-        sleep: Sleep,
-    }
-}
-
-impl KeepAlive {
-    fn new(interval: Duration) -> KeepAlive {
-        KeepAlive {
-            interval,
-            sleep: time::sleep(interval),
-        }
-    }
-
-    fn reset(self: Pin<&mut Self>) {
-        let this = self.project();
-        this.sleep.reset(Instant::now() + *this.interval);
-    }
-
-    fn poll_interval(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
-        let this = self.as_mut().project();
-        ready!(this.sleep.poll(cx));
-        self.reset();
-        Poll::Ready(())
     }
 }
