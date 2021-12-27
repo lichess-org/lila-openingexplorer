@@ -1,6 +1,7 @@
-use std::{error::Error as StdError, fmt, ops::AddAssign, str::FromStr};
+use std::{ops::AddAssign, str::FromStr};
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize, Serialize, Ord, PartialOrd)]
 #[serde(rename_all = "camelCase")]
@@ -40,16 +41,9 @@ impl FromStr for Speed {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
+#[error("invalid speed")]
 pub struct InvalidSpeed;
-
-impl fmt::Display for InvalidSpeed {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("invalid speed")
-    }
-}
-
-impl StdError for InvalidSpeed {}
 
 #[derive(Debug, Default)]
 pub struct BySpeed<T> {

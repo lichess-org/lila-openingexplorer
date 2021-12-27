@@ -1,4 +1,6 @@
-use std::{error::Error as StdError, fmt, str::FromStr};
+use std::{fmt, str::FromStr};
+
+use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct UserName(String);
@@ -31,16 +33,9 @@ impl fmt::Display for UserName {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
+#[error("invalid username")]
 pub struct InvalidUserName;
-
-impl fmt::Display for InvalidUserName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("invalid username")
-    }
-}
-
-impl StdError for InvalidUserName {}
 
 impl FromStr for UserName {
     type Err = InvalidUserName;

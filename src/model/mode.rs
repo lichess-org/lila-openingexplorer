@@ -1,6 +1,7 @@
-use std::{error::Error as StdError, fmt, ops::AddAssign, str::FromStr};
+use std::{ops::AddAssign, str::FromStr};
 
 use serde::Serialize;
+use thiserror::Error;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,16 +38,9 @@ impl FromStr for Mode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
+#[error("invalid mode")]
 pub struct InvalidMode;
-
-impl fmt::Display for InvalidMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("invalid mode")
-    }
-}
-
-impl StdError for InvalidMode {}
 
 #[derive(Default, Debug)]
 pub struct ByMode<T> {

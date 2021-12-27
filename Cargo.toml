@@ -34,6 +34,7 @@ sha-1 = "0.10"
 shakmaty = { version = "0.20.1", features = ["variant"] }
 smallvec = "1"
 sync_wrapper = "0.1"
+thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 tokio-util = { version = "0.6", features = ["io"] }

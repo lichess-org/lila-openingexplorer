@@ -1,22 +1,15 @@
 use std::{
-    error::Error,
     fmt::{self, Write as _},
     io::{self, Cursor, Read, Write},
     str::FromStr,
 };
 
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
+#[error("invalid game id")]
 pub struct InvalidGameId;
-
-impl fmt::Display for InvalidGameId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("invalid game id")
-    }
-}
-
-impl Error for InvalidGameId {}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GameId(u64);

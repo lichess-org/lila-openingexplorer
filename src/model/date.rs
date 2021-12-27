@@ -1,23 +1,15 @@
-use std::{cmp::min, convert::TryFrom, error::Error as StdError, fmt, str::FromStr};
+use std::{cmp::min, convert::TryFrom, fmt, str::FromStr};
 
 use chrono::{DateTime, Datelike as _, Utc};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum InvalidDate {
+    #[error("invlaid year")]
     InvalidYear,
+    #[error("invalid month")]
     InvalidMonth,
 }
-
-impl fmt::Display for InvalidDate {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match *self {
-            InvalidDate::InvalidYear => "invalid year",
-            InvalidDate::InvalidMonth => "invalid month",
-        })
-    }
-}
-
-impl StdError for InvalidDate {}
 
 #[derive(Copy, Clone, Debug)]
 pub struct LaxDate {
