@@ -21,6 +21,6 @@ impl FromStr for LaxFen {
     type Err = ParseFenError;
 
     fn from_str(s: &str) -> Result<LaxFen, ParseFenError> {
-        s.replace("_", " ").parse().map(LaxFen)
+        s.replace('_', " ").parse().map(LaxFen)
     }
 }

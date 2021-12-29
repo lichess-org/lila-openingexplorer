@@ -82,6 +82,7 @@ impl Year {
         Year(2021)
     }
 
+    #[must_use]
     pub fn add_years_saturating(self, years: u16) -> Year {
         min(Year(self.0.saturating_add(years)), Year::max_value())
     }
@@ -122,6 +123,7 @@ impl Month {
         Month(year * 12 + time.month0() as u16)
     }
 
+    #[must_use]
     pub fn add_months_saturating(self, months: u16) -> Month {
         min(Month(self.0.saturating_add(months)), Month::max_value())
     }

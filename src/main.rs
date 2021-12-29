@@ -30,7 +30,7 @@ use tokio::sync::watch;
 use crate::{
     api::{
         Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, LichessQuery,
-        Limits, MastersQuery, NdJson, PlayerQuery, PlayerQueryFilter,
+        Limits, MastersQuery, NdJson, PlayPosition, PlayerQuery, PlayerQueryFilter,
     },
     db::{Database, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
@@ -217,7 +217,11 @@ async fn player(
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let indexing = indexer.index_player(&player).await;
-    let (variant, pos, opening) = query.play.position(openings)?;
+    let PlayPosition {
+        variant,
+        pos,
+        opening,
+    } = query.play.position(openings)?;
     let key = KeyBuilder::player(&player, query.color).with_zobrist(variant, pos.zobrist_hash());
 
     let state = PlayerStreamState {
@@ -299,7 +303,11 @@ async fn masters(
     Extension(db): Extension<Arc<Database>>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    let (variant, pos, opening) = query.play.position(openings)?;
+    let PlayPosition {
+        variant,
+        pos,
+        opening,
+    } = query.play.position(openings)?;
     let key = KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash());
     let masters_db = db.masters();
     let mut entry = masters_db
@@ -369,7 +377,11 @@ async fn lichess(
     Extension(db): Extension<Arc<Database>>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    let (variant, pos, opening) = query.play.position(openings)?;
+    let PlayPosition {
+        variant,
+        pos,
+        opening,
+    } = query.play.position(openings)?;
     let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
     let lichess_db = db.lichess();
     let mut filtered = lichess_db

@@ -133,11 +133,14 @@ pub struct Play {
     pub play: Vec<Uci>,
 }
 
+pub struct PlayPosition<'a> {
+    pub variant: Variant,
+    pub pos: Zobrist<VariantPosition, u128>,
+    pub opening: Option<&'a Opening>,
+}
+
 impl Play {
-    pub fn position(
-        self,
-        openings: &Openings,
-    ) -> Result<(Variant, Zobrist<VariantPosition, u128>, Option<&Opening>), Error> {
+    pub fn position(self, openings: &Openings) -> Result<PlayPosition<'_>, Error> {
         let variant = Variant::from(self.variant);
         let mut pos = Zobrist::new(match self.fen {
             Some(fen) => {
@@ -148,7 +151,11 @@ impl Play {
             None => VariantPosition::new(variant),
         });
         let opening = openings.classify_and_play(&mut pos, self.play)?;
-        Ok((variant, pos, opening))
+        Ok(PlayPosition {
+            variant,
+            pos,
+            opening,
+        })
     }
 }
 
