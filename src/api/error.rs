@@ -1,4 +1,4 @@
-use axum::{body, http::StatusCode, response::Response};
+use axum::{http::StatusCode, response::Response};
 use shakmaty::{san::SanError, uci::IllegalUciError, variant::VariantPosition, PositionError};
 use thiserror::Error;
 
@@ -20,9 +20,6 @@ pub enum Error {
 
 impl axum::response::IntoResponse for Error {
     fn into_response(self) -> Response {
-        Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(body::boxed(body::Full::from(self.to_string())))
-            .unwrap()
+        (StatusCode::BAD_REQUEST, self.to_string()).into_response()
     }
 }
