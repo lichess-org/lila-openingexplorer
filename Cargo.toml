@@ -18,7 +18,7 @@ axum = "0.4"
 byteorder = "1"
 bytes = "1"
 chrono = { version = "0.4", default-features = false }
-clap = { version = "3.0.0-rc.9", features = ["derive"] }
+clap = { version = "3.0.0", features = ["derive"] }
 csv = "1"
 env_logger = "0.9"
 futures-util = "0.3"
