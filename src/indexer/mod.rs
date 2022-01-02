@@ -38,7 +38,7 @@ pub struct IndexerOpt {
     #[clap(long = "lila", default_value = "https://lichess.org")]
     lila: String,
     /// Token of https://lichess.org/@/OpeningExplorer to speed up indexing.
-    #[clap(long = "bearer")]
+    #[clap(long = "bearer", env = "EXPLORER_BEARER")]
     bearer: Option<String>,
     /// Number of parallel indexing tasks.
     #[clap(long = "indexers", default_value = "16")]
