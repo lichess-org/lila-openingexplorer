@@ -3,7 +3,6 @@ use std::cmp::{max, min};
 use serde::Deserialize;
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator, TryFromInto};
 use shakmaty::{
-    fen::Fen,
     uci::Uci,
     variant::{Variant, VariantPosition},
     zobrist::Zobrist,
@@ -143,11 +142,9 @@ impl Play {
     pub fn position(self, openings: &Openings) -> Result<PlayPosition<'_>, Error> {
         let variant = Variant::from(self.variant);
         let mut pos = Zobrist::new(match self.fen {
-            Some(fen) => {
-                VariantPosition::from_setup(variant, &Fen::from(fen), CastlingMode::Chess960)
-                    .or_else(PositionError::ignore_invalid_castling_rights)
-                    .or_else(PositionError::ignore_invalid_ep_square)?
-            }
+            Some(LaxFen(fen)) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)
+                .or_else(PositionError::ignore_invalid_castling_rights)
+                .or_else(PositionError::ignore_invalid_ep_square)?,
             None => VariantPosition::new(variant),
         });
         let opening = openings.classify_and_play(&mut pos, self.play)?;
