@@ -3,6 +3,7 @@ use std::cmp::{max, min};
 use serde::Deserialize;
 use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator, TryFromInto};
 use shakmaty::{
+    fen::Fen,
     uci::Uci,
     variant::{Variant, VariantPosition},
     zobrist::Zobrist,
@@ -10,7 +11,7 @@ use shakmaty::{
 };
 
 use crate::{
-    api::{Error, LaxFen, LilaVariant},
+    api::{Error, LilaVariant},
     model::{Mode, Month, RatingGroup, Speed, UserName, Year},
     opening::{Opening, Openings},
 };
@@ -126,7 +127,7 @@ pub struct Play {
     pub variant: LilaVariant,
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    pub fen: Option<LaxFen>,
+    pub fen: Option<Fen>,
     #[serde_as(as = "StringWithSeparator<CommaSeparator, Uci>")]
     #[serde(default)]
     pub play: Vec<Uci>,
@@ -142,7 +143,7 @@ impl Play {
     pub fn position(self, openings: &Openings) -> Result<PlayPosition<'_>, Error> {
         let variant = Variant::from(self.variant);
         let mut pos = Zobrist::new(match self.fen {
-            Some(LaxFen(fen)) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)
+            Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)
                 .or_else(PositionError::ignore_invalid_castling_rights)
                 .or_else(PositionError::ignore_invalid_ep_square)?,
             None => VariantPosition::new(variant),
