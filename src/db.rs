@@ -2,8 +2,7 @@ use std::{io::Cursor, path::Path};
 
 use rocksdb::{
     merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, Cache, ColumnFamily,
-    ColumnFamilyDescriptor, IteratorMode, MergeOperands, Options, ReadOptions, SliceTransform,
-    WriteBatch, DB,
+    ColumnFamilyDescriptor, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::model::{
@@ -183,24 +182,25 @@ impl MastersDatabase<'_> {
         since: Year,
         until: Year,
     ) -> Result<MastersEntry, rocksdb::Error> {
+        let mut entry = MastersEntry::default();
+
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_year(until.add_years_saturating(1)).into_bytes());
 
-        let iterator = self
-            .inner
-            .iterator_cf_opt(self.cf_masters, opt, IteratorMode::Start);
+        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_masters, opt);
+        iter.seek_to_first();
 
-        let mut entry = MastersEntry::default();
-        for (_key, value) in iterator {
+        while let Some(value) = iter.value() {
             let mut cursor = Cursor::new(value);
             entry
                 .extend_from_reader(&mut cursor)
                 .expect("deserialize masters entry");
+            iter.next();
         }
 
-        Ok(entry)
+        iter.status().map(|_| entry)
     }
 
     pub fn batch(&self) -> MastersBatch<'_> {
@@ -284,24 +284,25 @@ impl LichessDatabase<'_> {
         since: Month,
         until: Month,
     ) -> Result<LichessEntry, rocksdb::Error> {
+        let mut entry = LichessEntry::default();
+
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
 
-        let iterator = self
-            .inner
-            .iterator_cf_opt(self.cf_lichess, opt, IteratorMode::Start);
+        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
+        iter.seek_to_first();
 
-        let mut entry = LichessEntry::default();
-        for (_key, value) in iterator {
+        while let Some(value) = iter.value() {
             let mut cursor = Cursor::new(value);
             entry
                 .extend_from_reader(&mut cursor)
                 .expect("deserialize lichess entry");
+            iter.next();
         }
 
-        Ok(entry)
+        iter.status().map(|_| entry)
     }
 
     pub fn read_player(
@@ -310,24 +311,25 @@ impl LichessDatabase<'_> {
         since: Month,
         until: Month,
     ) -> Result<PlayerEntry, rocksdb::Error> {
+        let mut entry = PlayerEntry::default();
+
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
 
-        let iterator = self
-            .inner
-            .iterator_cf_opt(self.cf_player, opt, IteratorMode::Start);
+        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_player, opt);
+        iter.seek_to_first();
 
-        let mut entry = PlayerEntry::default();
-        for (_key, value) in iterator {
+        while let Some(value) = iter.value() {
             let mut cursor = Cursor::new(value);
             entry
                 .extend_from_reader(&mut cursor)
                 .expect("deserialize player entry");
+            iter.next();
         }
 
-        Ok(entry)
+        iter.status().map(|_| entry)
     }
 
     pub fn player_status(&self, id: &UserId) -> Result<Option<PlayerStatus>, rocksdb::Error> {
