@@ -141,14 +141,14 @@ pub struct MastersDatabase<'a> {
 impl MastersDatabase<'_> {
     pub fn has_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
         self.inner
-            .get_cf(self.cf_masters_game, id.to_bytes())
+            .get_pinned_cf(self.cf_masters_game, id.to_bytes())
             .map(|maybe_entry| maybe_entry.is_some())
     }
 
     pub fn game(&self, id: GameId) -> Result<Option<MastersGame>, rocksdb::Error> {
         Ok(self
             .inner
-            .get_cf(self.cf_masters_game, id.to_bytes())?
+            .get_pinned_cf(self.cf_masters_game, id.to_bytes())?
             .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game")))
     }
 
@@ -173,7 +173,7 @@ impl MastersDatabase<'_> {
 
     pub fn has(&self, key: Key) -> Result<bool, rocksdb::Error> {
         self.inner
-            .get_cf(self.cf_masters, key.into_bytes())
+            .get_pinned_cf(self.cf_masters, key.into_bytes())
             .map(|maybe_entry| maybe_entry.is_some())
     }
 
@@ -250,7 +250,7 @@ impl LichessDatabase<'_> {
     pub fn game(&self, id: GameId) -> Result<Option<LichessGame>, rocksdb::Error> {
         Ok(self
             .inner
-            .get_cf(self.cf_lichess_game, id.to_bytes())?
+            .get_pinned_cf(self.cf_lichess_game, id.to_bytes())?
             .map(|buf| {
                 let mut cursor = Cursor::new(buf);
                 LichessGame::read(&mut cursor).expect("deserialize game info")
@@ -333,7 +333,7 @@ impl LichessDatabase<'_> {
     pub fn player_status(&self, id: &UserId) -> Result<Option<PlayerStatus>, rocksdb::Error> {
         Ok(self
             .inner
-            .get_cf(self.cf_player_status, id.as_lowercase_str())?
+            .get_pinned_cf(self.cf_player_status, id.as_lowercase_str())?
             .map(|buf| {
                 let mut cursor = Cursor::new(buf);
                 PlayerStatus::read(&mut cursor).expect("deserialize status")
