@@ -21,7 +21,7 @@ fn column_family(
     merge_fn: impl MergeFn + Clone,
     prefix: Option<usize>,
     block_size: usize,
-    bloom_filter: i32,
+    bloom_filter: f64,
     cache: &Cache,
 ) -> ColumnFamilyDescriptor {
     let mut opts = Options::default();
@@ -36,8 +36,8 @@ fn column_family(
     block_opts.set_block_cache(cache);
     block_opts.set_index_type(BlockBasedIndexType::HashSearch);
     block_opts.set_block_size(block_size);
-    if bloom_filter > 0 {
-        block_opts.set_bloom_filter(bloom_filter, true);
+    if bloom_filter > 0.0 {
+        block_opts.set_ribbon_filter(bloom_filter);
     }
     opts.set_block_based_table_factory(&block_opts);
     ColumnFamilyDescriptor::new(name, opts)
@@ -62,10 +62,10 @@ impl Database {
                     masters_merge,
                     Some(KeyPrefix::SIZE),
                     8 * 1024,
-                    3,
+                    3.0,
                     &cache,
                 ),
-                column_family("masters_game", None, void_merge, None, 4 * 1024, 0, &cache),
+                column_family("masters_game", None, void_merge, None, 4 * 1024, 0.0, &cache),
                 // Lichess database
                 column_family(
                     "lichess",
@@ -73,7 +73,7 @@ impl Database {
                     lichess_merge,
                     Some(KeyPrefix::SIZE),
                     16 * 1024,
-                    2,
+                    2.0,
                     &cache,
                 ),
                 column_family(
@@ -82,7 +82,7 @@ impl Database {
                     lichess_game_merge,
                     None,
                     4 * 1024,
-                    0,
+                    0.0,
                     &cache,
                 ),
                 // Player database (also shares lichess_game)
@@ -92,10 +92,10 @@ impl Database {
                     player_merge,
                     Some(KeyPrefix::SIZE),
                     16 * 1024,
-                    2,
+                    2.0,
                     &cache,
                 ),
-                column_family("player_status", None, void_merge, None, 4 * 1024, 0, &cache),
+                column_family("player_status", None, void_merge, None, 4 * 1024, 0.0, &cache),
             ],
         )?;
 
@@ -402,7 +402,7 @@ impl LichessBatch<'_> {
 fn lichess_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut entry = LichessEntry::default();
     let mut size_hint = 0;
@@ -421,7 +421,7 @@ fn lichess_merge(
 fn lichess_game_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     // Take latest game info, but merge index status.
     let mut info: Option<LichessGame> = None;
@@ -447,7 +447,7 @@ fn lichess_game_merge(
 fn player_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut entry = PlayerEntry::default();
     let mut size_hint = 0;
@@ -466,7 +466,7 @@ fn player_merge(
 fn masters_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut entry = MastersEntry::default();
     let mut size_hint = 0;
@@ -485,7 +485,7 @@ fn masters_merge(
 fn void_merge(
     _key: &[u8],
     _existing: Option<&[u8]>,
-    _operands: &mut MergeOperands,
+    _operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     unreachable!("void merge")
 }
