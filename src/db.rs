@@ -37,7 +37,7 @@ fn column_family(
     block_opts.set_index_type(BlockBasedIndexType::HashSearch);
     block_opts.set_block_size(block_size);
     if bloom_filter > 0.0 {
-        block_opts.set_ribbon_filter(bloom_filter);
+        block_opts.set_hybrid_ribbon_filter(bloom_filter, 1);
     }
     opts.set_block_based_table_factory(&block_opts);
     ColumnFamilyDescriptor::new(name, opts)
