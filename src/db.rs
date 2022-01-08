@@ -65,7 +65,15 @@ impl Database {
                     3.0,
                     &cache,
                 ),
-                column_family("masters_game", None, void_merge, None, 4 * 1024, 0.0, &cache),
+                column_family(
+                    "masters_game",
+                    None,
+                    void_merge,
+                    None,
+                    4 * 1024,
+                    0.0,
+                    &cache,
+                ),
                 // Lichess database
                 column_family(
                     "lichess",
@@ -95,11 +103,24 @@ impl Database {
                     2.0,
                     &cache,
                 ),
-                column_family("player_status", None, void_merge, None, 4 * 1024, 0.0, &cache),
+                column_family(
+                    "player_status",
+                    None,
+                    void_merge,
+                    None,
+                    4 * 1024,
+                    0.0,
+                    &cache,
+                ),
             ],
         )?;
 
         Ok(Database { inner })
+    }
+
+    pub fn compact(&self) {
+        self.lichess().compact();
+        self.masters().compact();
     }
 
     pub fn masters(&self) -> MastersDatabase<'_> {
@@ -138,6 +159,11 @@ pub struct MastersDatabase<'a> {
 }
 
 impl MastersDatabase<'_> {
+    pub fn compact(&self) {
+        compact_column(self.inner, self.cf_masters);
+        compact_column(self.inner, self.cf_masters_game);
+    }
+
     pub fn has_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
         self.inner
             .get_pinned_cf(self.cf_masters_game, id.to_bytes())
@@ -247,6 +273,13 @@ pub struct LichessDatabase<'a> {
 }
 
 impl LichessDatabase<'_> {
+    pub fn compact(&self) {
+        compact_column(self.inner, self.cf_lichess);
+        compact_column(self.inner, self.cf_lichess_game);
+        compact_column(self.inner, self.cf_player);
+        compact_column(self.inner, self.cf_player_status);
+    }
+
     pub fn game(&self, id: GameId) -> Result<Option<LichessGame>, rocksdb::Error> {
         Ok(self
             .inner
@@ -444,11 +477,7 @@ fn lichess_game_merge(
     })
 }
 
-fn player_merge(
-    _key: &[u8],
-    existing: Option<&[u8]>,
-    operands: &MergeOperands,
-) -> Option<Vec<u8>> {
+fn player_merge(_key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) -> Option<Vec<u8>> {
     let mut entry = PlayerEntry::default();
     let mut size_hint = 0;
     for op in existing.into_iter().chain(operands.into_iter()) {
@@ -482,10 +511,10 @@ fn masters_merge(
     Some(cursor.into_inner())
 }
 
-fn void_merge(
-    _key: &[u8],
-    _existing: Option<&[u8]>,
-    _operands: &MergeOperands,
-) -> Option<Vec<u8>> {
+fn void_merge(_key: &[u8], _existing: Option<&[u8]>, _operands: &MergeOperands) -> Option<Vec<u8>> {
     unreachable!("void merge")
+}
+
+fn compact_column(db: &DB, cf: &ColumnFamily) {
+    db.compact_range_cf(cf, None::<&[u8]>, None::<&[u8]>);
 }

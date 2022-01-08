@@ -13,7 +13,7 @@ use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use axum::{
     extract::{Extension, Path, Query},
     http::StatusCode,
-    routing::{get, put},
+    routing::{get, post, put},
     AddExtensionLayer, Json, Router,
 };
 use clap::Parser;
@@ -80,6 +80,7 @@ async fn main() {
         .route("/monitor/cf/:cf/:prop", get(cf_prop))
         .route("/monitor/db/:prop", get(db_prop))
         .route("/monitor/indexing", get(num_indexing))
+        .route("/compact", post(compact))
         .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
         .route("/masters/pgn/:id", get(masters_pgn))
@@ -148,6 +149,10 @@ async fn db_prop(
 
 async fn num_indexing(Extension(indexer): Extension<IndexerStub>) -> String {
     indexer.num_indexing().await.to_string()
+}
+
+async fn compact(Extension(db): Extension<Arc<Database>>) {
+    db.compact();
 }
 
 fn finalize_lichess_moves(
