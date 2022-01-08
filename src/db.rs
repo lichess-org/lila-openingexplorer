@@ -21,7 +21,7 @@ fn column_family(
     merge_fn: impl MergeFn + Clone,
     prefix: Option<usize>,
     block_size: usize,
-    bloom_filter: f64,
+    bloom_filter_bits: f64,
     cache: &Cache,
 ) -> ColumnFamilyDescriptor {
     let mut opts = Options::default();
@@ -36,8 +36,8 @@ fn column_family(
     block_opts.set_block_cache(cache);
     block_opts.set_index_type(BlockBasedIndexType::HashSearch);
     block_opts.set_block_size(block_size);
-    if bloom_filter > 0.0 {
-        block_opts.set_hybrid_ribbon_filter(bloom_filter, 1);
+    if bloom_filter_bits > 0.0 {
+        block_opts.set_hybrid_ribbon_filter(bloom_filter_bits, 1);
     }
     opts.set_block_based_table_factory(&block_opts);
     ColumnFamilyDescriptor::new(name, opts)
@@ -62,7 +62,7 @@ impl Database {
                     masters_merge,
                     Some(KeyPrefix::SIZE),
                     8 * 1024,
-                    3.0,
+                    5.0,
                     &cache,
                 ),
                 column_family(
