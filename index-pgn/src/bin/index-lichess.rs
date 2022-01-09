@@ -1,4 +1,6 @@
-use std::{cmp::min, ffi::OsStr, fs::File, io, mem, num::Wrapping, path::PathBuf, time::Duration};
+use std::{
+    cmp::min, ffi::OsStr, fs::File, io, mem, num::Wrapping, path::PathBuf, thread, time::Duration,
+};
 
 use clap::Parser;
 use pgn_reader::{BufferedReader, Color, Outcome, RawHeader, SanPlus, Skip, Visitor};
@@ -50,13 +52,15 @@ impl Speed {
     }
 }
 
-struct Importer {
-    endpoint: String,
+struct Batch {
     filename: PathBuf,
-    client: reqwest::blocking::Client,
-    rng: SmallRng,
-    spinner_idx: Wrapping<usize>,
+    games: Vec<Game>,
+}
 
+struct Importer {
+    tx: crossbeam::channel::Sender<Batch>,
+    filename: PathBuf,
+    rng: SmallRng,
     current: Game,
     skip: bool,
     batch: Vec<Game>,
@@ -85,20 +89,15 @@ struct Player {
 }
 
 impl Importer {
-    fn new(endpoint: &str, filename: PathBuf) -> Importer {
+    fn new(tx: crossbeam::channel::Sender<Batch>, filename: PathBuf) -> Importer {
         Importer {
-            endpoint: endpoint.to_owned(),
+            tx,
             filename,
-            client: reqwest::blocking::Client::builder()
-                .timeout(Duration::from_secs(60))
-                .build()
-                .expect("client"),
             rng: SmallRng::from_seed([
                 0x19, 0x29, 0xab, 0x17, 0xc6, 0xfa, 0xb0, 0xe9, 0x4b, 0x44, 0xd8, 0x07, 0x09, 0xbf,
                 0x1d, 0x87, 0xbd, 0xd8, 0xb3, 0x2f, 0xe1, 0xe2, 0xa0, 0x1a, 0x9e, 0x30, 0x98, 0xd7,
                 0xef, 0xd5, 0x7a, 0x1d,
             ]),
-            spinner_idx: Wrapping(0),
             current: Game::default(),
             skip: false,
             batch: Vec::with_capacity(BATCH_SIZE),
@@ -106,31 +105,12 @@ impl Importer {
     }
 
     pub fn send(&mut self) {
-        // println!("{}", serde_json::to_string(&self.batch).expect("serialize"));
-
-        let res = self
-            .client
-            .put(format!("{}/import/lichess", self.endpoint))
-            .json(&self.batch)
-            .send()
-            .expect("send batch");
-
-        self.spinner_idx += Wrapping(1);
-        let spinner = &['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
-
-        println!(
-            "{} {:?}: {}: {} - {}",
-            spinner[self.spinner_idx.0 % spinner.len()],
-            self.filename,
-            self.batch
-                .last()
-                .and_then(|g| g.date.as_ref())
-                .unwrap_or(&String::new()),
-            res.status(),
-            res.text().expect("decode response")
-        );
-
-        self.batch.clear();
+        self.tx
+            .send(Batch {
+                filename: self.filename.clone(),
+                games: mem::replace(&mut self.batch, Vec::with_capacity(BATCH_SIZE)),
+            })
+            .expect("send");
     }
 }
 
@@ -256,8 +236,7 @@ impl Visitor for Importer {
 
     fn end_game(&mut self) {
         if !self.skip {
-            self.batch
-                .push(mem::replace(&mut self.current, Default::default()));
+            self.batch.push(mem::take(&mut self.current));
 
             if self.batch.len() >= BATCH_SIZE {
                 self.send();
@@ -276,6 +255,41 @@ struct Args {
 fn main() -> Result<(), io::Error> {
     let args = Args::parse();
 
+    let (tx, rx) = crossbeam::channel::bounded::<Batch>(20);
+
+    let bg = thread::spawn(move || {
+        let mut spinner_idx = Wrapping(0);
+        let spinner = &['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
+
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(60))
+            .build()
+            .expect("client");
+
+        while let Ok(batch) = rx.recv() {
+            let res = client
+                .put(format!("{}/import/lichess", args.endpoint))
+                .json(&batch.games)
+                .send()
+                .expect("send batch");
+
+            spinner_idx += Wrapping(1);
+
+            println!(
+                "{} {:?}: {}: {} - {}",
+                spinner[spinner_idx.0 % spinner.len()],
+                batch.filename,
+                batch
+                    .games
+                    .last()
+                    .and_then(|g| g.date.as_ref())
+                    .unwrap_or(&String::new()),
+                res.status(),
+                res.text().expect("decode response")
+            );
+        }
+    });
+
     for arg in args.pgns {
         let file = File::open(&arg)?;
 
@@ -289,10 +303,12 @@ fn main() -> Result<(), io::Error> {
 
         let mut reader = BufferedReader::new(uncompressed);
 
-        let mut importer = Importer::new(&args.endpoint, arg);
+        let mut importer = Importer::new(tx.clone(), arg);
         reader.read_all(&mut importer)?;
         importer.send();
     }
 
+    drop(tx);
+    bg.join().expect("bg join");
     Ok(())
 }
