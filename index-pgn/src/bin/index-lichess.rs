@@ -8,8 +8,6 @@ use rand::{distributions::OpenClosed01, rngs::SmallRng, Rng, SeedableRng};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 
-const BATCH_SIZE: usize = 100;
-
 #[derive(Debug, Serialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
 enum Speed {
@@ -60,6 +58,8 @@ struct Batch {
 struct Importer {
     tx: crossbeam::channel::Sender<Batch>,
     filename: PathBuf,
+    batch_size: usize,
+
     rng: SmallRng,
     current: Game,
     skip: bool,
@@ -89,10 +89,15 @@ struct Player {
 }
 
 impl Importer {
-    fn new(tx: crossbeam::channel::Sender<Batch>, filename: PathBuf) -> Importer {
+    fn new(
+        tx: crossbeam::channel::Sender<Batch>,
+        filename: PathBuf,
+        batch_size: usize,
+    ) -> Importer {
         Importer {
             tx,
             filename,
+            batch_size,
             rng: SmallRng::from_seed([
                 0x19, 0x29, 0xab, 0x17, 0xc6, 0xfa, 0xb0, 0xe9, 0x4b, 0x44, 0xd8, 0x07, 0x09, 0xbf,
                 0x1d, 0x87, 0xbd, 0xd8, 0xb3, 0x2f, 0xe1, 0xe2, 0xa0, 0x1a, 0x9e, 0x30, 0x98, 0xd7,
@@ -100,7 +105,7 @@ impl Importer {
             ]),
             current: Game::default(),
             skip: false,
-            batch: Vec::with_capacity(BATCH_SIZE),
+            batch: Vec::with_capacity(batch_size),
         }
     }
 
@@ -108,7 +113,7 @@ impl Importer {
         self.tx
             .send(Batch {
                 filename: self.filename.clone(),
-                games: mem::replace(&mut self.batch, Vec::with_capacity(BATCH_SIZE)),
+                games: mem::replace(&mut self.batch, Vec::with_capacity(self.batch_size)),
             })
             .expect("send");
     }
@@ -238,7 +243,7 @@ impl Visitor for Importer {
         if !self.skip {
             self.batch.push(mem::take(&mut self.current));
 
-            if self.batch.len() >= BATCH_SIZE {
+            if self.batch.len() >= self.batch_size {
                 self.send();
             }
         }
@@ -249,13 +254,15 @@ impl Visitor for Importer {
 struct Args {
     #[clap(long, default_value = "http://localhost:9002")]
     endpoint: String,
+    #[clap(long, default_value = "200")]
+    batch_size: usize,
     pgns: Vec<PathBuf>,
 }
 
 fn main() -> Result<(), io::Error> {
     let args = Args::parse();
 
-    let (tx, rx) = crossbeam::channel::bounded::<Batch>(20);
+    let (tx, rx) = crossbeam::channel::bounded::<Batch>(50);
 
     let bg = thread::spawn(move || {
         let mut spinner_idx = Wrapping(0);
@@ -303,7 +310,7 @@ fn main() -> Result<(), io::Error> {
 
         let mut reader = BufferedReader::new(uncompressed);
 
-        let mut importer = Importer::new(tx.clone(), arg);
+        let mut importer = Importer::new(tx.clone(), arg, args.batch_size);
         reader.read_all(&mut importer)?;
         importer.send();
     }
