@@ -39,7 +39,7 @@ fn column_family(
     block_opts.set_cache_index_and_filter_blocks(true);
     block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
     if bloom_filter_bits > 0.0 {
-        block_opts.set_hybrid_ribbon_filter(bloom_filter_bits, 1);
+        block_opts.set_bloom_filter(bloom_filter_bits, false);
     }
     opts.set_block_based_table_factory(&block_opts);
     opts.set_optimize_filters_for_hits(true);
