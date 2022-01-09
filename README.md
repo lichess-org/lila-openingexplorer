@@ -16,7 +16,10 @@ git submodule update --init
 EXPLORER_LOG=lila_openingexplorer=debug cargo run -- --lila https://lichess:***@lichess.dev --bearer lip_***
 ```
 
-:warning: Note that administrative endpoints must be protected using a reverse proxy.
+:warning: Administrative endpoints must be protected using a reverse proxy.
+It's best to whitelist only `/masters`, `/lichess`, and `/player`.
+
+:warning: Carefully test and analyze memory usage when upgrading RocksDB.
 
 HTTP API
 --------
