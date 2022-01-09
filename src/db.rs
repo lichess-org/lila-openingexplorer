@@ -42,6 +42,7 @@ fn column_family(
         block_opts.set_hybrid_ribbon_filter(bloom_filter_bits, 1);
     }
     opts.set_block_based_table_factory(&block_opts);
+    opts.set_optimize_filters_for_hits(true);
     ColumnFamilyDescriptor::new(name, opts)
 }
 
