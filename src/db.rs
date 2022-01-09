@@ -36,6 +36,8 @@ fn column_family(
     block_opts.set_block_cache(cache);
     block_opts.set_index_type(BlockBasedIndexType::HashSearch);
     block_opts.set_block_size(block_size);
+    block_opts.set_cache_index_and_filter_blocks(true);
+    block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
     if bloom_filter_bits > 0.0 {
         block_opts.set_hybrid_ribbon_filter(bloom_filter_bits, 1);
     }
@@ -49,7 +51,7 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
 
-        let cache = Cache::new_lru_cache(512 * 1024 * 1024)?;
+        let cache = Cache::new_lru_cache(2 * 1024 * 1024 * 1024)?;
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
