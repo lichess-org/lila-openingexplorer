@@ -1,6 +1,8 @@
 lila-openingexplorer
 ====================
 
+[![Test](https://github.com/niklasf/lila-openingexplorer/actions/workflows/test.yml/badge.svg)](https://github.com/niklasf/lila-openingexplorer/actions/workflows/test.yml)
+
 [Opening explorer](https://lichess.org/blog/Vs0xMTAAAD4We4Ey/opening-explorer)
 for lichess.org, capable of handling billions of positions, featuring:
 
