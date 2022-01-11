@@ -1,8 +1,8 @@
 use std::{io::Cursor, path::Path};
 
 use rocksdb::{
-    merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, Cache, ColumnFamily,
-    ColumnFamilyDescriptor, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
+    merge_operator::MergeFn, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor,
+    MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::model::{
@@ -34,7 +34,6 @@ fn column_family(
     });
     let mut block_opts = BlockBasedOptions::default();
     block_opts.set_block_cache(cache);
-    block_opts.set_index_type(BlockBasedIndexType::HashSearch);
     block_opts.set_block_size(block_size);
     if bloom_filter > 0 {
         block_opts.set_bloom_filter(bloom_filter, false);
