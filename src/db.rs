@@ -35,7 +35,7 @@ fn column_family(
     // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning
     cf_opts.set_compression_type(DBCompressionType::Lz4);
     cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
-    cf_opts.set_level_compaction_dynamic_level_bytes(true);
+    cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
 
     let mut table_opts = BlockBasedOptions::default();
     table_opts.set_block_cache(cache);
