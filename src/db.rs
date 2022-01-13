@@ -2,8 +2,7 @@ use std::{io::Cursor, path::Path};
 
 use rocksdb::{
     merge_operator::MergeFn, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor,
-    MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
-    DBCompressionType,
+    DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::model::{
@@ -16,37 +15,39 @@ pub struct Database {
     pub inner: DB,
 }
 
-fn column_family(
+fn column_family<M: MergeFn + Clone>(
     name: &str,
-    merge: Option<&str>,
-    merge_fn: impl MergeFn + Clone,
     prefix: Option<usize>,
+    merge: Option<&str>,
+    merge_fn: M,
     cache: &Cache,
 ) -> ColumnFamilyDescriptor {
-    let mut cf_opts = Options::default();
-    if let Some(merge) = merge {
-        cf_opts.set_merge_operator_associative(merge, merge_fn);
-    }
-    cf_opts.set_prefix_extractor(match prefix {
-        Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
-        None => SliceTransform::create_noop(),
-    });
-
-    // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning
-    cf_opts.set_compression_type(DBCompressionType::Lz4);
-    cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
-    cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
-
+    // Mostly using modern defaults from
+    // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning.
     let mut table_opts = BlockBasedOptions::default();
     table_opts.set_block_cache(cache);
     table_opts.set_block_size(16 * 1024);
     table_opts.set_cache_index_and_filter_blocks(true);
     table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
     table_opts.set_hybrid_ribbon_filter(10.0, 1);
+    table_opts.set_whole_key_filtering(prefix.is_none()); // Only prefix seeks for positions
     table_opts.set_format_version(5);
+
+    let mut cf_opts = Options::default();
     cf_opts.set_block_based_table_factory(&table_opts);
+    cf_opts.set_compression_type(DBCompressionType::Lz4);
+    cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
 
     // cf_opts.set_optimize_filters_for_hits(true); // 90% filter size reduction
+
+    cf_opts.set_prefix_extractor(match prefix {
+        Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
+        None => SliceTransform::create_noop(),
+    });
+    if let Some(merge) = merge {
+        cf_opts.set_merge_operator_associative(merge, merge_fn);
+    }
 
     ColumnFamilyDescriptor::new(name, cf_opts)
 }
@@ -71,36 +72,36 @@ impl Database {
                 // Masters database
                 column_family(
                     "masters",
+                    Some(KeyPrefix::SIZE),
                     Some("masters_merge"),
                     masters_merge,
-                    Some(KeyPrefix::SIZE),
                     &cache,
                 ),
-                column_family("masters_game", None, void_merge, None, &cache),
+                column_family("masters_game", None, None, void_merge, &cache),
                 // Lichess database
                 column_family(
                     "lichess",
+                    Some(KeyPrefix::SIZE),
                     Some("lichess_merge"),
                     lichess_merge,
-                    Some(KeyPrefix::SIZE),
                     &cache,
                 ),
                 column_family(
                     "lichess_game",
+                    None,
                     Some("lichess_game_merge"),
                     lichess_game_merge,
-                    None,
                     &cache,
                 ),
                 // Player database (also shares lichess_game)
                 column_family(
                     "player",
+                    Some(KeyPrefix::SIZE),
                     Some("player_merge"),
                     player_merge,
-                    Some(KeyPrefix::SIZE),
                     &cache,
                 ),
-                column_family("player_status", None, void_merge, None, &cache),
+                column_family("player_status", None, None, void_merge, &cache),
             ],
         )?;
 
@@ -466,11 +467,7 @@ fn lichess_game_merge(
     })
 }
 
-fn player_merge(
-    _key: &[u8],
-    existing: Option<&[u8]>,
-    operands: &MergeOperands,
-) -> Option<Vec<u8>> {
+fn player_merge(_key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) -> Option<Vec<u8>> {
     let mut entry = PlayerEntry::default();
     let mut size_hint = 0;
     for op in existing.into_iter().chain(operands.into_iter()) {
@@ -504,11 +501,7 @@ fn masters_merge(
     Some(cursor.into_inner())
 }
 
-fn void_merge(
-    _key: &[u8],
-    _existing: Option<&[u8]>,
-    _operands: &MergeOperands,
-) -> Option<Vec<u8>> {
+fn void_merge(_key: &[u8], _existing: Option<&[u8]>, _operands: &MergeOperands) -> Option<Vec<u8>> {
     unreachable!("void merge")
 }
 
