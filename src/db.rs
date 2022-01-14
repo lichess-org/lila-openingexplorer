@@ -1,8 +1,9 @@
 use std::{io::Cursor, path::Path};
 
 use rocksdb::{
-    merge_operator::MergeFn, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor,
-    DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
+    merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, Cache, ColumnFamily,
+    ColumnFamilyDescriptor, DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform,
+    WriteBatch, DB,
 };
 
 use crate::model::{
@@ -15,46 +16,55 @@ pub struct Database {
     pub inner: DB,
 }
 
-fn column_family<M: MergeFn + Clone>(
-    name: &str,
+struct Column<'a, M> {
+    name: &'a str,
     prefix: Option<usize>,
-    merge: Option<&str>,
+    merge: Option<&'a str>,
     merge_fn: M,
-    cache: &Cache,
-) -> ColumnFamilyDescriptor {
-    // Mostly using modern defaults from
-    // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning.
-    let mut table_opts = BlockBasedOptions::default();
-    table_opts.set_block_cache(cache);
-    table_opts.set_block_size(16 * 1024);
-    table_opts.set_cache_index_and_filter_blocks(true);
-    table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
-    table_opts.set_hybrid_ribbon_filter(10.0, 1);
-    table_opts.set_whole_key_filtering(prefix.is_none()); // Only prefix seeks for positions
-    table_opts.set_format_version(5);
+    cache: &'a Cache,
+    partition: bool,
+}
 
-    // Partition filters, because space taken on disk is large compared to RAM.
-    table_opts.set_pin_top_level_index_and_filter(true);
-    table_opts.set_partition_filters(true);
-    table_opts.set_index_type(rocksdb::BlockBasedIndexType::TwoLevelIndexSearch);
+impl<M: MergeFn + Clone> Column<'_, M> {
+    fn descriptor(self) -> ColumnFamilyDescriptor {
+        // Mostly using modern defaults from
+        // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning.
+        let mut table_opts = BlockBasedOptions::default();
+        table_opts.set_block_cache(self.cache);
+        table_opts.set_block_size(16 * 1024);
+        table_opts.set_cache_index_and_filter_blocks(true);
+        table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
+        table_opts.set_hybrid_ribbon_filter(10.0, 1);
+        table_opts.set_whole_key_filtering(self.prefix.is_none()); // Only prefix seeks for positions
+        table_opts.set_format_version(5);
 
-    let mut cf_opts = Options::default();
-    cf_opts.set_block_based_table_factory(&table_opts);
-    cf_opts.set_compression_type(DBCompressionType::Lz4);
-    cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
-    cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
+        // Partition filters, because space taken on disk is large compared to
+        // available RAM.
+        if self.partition {
+            table_opts.set_pin_top_level_index_and_filter(true);
+            table_opts.set_partition_filters(true);
+            table_opts.set_index_type(BlockBasedIndexType::TwoLevelIndexSearch);
+        } else {
+            table_opts.set_index_type(BlockBasedIndexType::HashSearch);
+        }
 
-    // cf_opts.set_optimize_filters_for_hits(true); // 90% filter size reduction
+        let mut cf_opts = Options::default();
+        cf_opts.set_block_based_table_factory(&table_opts);
+        cf_opts.set_compression_type(DBCompressionType::Lz4);
+        cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+        cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
+        cf_opts.set_optimize_filters_for_hits(true); // 90% filter size reduction
 
-    cf_opts.set_prefix_extractor(match prefix {
-        Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
-        None => SliceTransform::create_noop(),
-    });
-    if let Some(merge) = merge {
-        cf_opts.set_merge_operator_associative(merge, merge_fn);
+        cf_opts.set_prefix_extractor(match self.prefix {
+            Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
+            None => SliceTransform::create_noop(),
+        });
+        if let Some(merge) = self.merge {
+            cf_opts.set_merge_operator_associative(merge, self.merge_fn);
+        }
+
+        ColumnFamilyDescriptor::new(self.name, cf_opts)
     }
-
-    ColumnFamilyDescriptor::new(name, cf_opts)
 }
 
 impl Database {
@@ -75,38 +85,62 @@ impl Database {
             path,
             vec![
                 // Masters database
-                column_family(
-                    "masters",
-                    Some(KeyPrefix::SIZE),
-                    Some("masters_merge"),
-                    masters_merge,
-                    &cache,
-                ),
-                column_family("masters_game", None, None, void_merge, &cache),
+                Column {
+                    name: "masters",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some("masters_merge"),
+                    merge_fn: masters_merge,
+                    cache: &cache,
+                    partition: false,
+                }
+                .descriptor(),
+                Column {
+                    name: "masters_game",
+                    prefix: None,
+                    merge: None,
+                    merge_fn: void_merge,
+                    cache: &cache,
+                    partition: false,
+                }
+                .descriptor(),
                 // Lichess database
-                column_family(
-                    "lichess",
-                    Some(KeyPrefix::SIZE),
-                    Some("lichess_merge"),
-                    lichess_merge,
-                    &cache,
-                ),
-                column_family(
-                    "lichess_game",
-                    None,
-                    Some("lichess_game_merge"),
-                    lichess_game_merge,
-                    &cache,
-                ),
+                Column {
+                    name: "lichess",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some("lichess_merge"),
+                    merge_fn: lichess_merge,
+                    cache: &cache,
+                    partition: true,
+                }
+                .descriptor(),
+                Column {
+                    name: "lichess_game",
+                    prefix: None,
+                    merge: Some("lichess_game_merge"),
+                    merge_fn: lichess_game_merge,
+                    cache: &cache,
+                    partition: false,
+                }
+                .descriptor(),
                 // Player database (also shares lichess_game)
-                column_family(
-                    "player",
-                    Some(KeyPrefix::SIZE),
-                    Some("player_merge"),
-                    player_merge,
-                    &cache,
-                ),
-                column_family("player_status", None, None, void_merge, &cache),
+                Column {
+                    name: "player",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some("player_merge"),
+                    merge_fn: player_merge,
+                    cache: &cache,
+                    partition: true,
+                }
+                .descriptor(),
+                Column {
+                    name: "player_status",
+                    prefix: None,
+                    merge: None,
+                    merge_fn: void_merge,
+                    cache: &cache,
+                    partition: false,
+                }
+                .descriptor(),
             ],
         )?;
 
