@@ -1,8 +1,9 @@
 use std::{io::Cursor, path::Path};
 
 use rocksdb::{
-    merge_operator::MergeFn, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor,
-    MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
+    merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, Cache, ColumnFamily,
+    ColumnFamilyDescriptor, DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform,
+    WriteBatch, DB,
 };
 
 use crate::model::{
@@ -15,32 +16,50 @@ pub struct Database {
     pub inner: DB,
 }
 
-fn column_family(
-    name: &str,
-    merge: Option<&str>,
-    merge_fn: impl MergeFn + Clone,
+struct Column<'a, M> {
+    name: &'a str,
     prefix: Option<usize>,
-    block_size: usize,
-    bloom_filter: i32,
-    cache: &Cache,
-) -> ColumnFamilyDescriptor {
-    let mut opts = Options::default();
-    if let Some(merge) = merge {
-        opts.set_merge_operator_associative(merge, merge_fn);
+    merge: Option<&'a str>,
+    merge_fn: M,
+    cache: &'a Cache,
+}
+
+impl<M: MergeFn + Clone> Column<'_, M> {
+    fn descriptor(self) -> ColumnFamilyDescriptor {
+        // Mostly using modern defaults from
+        // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning.
+        let mut table_opts = BlockBasedOptions::default();
+        table_opts.set_block_cache(self.cache);
+        table_opts.set_block_size(16 * 1024);
+        table_opts.set_cache_index_and_filter_blocks(true);
+        table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
+        table_opts.set_hybrid_ribbon_filter(8.0, 1);
+        table_opts.set_whole_key_filtering(self.prefix.is_none()); // Only prefix seeks for positions
+        table_opts.set_format_version(5);
+
+        // Partition filters, because space taken on disk is large compared to
+        // available RAM.
+        table_opts.set_pin_top_level_index_and_filter(true);
+        table_opts.set_partition_filters(true);
+        table_opts.set_index_type(BlockBasedIndexType::TwoLevelIndexSearch);
+
+        let mut cf_opts = Options::default();
+        cf_opts.set_block_based_table_factory(&table_opts);
+        cf_opts.set_compression_type(DBCompressionType::Lz4);
+        cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+        cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
+        cf_opts.set_optimize_filters_for_hits(true); // 90% filter size reduction
+
+        cf_opts.set_prefix_extractor(match self.prefix {
+            Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
+            None => SliceTransform::create_noop(),
+        });
+        if let Some(merge) = self.merge {
+            cf_opts.set_merge_operator_associative(merge, self.merge_fn);
+        }
+
+        ColumnFamilyDescriptor::new(self.name, cf_opts)
     }
-    opts.set_prefix_extractor(match prefix {
-        Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
-        None => SliceTransform::create_noop(),
-    });
-    let mut block_opts = BlockBasedOptions::default();
-    block_opts.set_block_cache(cache);
-    block_opts.set_block_size(block_size);
-    if bloom_filter > 0 {
-        block_opts.set_bloom_filter(bloom_filter, false);
-    }
-    opts.set_block_based_table_factory(&block_opts);
-    opts.set_optimize_filters_for_hits(true);
-    ColumnFamilyDescriptor::new(name, opts)
 }
 
 impl Database {
@@ -48,56 +67,73 @@ impl Database {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
+        db_opts.set_max_background_jobs(4);
+        db_opts.set_bytes_per_sync(1024 * 1024);
 
-        let cache = Cache::new_lru_cache(512 * 1024 * 1024)?;
+        // Target memory usage is 16 GiB. Use about one third for block cache,
+        // two thirds for everything else, including operating system
+        // page cache.
+        let cache = Cache::new_lru_cache(4 * 1024 * 1024 * 1024)?;
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
             path,
             vec![
                 // Masters database
-                column_family(
-                    "masters",
-                    Some("masters_merge"),
-                    masters_merge,
-                    Some(KeyPrefix::SIZE),
-                    8 * 1024,
-                    4,
-                    &cache,
-                ),
-                column_family("masters_game", None, void_merge, None, 4 * 1024, 0, &cache),
+                Column {
+                    name: "masters",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some("masters_merge"),
+                    merge_fn: masters_merge,
+                    cache: &cache,
+                }
+                .descriptor(),
+                Column {
+                    name: "masters_game",
+                    prefix: None,
+                    merge: None,
+                    merge_fn: void_merge,
+                    cache: &cache,
+                }
+                .descriptor(),
                 // Lichess database
-                column_family(
-                    "lichess",
-                    Some("lichess_merge"),
-                    lichess_merge,
-                    Some(KeyPrefix::SIZE),
-                    16 * 1024,
-                    2,
-                    &cache,
-                ),
-                column_family(
-                    "lichess_game",
-                    Some("lichess_game_merge"),
-                    lichess_game_merge,
-                    None,
-                    4 * 1024,
-                    0,
-                    &cache,
-                ),
+                Column {
+                    name: "lichess",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some("lichess_merge"),
+                    merge_fn: lichess_merge,
+                    cache: &cache,
+                }
+                .descriptor(),
+                Column {
+                    name: "lichess_game",
+                    prefix: None,
+                    merge: Some("lichess_game_merge"),
+                    merge_fn: lichess_game_merge,
+                    cache: &cache,
+                }
+                .descriptor(),
                 // Player database (also shares lichess_game)
-                column_family(
-                    "player",
-                    Some("player_merge"),
-                    player_merge,
-                    Some(KeyPrefix::SIZE),
-                    16 * 1024,
-                    2,
-                    &cache,
-                ),
-                column_family("player_status", None, void_merge, None, 4 * 1024, 0, &cache),
+                Column {
+                    name: "player",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some("player_merge"),
+                    merge_fn: player_merge,
+                    cache: &cache,
+                }
+                .descriptor(),
+                Column {
+                    name: "player_status",
+                    prefix: None,
+                    merge: None,
+                    merge_fn: void_merge,
+                    cache: &cache,
+                }
+                .descriptor(),
             ],
         )?;
+
+        log::info!("database opened");
 
         Ok(Database { inner })
     }
@@ -419,7 +455,7 @@ impl LichessBatch<'_> {
 fn lichess_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut entry = LichessEntry::default();
     let mut size_hint = 0;
@@ -438,7 +474,7 @@ fn lichess_merge(
 fn lichess_game_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     // Take latest game info, but merge index status.
     let mut info: Option<LichessGame> = None;
@@ -461,11 +497,7 @@ fn lichess_game_merge(
     })
 }
 
-fn player_merge(
-    _key: &[u8],
-    existing: Option<&[u8]>,
-    operands: &mut MergeOperands,
-) -> Option<Vec<u8>> {
+fn player_merge(_key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) -> Option<Vec<u8>> {
     let mut entry = PlayerEntry::default();
     let mut size_hint = 0;
     for op in existing.into_iter().chain(operands.into_iter()) {
@@ -483,7 +515,7 @@ fn player_merge(
 fn masters_merge(
     _key: &[u8],
     existing: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut entry = MastersEntry::default();
     let mut size_hint = 0;
@@ -499,11 +531,7 @@ fn masters_merge(
     Some(cursor.into_inner())
 }
 
-fn void_merge(
-    _key: &[u8],
-    _existing: Option<&[u8]>,
-    _operands: &mut MergeOperands,
-) -> Option<Vec<u8>> {
+fn void_merge(_key: &[u8], _existing: Option<&[u8]>, _operands: &MergeOperands) -> Option<Vec<u8>> {
     unreachable!("void merge")
 }
 
