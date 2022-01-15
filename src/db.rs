@@ -33,7 +33,7 @@ impl<M: MergeFn + Clone> Column<'_, M> {
         table_opts.set_block_size(16 * 1024);
         table_opts.set_cache_index_and_filter_blocks(true);
         table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
-        table_opts.set_hybrid_ribbon_filter(10.0, 1);
+        table_opts.set_hybrid_ribbon_filter(8.0, 1);
         table_opts.set_whole_key_filtering(self.prefix.is_none()); // Only prefix seeks for positions
         table_opts.set_format_version(5);
 
@@ -73,7 +73,7 @@ impl Database {
         // Target memory usage is 16 GiB. Use about one third for block cache,
         // two thirds for everything else, including operating system
         // page cache.
-        let cache = Cache::new_lru_cache(5 * 1024 * 1024 * 1024)?;
+        let cache = Cache::new_lru_cache(4 * 1024 * 1024 * 1024)?;
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
