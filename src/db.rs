@@ -37,12 +37,6 @@ impl<M: MergeFn + Clone> Column<'_, M> {
         table_opts.set_whole_key_filtering(self.prefix.is_none()); // Only prefix seeks for positions
         table_opts.set_format_version(5);
 
-        // Partition filters, because space taken on disk is large compared to
-        // available RAM.
-        table_opts.set_pin_top_level_index_and_filter(true);
-        table_opts.set_partition_filters(true);
-        table_opts.set_index_type(BlockBasedIndexType::TwoLevelIndexSearch);
-
         let mut cf_opts = Options::default();
         cf_opts.set_block_based_table_factory(&table_opts);
         cf_opts.set_compression_type(DBCompressionType::Lz4);
