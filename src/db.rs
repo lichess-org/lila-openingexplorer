@@ -133,6 +133,8 @@ impl Database {
             ],
         )?;
 
+        log::info!("database opened");
+
         Ok(Database { inner })
     }
 
