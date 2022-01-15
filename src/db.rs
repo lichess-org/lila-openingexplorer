@@ -22,7 +22,6 @@ struct Column<'a, M> {
     merge: Option<&'a str>,
     merge_fn: M,
     cache: &'a Cache,
-    partition: bool,
 }
 
 impl<M: MergeFn + Clone> Column<'_, M> {
@@ -40,13 +39,9 @@ impl<M: MergeFn + Clone> Column<'_, M> {
 
         // Partition filters, because space taken on disk is large compared to
         // available RAM.
-        if self.partition {
-            table_opts.set_pin_top_level_index_and_filter(true);
-            table_opts.set_partition_filters(true);
-            table_opts.set_index_type(BlockBasedIndexType::TwoLevelIndexSearch);
-        } else {
-            table_opts.set_index_type(BlockBasedIndexType::HashSearch);
-        }
+        table_opts.set_pin_top_level_index_and_filter(true);
+        table_opts.set_partition_filters(true);
+        table_opts.set_index_type(BlockBasedIndexType::TwoLevelIndexSearch);
 
         let mut cf_opts = Options::default();
         cf_opts.set_block_based_table_factory(&table_opts);
@@ -91,7 +86,6 @@ impl Database {
                     merge: Some("masters_merge"),
                     merge_fn: masters_merge,
                     cache: &cache,
-                    partition: false,
                 }
                 .descriptor(),
                 Column {
@@ -100,7 +94,6 @@ impl Database {
                     merge: None,
                     merge_fn: void_merge,
                     cache: &cache,
-                    partition: false,
                 }
                 .descriptor(),
                 // Lichess database
@@ -110,7 +103,6 @@ impl Database {
                     merge: Some("lichess_merge"),
                     merge_fn: lichess_merge,
                     cache: &cache,
-                    partition: true,
                 }
                 .descriptor(),
                 Column {
@@ -119,7 +111,6 @@ impl Database {
                     merge: Some("lichess_game_merge"),
                     merge_fn: lichess_game_merge,
                     cache: &cache,
-                    partition: false,
                 }
                 .descriptor(),
                 // Player database (also shares lichess_game)
@@ -129,7 +120,6 @@ impl Database {
                     merge: Some("player_merge"),
                     merge_fn: player_merge,
                     cache: &cache,
-                    partition: true,
                 }
                 .descriptor(),
                 Column {
@@ -138,7 +128,6 @@ impl Database {
                     merge: None,
                     merge_fn: void_merge,
                     cache: &cache,
-                    partition: false,
                 }
                 .descriptor(),
             ],
