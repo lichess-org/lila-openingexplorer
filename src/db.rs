@@ -1,9 +1,8 @@
 use std::{io::Cursor, path::Path};
 
 use rocksdb::{
-    merge_operator::MergeFn, BlockBasedIndexType, BlockBasedOptions, Cache, ColumnFamily,
-    ColumnFamilyDescriptor, DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform,
-    WriteBatch, DB,
+    merge_operator::MergeFn, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor,
+    DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::model::{
