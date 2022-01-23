@@ -193,7 +193,7 @@ fn finalize_lichess_games(
         .expect("get games")
         .into_iter()
         .zip(games.into_iter())
-        .flat_map(|(info, (uci, id))| {
+        .filter_map(|(info, (uci, id))| {
             info.map(|info| ExplorerGameWithUci {
                 uci,
                 row: ExplorerGame::from_lichess(id, info),
@@ -354,7 +354,7 @@ async fn masters(
                 .expect("get masters games")
                 .into_iter()
                 .zip(entry.top_games.into_iter())
-                .flat_map(|(info, (uci, id))| {
+                .filter_map(|(info, (uci, id))| {
                     info.map(|info| ExplorerGameWithUci {
                         uci: uci.clone(),
                         row: ExplorerGame::from_masters(id, info),

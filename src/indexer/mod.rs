@@ -245,8 +245,8 @@ impl IndexerActor {
                 num_games,
                 player.as_lowercase_str(),
                 elapsed,
-                Duration::from_nanos(elapsed.as_nanos() as u64) / num_games,
-                (num_games as f64) / elapsed.as_secs_f64()
+                elapsed / num_games,
+                f64::from(num_games) / elapsed.as_secs_f64()
             );
         } else {
             log::info!(

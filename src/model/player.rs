@@ -64,7 +64,7 @@ impl Header {
                     Speed::Rapid => 4,
                     Speed::Classical => 5,
                     Speed::Correspondence => 6,
-                }) | ((mode.is_rated() as u8) << 3)
+                }) | (u8::from(mode.is_rated()) << 3)
                     | ((num_games as u8) << 4)
             }
         })
