@@ -26,6 +26,7 @@ use shakmaty::{
     variant::VariantPosition,
 };
 use tokio::sync::watch;
+use tower::ServiceBuilder;
 
 use crate::{
     api::{
@@ -90,11 +91,14 @@ async fn main() {
         .route("/master/pgn/:id", get(masters_pgn)) // bc
         .route("/master", get(masters)) // bc
         .route("/personal", get(player)) // bc
-        .layer(AddExtensionLayer::new(openings))
-        .layer(AddExtensionLayer::new(db))
-        .layer(AddExtensionLayer::new(masters_importer))
-        .layer(AddExtensionLayer::new(lichess_importer))
-        .layer(AddExtensionLayer::new(indexer));
+        .layer(
+            ServiceBuilder::new()
+                .layer(AddExtensionLayer::new(openings))
+                .layer(AddExtensionLayer::new(db))
+                .layer(AddExtensionLayer::new(masters_importer))
+                .layer(AddExtensionLayer::new(lichess_importer))
+                .layer(AddExtensionLayer::new(indexer)),
+        );
 
     let app = if opt.cors {
         app.layer(
