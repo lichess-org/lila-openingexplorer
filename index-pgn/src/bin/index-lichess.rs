@@ -4,7 +4,6 @@ use std::{
 
 use clap::Parser;
 use pgn_reader::{BufferedReader, Color, Outcome, RawHeader, SanPlus, Skip, Visitor};
-use rand::{distributions::OpenClosed01, rngs::SmallRng, Rng, SeedableRng};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 
@@ -60,7 +59,6 @@ struct Importer {
     filename: PathBuf,
     batch_size: usize,
 
-    rng: SmallRng,
     current: Game,
     skip: bool,
     batch: Vec<Game>,
@@ -98,11 +96,6 @@ impl Importer {
             tx,
             filename,
             batch_size,
-            rng: SmallRng::from_seed([
-                0x19, 0x29, 0xab, 0x17, 0xc6, 0xfa, 0xb0, 0xe9, 0x4b, 0x44, 0xd8, 0x07, 0x09, 0xbf,
-                0x1d, 0x87, 0xbd, 0xd8, 0xb3, 0x2f, 0xe1, 0xe2, 0xa0, 0x1a, 0x9e, 0x30, 0x98, 0xd7,
-                0xef, 0xd5, 0x7a, 0x1d,
-            ]),
             current: Game::default(),
             skip: false,
             batch: Vec::with_capacity(batch_size),
@@ -189,34 +182,34 @@ impl Visitor for Importer {
 
         let probability = if standard {
             match self.current.speed.unwrap_or(Speed::Correspondence) {
-                Speed::Correspondence | Speed::Classical => 1.00,
+                Speed::Correspondence | Speed::Classical => 100,
 
-                _ if rating >= 2500 => 1.00,
+                _ if rating >= 2500 => 100,
 
-                Speed::Rapid if rating >= 2200 => 1.00,
-                Speed::Rapid if rating >= 2000 => 0.83,
-                Speed::Rapid if rating >= 1800 => 0.46,
-                Speed::Rapid if rating >= 1600 => 0.39,
+                Speed::Rapid if rating >= 2200 => 100,
+                Speed::Rapid if rating >= 2000 => 83,
+                Speed::Rapid if rating >= 1800 => 46,
+                Speed::Rapid if rating >= 1600 => 39,
 
-                Speed::Blitz if rating >= 2200 => 0.38,
-                Speed::Blitz if rating >= 2000 => 0.18,
-                Speed::Blitz if rating >= 1600 => 0.13,
+                Speed::Blitz if rating >= 2200 => 38,
+                Speed::Blitz if rating >= 2000 => 18,
+                Speed::Blitz if rating >= 1600 => 13,
 
-                Speed::Bullet if rating >= 2200 => 0.48,
-                Speed::Bullet if rating >= 2000 => 0.27,
-                Speed::Bullet if rating >= 1800 => 0.19,
-                Speed::Bullet if rating >= 1600 => 0.18,
+                Speed::Bullet if rating >= 2200 => 48,
+                Speed::Bullet if rating >= 2000 => 27,
+                Speed::Bullet if rating >= 1800 => 19,
+                Speed::Bullet if rating >= 1600 => 18,
 
-                Speed::UltraBullet => 1.00,
+                Speed::UltraBullet => 100,
 
-                _ => 0.02,
+                _ => 2,
             }
         } else {
             // variant games
             if rating >= 1600 {
-                1.00
+                100
             } else {
-                0.50
+                50
             }
         };
 
@@ -224,7 +217,11 @@ impl Visitor for Importer {
             self.current.white.rating.unwrap_or(0),
             self.current.black.rating.unwrap_or(0),
         ) >= 1501
-            && probability >= self.rng.sample(OpenClosed01)
+            && self
+                .current
+                .id
+                .as_ref()
+                .map_or(false, |id| probability > (java_hash_code(id) % 100))
             && !self.skip;
 
         self.skip = !accept;
@@ -248,6 +245,14 @@ impl Visitor for Importer {
             }
         }
     }
+}
+
+fn java_hash_code(s: &str) -> i32 {
+    let mut hash = 0i32;
+    for ch in s.chars() {
+        hash = hash.wrapping_mul(31).wrapping_add(ch as i32);
+    }
+    hash
 }
 
 #[derive(Parser)]
@@ -318,4 +323,17 @@ fn main() -> Result<(), io::Error> {
     drop(tx);
     bg.join().expect("bg join");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::java_hash_code;
+
+    #[test]
+    fn test_java_hash_code() {
+        assert_eq!(java_hash_code("DXZdUVdv"), 1714524881);
+        assert_eq!(java_hash_code("4mn73Yni"), 1587086275);
+        assert_eq!(java_hash_code("VFa7wmDN"), 90055046);
+        assert_eq!(java_hash_code("rvSvQdIe"), 950841078);
+    }
 }
