@@ -1,8 +1,8 @@
 use std::{io::Cursor, path::Path};
 
 use rocksdb::{
-    merge_operator::MergeFn, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor,
-    DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
+    MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::model::{
@@ -15,15 +15,16 @@ pub struct Database {
     pub inner: DB,
 }
 
-struct Column<'a, M> {
+type MergeFn = fn(key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) -> Option<Vec<u8>>;
+
+struct Column<'a> {
     name: &'a str,
     prefix: Option<usize>,
-    merge: Option<&'a str>,
-    merge_fn: M,
+    merge: Option<(&'a str, MergeFn)>,
     cache: &'a Cache,
 }
 
-impl<M: MergeFn + Clone> Column<'_, M> {
+impl Column<'_> {
     fn descriptor(self) -> ColumnFamilyDescriptor {
         // Mostly using modern defaults from
         // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning.
@@ -47,8 +48,9 @@ impl<M: MergeFn + Clone> Column<'_, M> {
             Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
             None => SliceTransform::create_noop(),
         });
-        if let Some(merge) = self.merge {
-            cf_opts.set_merge_operator_associative(merge, self.merge_fn);
+
+        if let Some((name, merge_fn)) = self.merge {
+            cf_opts.set_merge_operator_associative(name, merge_fn);
         }
 
         ColumnFamilyDescriptor::new(self.name, cf_opts)
@@ -76,8 +78,7 @@ impl Database {
                 Column {
                     name: "masters",
                     prefix: Some(KeyPrefix::SIZE),
-                    merge: Some("masters_merge"),
-                    merge_fn: masters_merge,
+                    merge: Some(("masters_merge", masters_merge)),
                     cache: &cache,
                 }
                 .descriptor(),
@@ -85,7 +86,6 @@ impl Database {
                     name: "masters_game",
                     prefix: None,
                     merge: None,
-                    merge_fn: void_merge,
                     cache: &cache,
                 }
                 .descriptor(),
@@ -93,16 +93,14 @@ impl Database {
                 Column {
                     name: "lichess",
                     prefix: Some(KeyPrefix::SIZE),
-                    merge: Some("lichess_merge"),
-                    merge_fn: lichess_merge,
+                    merge: Some(("lichess_merge", lichess_merge)),
                     cache: &cache,
                 }
                 .descriptor(),
                 Column {
                     name: "lichess_game",
                     prefix: None,
-                    merge: Some("lichess_game_merge"),
-                    merge_fn: lichess_game_merge,
+                    merge: Some(("lichess_game_merge", lichess_game_merge)),
                     cache: &cache,
                 }
                 .descriptor(),
@@ -110,8 +108,7 @@ impl Database {
                 Column {
                     name: "player",
                     prefix: Some(KeyPrefix::SIZE),
-                    merge: Some("player_merge"),
-                    merge_fn: player_merge,
+                    merge: Some(("player_merge", player_merge)),
                     cache: &cache,
                 }
                 .descriptor(),
@@ -119,7 +116,6 @@ impl Database {
                     name: "player_status",
                     prefix: None,
                     merge: None,
-                    merge_fn: void_merge,
                     cache: &cache,
                 }
                 .descriptor(),
@@ -522,10 +518,6 @@ fn masters_merge(
     let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
     entry.write(&mut cursor).expect("write masters entry");
     Some(cursor.into_inner())
-}
-
-fn void_merge(_key: &[u8], _existing: Option<&[u8]>, _operands: &MergeOperands) -> Option<Vec<u8>> {
-    unreachable!("void merge")
 }
 
 fn compact_column(db: &DB, cf: &ColumnFamily) {
