@@ -282,7 +282,11 @@ impl IndexerActor {
             return;
         }
 
-        if game.players.any(|p| p.user.is_none() || p.rating.is_none()) {
+        if game
+            .players
+            .iter()
+            .any(|p| p.user.is_none() || p.rating.is_none())
+        {
             return;
         }
 
@@ -309,7 +313,7 @@ impl IndexerActor {
         if lichess_db
             .game(game.id)
             .expect("get game info")
-            .map_or(false, |info| info.indexed_player.into_color(color))
+            .map_or(false, |info| *info.indexed_player.get(color))
         {
             log::debug!(
                 "indexer {:02}: {}/{} already indexed",
@@ -325,10 +329,12 @@ impl IndexerActor {
         let outcome = Outcome::from_winner(game.winner);
         let variant = game.variant.into();
         let pos = match game.initial_fen {
-            Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960),
+            Some(fen) => {
+                VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)
+            }
             None => Ok(VariantPosition::new(variant)),
         };
-        let opponent_rating = match game.players.by_color(!color).rating {
+        let opponent_rating = match game.players.get(!color).rating {
             Some(rating) => rating,
             None => {
                 log::warn!(
@@ -401,7 +407,7 @@ impl IndexerActor {
 
         for (zobrist, uci) in table {
             batch.merge_player(
-                hash.by_color(color)
+                hash.get(color)
                     .with_zobrist(variant, zobrist)
                     .with_month(month),
                 PlayerEntry::new_single(

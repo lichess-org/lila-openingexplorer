@@ -4,11 +4,11 @@ use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
-    fen::Fen,
+    fen::Epd,
     uci::Uci,
     variant::{Variant, VariantPosition},
     zobrist::{Zobrist, ZobristHash},
-    CastlingMode, Chess, FromSetup, Position,
+    CastlingMode, Chess, Position,
 };
 
 use crate::api::Error;
@@ -25,16 +25,7 @@ struct OpeningRecord {
     eco: String,
     name: String,
     #[serde_as(as = "DisplayFromStr")]
-    epd: Fen,
-}
-
-impl From<OpeningRecord> for Opening {
-    fn from(record: OpeningRecord) -> Opening {
-        Opening {
-            eco: record.eco,
-            name: record.name,
-        }
-    }
+    epd: Epd,
 }
 
 pub struct Openings {
@@ -51,10 +42,15 @@ impl Openings {
                 let record: OpeningRecord = record.expect("valid opening tsv");
                 assert!(
                     data.insert(
-                        Chess::from_setup(&record.epd, CastlingMode::Chess960)
+                        record
+                            .epd
+                            .into_position::<Chess>(CastlingMode::Chess960)
                             .expect("legal opening position")
                             .zobrist_hash(),
-                        Opening::from(record),
+                        Opening {
+                            eco: record.eco,
+                            name: record.name,
+                        }
                     )
                     .is_none(),
                     "zobrist hash unique on openings"

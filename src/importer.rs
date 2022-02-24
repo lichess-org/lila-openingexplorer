@@ -9,7 +9,7 @@ use shakmaty::{
     uci::Uci,
     variant::{Variant, VariantPosition},
     zobrist::Zobrist,
-    ByColor, CastlingMode, Chess, Color, Outcome, Position, Setup,
+    ByColor, CastlingMode, Chess, Color, Outcome, Position,
 };
 use tokio::sync::Mutex;
 
@@ -87,8 +87,8 @@ impl MastersImporter {
                     uci,
                     body.id,
                     Outcome::from_winner(body.game.winner),
-                    body.game.players.by_color(turn).rating,
-                    body.game.players.by_color(!turn).rating,
+                    body.game.players.get(turn).rating,
+                    body.game.players.get(!turn).rating,
                 ),
             );
         }
@@ -156,7 +156,9 @@ impl LichessImporter {
         let variant = Variant::from(game.variant.unwrap_or_default());
 
         let mut pos: Zobrist<_, u128> = Zobrist::new(match game.fen {
-            Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)?,
+            Some(fen) => {
+                VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)?
+            }
             None => VariantPosition::new(variant),
         });
 
@@ -198,8 +200,8 @@ impl LichessImporter {
                     game.speed,
                     game.id,
                     outcome,
-                    game.players.by_color(turn).rating,
-                    game.players.by_color(!turn).rating,
+                    game.players.get(turn).rating,
+                    game.players.get(!turn).rating,
                 ),
             );
         }

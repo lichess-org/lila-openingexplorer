@@ -142,10 +142,12 @@ impl Play {
     pub fn position(self, openings: &Openings) -> Result<PlayPosition<'_>, Error> {
         let variant = Variant::from(self.variant);
         let mut pos = Zobrist::new(match self.fen {
-            Some(fen) => VariantPosition::from_setup(variant, &fen, CastlingMode::Chess960)
-                .or_else(PositionError::ignore_invalid_castling_rights)
-                .or_else(PositionError::ignore_invalid_ep_square)
-                .or_else(PositionError::ignore_impossible_material)?,
+            Some(fen) => {
+                VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)
+                    .or_else(PositionError::ignore_invalid_castling_rights)
+                    .or_else(PositionError::ignore_invalid_ep_square)
+                    .or_else(PositionError::ignore_impossible_material)?
+            }
             None => VariantPosition::new(variant),
         });
         let opening = openings.classify_and_play(&mut pos, self.play)?;
