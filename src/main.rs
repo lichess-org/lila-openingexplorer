@@ -25,6 +25,7 @@ use shakmaty::{
     uci::Uci,
     variant::VariantPosition,
 };
+use tikv_jemallocator::Jemalloc;
 use tokio::sync::watch;
 use tower::ServiceBuilder;
 
@@ -40,6 +41,9 @@ use crate::{
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
+
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 #[derive(Parser)]
 struct Opt {
