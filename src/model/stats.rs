@@ -51,7 +51,7 @@ impl Stats {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.total() == 0
+        self.white == 0 && self.draws == 0 && self.black == 0
     }
 
     pub fn is_single(&self) -> bool {
