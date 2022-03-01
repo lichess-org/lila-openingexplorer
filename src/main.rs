@@ -14,7 +14,7 @@ use axum::{
     extract::{Extension, Path, Query},
     http::StatusCode,
     routing::{get, post, put},
-    AddExtensionLayer, Json, Router,
+    Json, Router,
 };
 use clap::Parser;
 use futures_util::stream::Stream;
@@ -97,11 +97,11 @@ async fn main() {
         .route("/personal", get(player)) // bc
         .layer(
             ServiceBuilder::new()
-                .layer(AddExtensionLayer::new(openings))
-                .layer(AddExtensionLayer::new(db))
-                .layer(AddExtensionLayer::new(masters_importer))
-                .layer(AddExtensionLayer::new(lichess_importer))
-                .layer(AddExtensionLayer::new(indexer)),
+                .layer(Extension(openings))
+                .layer(Extension(db))
+                .layer(Extension(masters_importer))
+                .layer(Extension(lichess_importer))
+                .layer(Extension(indexer)),
         );
 
     let app = if opt.cors {
