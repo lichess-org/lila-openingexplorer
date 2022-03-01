@@ -14,7 +14,6 @@ use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
-use smallvec::{smallvec, SmallVec};
 
 use crate::{
     model::{
@@ -103,7 +102,7 @@ impl IntoResponse for MastersGame {
 #[derive(Debug, Default)]
 pub struct MastersGroup {
     pub stats: Stats,
-    pub games: SmallVec<[(u16, GameId); 1]>,
+    pub games: Vec<(u16, GameId)>,
 }
 
 impl AddAssign for MastersGroup {
@@ -133,7 +132,7 @@ impl MastersEntry {
             uci,
             MastersGroup {
                 stats: Stats::new_single(outcome, mover_rating),
-                games: smallvec![(mover_rating.saturating_add(opponent_rating), id)],
+                games: vec![(mover_rating.saturating_add(opponent_rating), id)],
             },
         );
         MastersEntry { groups }

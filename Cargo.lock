@@ -821,7 +821,6 @@ dependencies = [
  "serde_with",
  "sha-1",
  "shakmaty",
- "smallvec",
  "sync_wrapper",
  "thiserror",
  "tikv-jemallocator",

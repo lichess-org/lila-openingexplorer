@@ -8,7 +8,6 @@ use std::{
 use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
 use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
-use smallvec::{smallvec, SmallVec};
 
 use crate::{
     api::PlayerQueryFilter,
@@ -91,7 +90,7 @@ impl PlayerEntry {
         let mut sub_entry: BySpeed<ByMode<LichessGroup>> = Default::default();
         *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = LichessGroup {
             stats: Stats::new_single(outcome, opponent_rating),
-            games: smallvec![(0, game_id)],
+            games: vec![(0, game_id)],
         };
         let mut sub_entries = FxHashMap::with_capacity_and_hasher(1, Default::default());
         sub_entries.insert(uci, sub_entry);
@@ -125,7 +124,7 @@ impl PlayerEntry {
                         num_games,
                     }) => {
                         let stats = Stats::read(reader)?;
-                        let mut games = SmallVec::with_capacity(num_games);
+                        let mut games = Vec::with_capacity(num_games);
                         for _ in 0..num_games {
                             let game_idx = base_game_idx + read_uint(reader)?;
                             self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
