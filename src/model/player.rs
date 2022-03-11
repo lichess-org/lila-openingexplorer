@@ -148,8 +148,8 @@ impl PlayerEntry {
 
             write_uci(writer, uci)?;
 
-            sub_entry.as_ref().try_map(|speed, by_mode| {
-                by_mode.as_ref().try_map(|mode, group| {
+            for (speed, by_mode) in sub_entry.as_ref().zip_speed() {
+                for (mode, group) in by_mode.as_ref().zip_mode() {
                     if !group.games.is_empty() || !group.stats.is_empty() {
                         Header::Group {
                             speed,
@@ -169,10 +169,8 @@ impl PlayerEntry {
                             game.write(writer)?;
                         }
                     }
-
-                    Ok::<_, io::Error>(())
-                })
-            })?;
+                }
+            }
         }
 
         Ok(())

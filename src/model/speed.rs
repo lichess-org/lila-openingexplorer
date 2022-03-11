@@ -1,4 +1,4 @@
-use std::{ops::AddAssign, str::FromStr};
+use std::{array, ops::AddAssign, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -89,18 +89,32 @@ impl<T> BySpeed<T> {
         }
     }
 
-    pub fn try_map<U, E, F>(self, mut f: F) -> Result<BySpeed<U>, E>
-    where
-        F: FnMut(Speed, T) -> Result<U, E>,
-    {
-        Ok(BySpeed {
-            ultra_bullet: f(Speed::UltraBullet, self.ultra_bullet)?,
-            bullet: f(Speed::Bullet, self.bullet)?,
-            blitz: f(Speed::Blitz, self.blitz)?,
-            rapid: f(Speed::Rapid, self.rapid)?,
-            classical: f(Speed::Classical, self.classical)?,
-            correspondence: f(Speed::Correspondence, self.correspondence)?,
-        })
+    pub fn zip_speed(self) -> BySpeed<(Speed, T)> {
+        BySpeed {
+            ultra_bullet: (Speed::UltraBullet, self.ultra_bullet),
+            bullet: (Speed::Bullet, self.bullet),
+            blitz: (Speed::Blitz, self.blitz),
+            rapid: (Speed::Rapid, self.rapid),
+            classical: (Speed::Classical, self.classical),
+            correspondence: (Speed::Correspondence, self.correspondence),
+        }
+    }
+}
+
+impl<T> IntoIterator for BySpeed<T> {
+    type Item = T;
+    type IntoIter = array::IntoIter<T, 6>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            self.ultra_bullet,
+            self.bullet,
+            self.blitz,
+            self.rapid,
+            self.classical,
+            self.correspondence,
+        ]
+        .into_iter()
     }
 }
 

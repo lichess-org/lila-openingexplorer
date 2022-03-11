@@ -1,4 +1,4 @@
-use std::{ops::AddAssign, str::FromStr};
+use std::{array, ops::AddAssign, str::FromStr};
 
 use serde::Serialize;
 use thiserror::Error;
@@ -70,14 +70,20 @@ impl<T> ByMode<T> {
         }
     }
 
-    pub fn try_map<U, E, F>(self, mut f: F) -> Result<ByMode<U>, E>
-    where
-        F: FnMut(Mode, T) -> Result<U, E>,
-    {
-        Ok(ByMode {
-            rated: f(Mode::Rated, self.rated)?,
-            casual: f(Mode::Casual, self.casual)?,
-        })
+    pub fn zip_mode(self) -> ByMode<(Mode, T)> {
+        ByMode {
+            rated: (Mode::Rated, self.rated),
+            casual: (Mode::Casual, self.casual),
+        }
+    }
+}
+
+impl<T> IntoIterator for ByMode<T> {
+    type Item = T;
+    type IntoIter = array::IntoIter<T, 2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [self.rated, self.casual].into_iter()
     }
 }
 

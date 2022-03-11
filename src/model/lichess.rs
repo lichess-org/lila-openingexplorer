@@ -1,4 +1,5 @@
 use std::{
+    array,
     cmp::{max, min, Reverse},
     io::{self, Read, Write},
     ops::AddAssign,
@@ -125,20 +126,36 @@ impl<T> ByRatingGroup<T> {
         }
     }
 
-    fn try_map<U, E, F>(self, mut f: F) -> Result<ByRatingGroup<U>, E>
-    where
-        F: FnMut(RatingGroup, T) -> Result<U, E>,
-    {
-        Ok(ByRatingGroup {
-            group_low: f(RatingGroup::GroupLow, self.group_low)?,
-            group_1600: f(RatingGroup::Group1600, self.group_1600)?,
-            group_1800: f(RatingGroup::Group1800, self.group_1800)?,
-            group_2000: f(RatingGroup::Group2000, self.group_2000)?,
-            group_2200: f(RatingGroup::Group2200, self.group_2200)?,
-            group_2500: f(RatingGroup::Group2500, self.group_2500)?,
-            group_2800: f(RatingGroup::Group2800, self.group_2800)?,
-            group_3200: f(RatingGroup::Group3200, self.group_3200)?,
-        })
+    fn zip_rating_group(self) -> ByRatingGroup<(RatingGroup, T)> {
+        ByRatingGroup {
+            group_low: (RatingGroup::GroupLow, self.group_low),
+            group_1600: (RatingGroup::Group1600, self.group_1600),
+            group_1800: (RatingGroup::Group1800, self.group_1800),
+            group_2000: (RatingGroup::Group2000, self.group_2000),
+            group_2200: (RatingGroup::Group2200, self.group_2200),
+            group_2500: (RatingGroup::Group2500, self.group_2500),
+            group_2800: (RatingGroup::Group2800, self.group_2800),
+            group_3200: (RatingGroup::Group3200, self.group_3200),
+        }
+    }
+}
+
+impl<T> IntoIterator for ByRatingGroup<T> {
+    type Item = T;
+    type IntoIter = array::IntoIter<T, 8>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            self.group_low,
+            self.group_1600,
+            self.group_1800,
+            self.group_2000,
+            self.group_2200,
+            self.group_2500,
+            self.group_2800,
+            self.group_3200,
+        ]
+        .into_iter()
     }
 }
 
@@ -318,8 +335,8 @@ impl LichessEntry {
 
             write_uci(writer, uci)?;
 
-            sub_entry.as_ref().try_map(|speed, by_rating_group| {
-                by_rating_group.as_ref().try_map(|rating_group, group| {
+            for (speed, by_rating_group) in sub_entry.as_ref().zip_speed() {
+                for (rating_group, group) in by_rating_group.as_ref().zip_rating_group() {
                     if !group.games.is_empty() || !group.stats.is_empty() {
                         LichessHeader::Group {
                             speed,
@@ -339,10 +356,8 @@ impl LichessEntry {
                             game.write(writer)?;
                         }
                     }
-
-                    Ok::<_, io::Error>(())
-                })
-            })?;
+                }
+            }
         }
 
         Ok(())
