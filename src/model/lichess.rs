@@ -397,26 +397,29 @@ impl LichessEntry {
         });
 
         // Split out top games from recent games.
-        let mut top_games = Vec::new();
-        if let Some(top_group) = filter.top_group() {
-            recent_games.sort_unstable_by_key(|(rating_group, _, idx, _, _)| {
-                (
-                    Reverse(min(*rating_group, RatingGroup::Group2500)),
-                    Reverse(*idx),
-                )
-            });
-            recent_games.retain(|(rating_group, speed, _, uci, game)| {
-                if top_games.len() < MAX_TOP_GAMES
-                    && *rating_group >= top_group
-                    && *speed != Speed::Correspondence
-                {
-                    top_games.push((uci.to_owned(), *game));
-                    false
-                } else {
-                    true
-                }
-            });
-        }
+        let mut top_games = if let Some(top_group) = filter.top_group() {
+            let mut top_games: Vec<_> = recent_games
+                .iter()
+                .filter(|(rating_group, speed, _, _, _)| {
+                    *rating_group >= top_group && *speed != Speed::Correspondence
+                })
+                .cloned()
+                .collect();
+            sort_by_key_and_truncate(
+                &mut top_games,
+                MAX_TOP_GAMES,
+                |(rating_group, _, idx, _, _)| {
+                    (
+                        Reverse(min(*rating_group, RatingGroup::Group2500)),
+                        Reverse(*idx),
+                    )
+                },
+            );
+            recent_games.retain(|game| !top_games.contains(game));
+            top_games
+        } else {
+            Vec::new()
+        };
         let valid_recent_games = MAX_LICHESS_GAMES - top_games.len();
         top_games.truncate(limits.top_games);
 
@@ -430,7 +433,10 @@ impl LichessEntry {
         PreparedResponse {
             total,
             moves,
-            top_games,
+            top_games: top_games
+                .into_iter()
+                .map(|(_, _, _, uci, game)| (uci, game))
+                .collect(),
             recent_games: recent_games
                 .into_iter()
                 .map(|(_, _, _, uci, game)| (uci, game))
