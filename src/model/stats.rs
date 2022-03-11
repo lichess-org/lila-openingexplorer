@@ -1,8 +1,9 @@
 use std::{
-    io::{self, Read, Write},
+    io::{self, Read},
     ops::AddAssign,
 };
 
+use bytes::BufMut;
 use serde::Serialize;
 use shakmaty::{Color, Outcome};
 
@@ -92,36 +93,36 @@ impl Stats {
         })
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_uint(writer, self.rating_sum)?;
+    pub fn write<B: BufMut>(&self, buf: &mut B) {
+        write_uint(buf, self.rating_sum);
         match *self {
             Stats {
                 white: 1,
                 draws: 0,
                 black: 0,
                 ..
-            } => write_uint(writer, 0),
+            } => write_uint(buf, 0),
             Stats {
                 white: 0,
                 draws: 0,
                 black: 1,
                 ..
-            } => write_uint(writer, 1),
+            } => write_uint(buf, 1),
             Stats {
                 white: 0,
                 draws: 1,
                 black: 0,
                 ..
-            } => write_uint(writer, 2),
+            } => write_uint(buf, 2),
             Stats {
                 white,
                 draws,
                 black,
                 ..
             } => {
-                write_uint(writer, white + 3)?;
-                write_uint(writer, draws)?;
-                write_uint(writer, black)
+                write_uint(buf, white + 3);
+                write_uint(buf, draws);
+                write_uint(buf, black);
             }
         }
     }
@@ -148,10 +149,10 @@ mod tests {
 
     quickcheck! {
         fn test_stats_roundtrip(stats: Stats) -> bool {
-            let mut cursor = Cursor::new(Vec::new());
-            stats.write(&mut cursor).unwrap();
+            let mut buf = Vec::new();
+            stats.write(&mut buf);
 
-            let mut cursor = Cursor::new(cursor.into_inner());
+            let mut cursor = Cursor::new(buf);
             Stats::read(&mut cursor).unwrap() == stats
         }
     }

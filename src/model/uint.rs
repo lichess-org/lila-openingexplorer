@@ -1,6 +1,7 @@
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 
-use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::ReadBytesExt as _;
+use bytes::BufMut;
 
 pub fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
     let mut n = 0;
@@ -16,12 +17,12 @@ pub fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
     Ok(n)
 }
 
-pub fn write_uint<W: Write>(writer: &mut W, mut n: u64) -> io::Result<()> {
+pub fn write_uint<B: BufMut>(buf: &mut B, mut n: u64) {
     while n > 127 {
-        writer.write_u8((n as u8 & 127) | 128)?;
+        buf.put_u8((n as u8 & 127) | 128);
         n >>= 7;
     }
-    writer.write_u8(n as u8)
+    buf.put_u8(n as u8)
 }
 
 #[cfg(test)]
@@ -34,10 +35,10 @@ mod tests {
 
     quickcheck! {
         fn test_uint_roundtrip(n: u64) -> bool {
-            let mut writer = Cursor::new(Vec::new());
-            write_uint(&mut writer, n).unwrap();
+            let mut buf = Vec::new();
+            write_uint(&mut buf, n);
 
-            let mut reader = Cursor::new(writer.into_inner());
+            let mut reader = Cursor::new(buf);
             read_uint(&mut reader).unwrap() == n
         }
     }

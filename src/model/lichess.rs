@@ -1,12 +1,13 @@
 use std::{
     array,
     cmp::{max, min, Reverse},
-    io::{self, Read, Write},
+    io::{self, Read},
     ops::AddAssign,
     str::FromStr,
 };
 
-use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::ReadBytesExt as _;
+use bytes::BufMut;
 use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 
@@ -204,15 +205,15 @@ impl LichessHeader {
         })
     }
 
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn write<B: BufMut>(&self, buf: &mut B) {
         match *self {
-            LichessHeader::End => writer.write_u8(0),
+            LichessHeader::End => buf.put_u8(0),
             LichessHeader::Group {
                 speed,
                 rating_group,
                 num_games,
             } => {
-                writer.write_u8(
+                buf.put_u8(
                     (match speed {
                         Speed::UltraBullet => 1,
                         Speed::Bullet => 2,
@@ -231,11 +232,10 @@ impl LichessHeader {
                         RatingGroup::Group3200 => 7,
                     } << 3)
                         | ((min(3, num_games) as u8) << 6),
-                )?;
+                );
                 if num_games >= 3 {
-                    write_uint(writer, num_games as u64)?;
+                    write_uint(buf, num_games as u64);
                 }
-                Ok(())
             }
         }
     }
@@ -327,13 +327,13 @@ impl LichessEntry {
         }
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn write<B: BufMut>(&self, buf: &mut B) {
         for (i, (uci, sub_entry)) in self.sub_entries.iter().enumerate() {
             if i > 0 {
-                LichessHeader::End.write(writer)?;
+                LichessHeader::End.write(buf);
             }
 
-            write_uci(writer, uci)?;
+            write_uci(buf, uci);
 
             for (speed, by_rating_group) in sub_entry.as_ref().zip_speed() {
                 for (rating_group, group) in by_rating_group.as_ref().zip_rating_group() {
@@ -343,24 +343,22 @@ impl LichessEntry {
                             rating_group,
                             num_games: min(group.games.len(), MAX_LICHESS_GAMES),
                         }
-                        .write(writer)?;
+                        .write(buf);
 
-                        group.stats.write(writer)?;
+                        group.stats.write(buf);
 
                         for (game_idx, game) in group
                             .games
                             .iter()
                             .skip(group.games.len().saturating_sub(MAX_LICHESS_GAMES))
                         {
-                            write_uint(writer, *game_idx)?;
-                            game.write(writer)?;
+                            write_uint(buf, *game_idx);
+                            game.write(buf);
                         }
                     }
                 }
             }
         }
-
-        Ok(())
     }
 
     pub fn prepare(self, filter: &LichessQueryFilter, limits: &Limits) -> PreparedResponse {
@@ -508,17 +506,17 @@ mod tests {
             2200,
         );
 
-        let mut cursor = Cursor::new(Vec::new());
-        a.write(&mut cursor).unwrap();
+        let mut buf = Vec::new();
+        a.write(&mut buf);
         assert_eq!(
-            cursor.position() as usize,
+            buf.len(),
             LichessEntry::SIZE_HINT,
             "optimized for single entries"
         );
 
         let mut deserialized = LichessEntry::default();
         deserialized
-            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .extend_from_reader(&mut Cursor::new(buf))
             .unwrap();
 
         assert_eq!(deserialized.sub_entries.len(), 1);
@@ -542,21 +540,21 @@ mod tests {
             2200,
         );
 
-        let mut cursor = Cursor::new(Vec::new());
-        b.write(&mut cursor).unwrap();
+        let mut buf = Vec::new();
+        b.write(&mut buf);
         deserialized
-            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .extend_from_reader(&mut Cursor::new(buf))
             .unwrap();
 
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(1));
 
         // Roundtrip the combined entry.
-        let mut cursor = Cursor::new(Vec::new());
-        deserialized.write(&mut cursor).unwrap();
+        let mut buf = Vec::new();
+        deserialized.write(&mut buf);
         let mut deserialized = LichessEntry::default();
         deserialized
-            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .extend_from_reader(&mut Cursor::new(buf))
             .unwrap();
 
         assert_eq!(deserialized.sub_entries.len(), 2);

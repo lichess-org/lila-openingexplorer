@@ -252,10 +252,10 @@ pub struct MastersBatch<'a> {
 
 impl MastersBatch<'_> {
     pub fn merge(&mut self, key: Key, entry: MastersEntry) {
-        let mut cursor = Cursor::new(Vec::with_capacity(MastersEntry::SIZE_HINT));
-        entry.write(&mut cursor).expect("serialize masters entry");
+        let mut buf = Vec::with_capacity(MastersEntry::SIZE_HINT);
+        entry.write(&mut buf);
         self.batch
-            .merge_cf(self.db.cf_masters, key.into_bytes(), cursor.into_inner());
+            .merge_cf(self.db.cf_masters, key.into_bytes(), buf);
     }
 
     pub fn put_game(&mut self, id: GameId, game: &MastersGame) {
@@ -388,13 +388,10 @@ impl LichessDatabase<'_> {
         id: &UserId,
         status: &PlayerStatus,
     ) -> Result<(), rocksdb::Error> {
-        let mut cursor = Cursor::new(Vec::with_capacity(PlayerStatus::SIZE_HINT));
-        status.write(&mut cursor).expect("serialize status");
-        self.inner.put_cf(
-            self.cf_player_status,
-            id.as_lowercase_str(),
-            cursor.into_inner(),
-        )
+        let mut buf = Vec::with_capacity(PlayerStatus::SIZE_HINT);
+        status.write(&mut buf);
+        self.inner
+            .put_cf(self.cf_player_status, id.as_lowercase_str(), buf)
     }
 
     pub fn batch(&self) -> LichessBatch<'_> {
@@ -412,27 +409,24 @@ pub struct LichessBatch<'a> {
 
 impl LichessBatch<'_> {
     pub fn merge_lichess(&mut self, key: Key, entry: LichessEntry) {
-        let mut cursor = Cursor::new(Vec::with_capacity(LichessEntry::SIZE_HINT));
-        entry.write(&mut cursor).expect("serialize lichess entry");
+        let mut buf = Vec::with_capacity(LichessEntry::SIZE_HINT);
+        entry.write(&mut buf);
         self.batch
-            .merge_cf(self.inner.cf_lichess, key.into_bytes(), cursor.into_inner());
+            .merge_cf(self.inner.cf_lichess, key.into_bytes(), buf);
     }
 
     pub fn merge_game(&mut self, id: GameId, info: LichessGame) {
-        let mut cursor = Cursor::new(Vec::with_capacity(LichessGame::SIZE_HINT));
-        info.write(&mut cursor).expect("serialize game info");
-        self.batch.merge_cf(
-            self.inner.cf_lichess_game,
-            id.to_bytes(),
-            cursor.into_inner(),
-        );
+        let mut buf = Vec::with_capacity(LichessGame::SIZE_HINT);
+        info.write(&mut buf);
+        self.batch
+            .merge_cf(self.inner.cf_lichess_game, id.to_bytes(), buf);
     }
 
     pub fn merge_player(&mut self, key: Key, entry: PlayerEntry) {
-        let mut cursor = Cursor::new(Vec::with_capacity(PlayerEntry::SIZE_HINT));
-        entry.write(&mut cursor).expect("serialize player entry");
+        let mut buf = Vec::with_capacity(PlayerEntry::SIZE_HINT);
+        entry.write(&mut buf);
         self.batch
-            .merge_cf(self.inner.cf_player, key.into_bytes(), cursor.into_inner());
+            .merge_cf(self.inner.cf_player, key.into_bytes(), buf);
     }
 
     pub fn commit(self) -> Result<(), rocksdb::Error> {
@@ -454,9 +448,9 @@ fn lichess_merge(
             .expect("deserialize for lichess merge");
         size_hint += op.len();
     }
-    let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
-    entry.write(&mut cursor).expect("write lichess entry");
-    Some(cursor.into_inner())
+    let mut buf = Vec::with_capacity(size_hint);
+    entry.write(&mut buf);
+    Some(buf)
 }
 
 fn lichess_game_merge(
@@ -479,9 +473,9 @@ fn lichess_game_merge(
         size_hint = op.len();
     }
     info.map(|info| {
-        let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
-        info.write(&mut cursor).expect("write lichess game");
-        cursor.into_inner()
+        let mut buf = Vec::with_capacity(size_hint);
+        info.write(&mut buf);
+        buf
     })
 }
 
@@ -495,9 +489,9 @@ fn player_merge(_key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) 
             .expect("deserialize for player merge");
         size_hint += op.len();
     }
-    let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
-    entry.write(&mut cursor).expect("write player entry");
-    Some(cursor.into_inner())
+    let mut buf = Vec::with_capacity(size_hint);
+    entry.write(&mut buf);
+    Some(buf)
 }
 
 fn masters_merge(
@@ -514,9 +508,9 @@ fn masters_merge(
             .expect("deserialize for masters merge");
         size_hint += op.len();
     }
-    let mut cursor = Cursor::new(Vec::with_capacity(size_hint));
-    entry.write(&mut cursor).expect("write masters entry");
-    Some(cursor.into_inner())
+    let mut buf = Vec::with_capacity(size_hint);
+    entry.write(&mut buf);
+    Some(buf)
 }
 
 fn compact_column(db: &DB, cf: &ColumnFamily) {

@@ -1,10 +1,11 @@
 use std::{
     fmt::{self, Write as _},
-    io::{self, Cursor, Read, Write},
+    io::{self, Read},
     str::FromStr,
 };
 
-use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _};
+use bytes::BufMut;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -18,14 +19,13 @@ impl GameId {
     pub const SIZE: usize = 6;
 
     pub fn to_bytes(&self) -> [u8; Self::SIZE] {
-        let mut buf = [0; Self::SIZE];
-        let mut cursor = Cursor::new(&mut buf[..]);
-        self.write(&mut cursor).expect("serialize game id");
+        let mut buf = [0u8; Self::SIZE];
+        LittleEndian::write_u48(&mut buf[..], self.0);
         buf
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_u48::<LittleEndian>(self.0)
+    pub fn write<B: BufMut>(&self, buf: &mut B) {
+        buf.put_slice(&self.to_bytes());
     }
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<GameId> {

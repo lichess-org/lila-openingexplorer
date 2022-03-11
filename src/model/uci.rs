@@ -1,9 +1,10 @@
 use std::{
     convert::TryFrom,
-    io::{self, Read, Write},
+    io::{self, Read},
 };
 
-use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::{LittleEndian, ReadBytesExt as _};
+use bytes::BufMut;
 use shakmaty::{uci::Uci, Role, Square};
 
 pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
@@ -25,7 +26,7 @@ pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
     })
 }
 
-pub fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
+pub fn write_uci<B: BufMut>(buf: &mut B, uci: &Uci) {
     let (from, to, role) = match *uci {
         Uci::Normal {
             from,
@@ -35,9 +36,9 @@ pub fn write_uci<W: Write>(writer: &mut W, uci: &Uci) -> io::Result<()> {
         Uci::Put { role, to } => (to, to, Some(role)),
         Uci::Null => (Square::A1, Square::A1, None),
     };
-    writer.write_u16::<LittleEndian>(
+    buf.put_u16_le(
         u16::from(from) | (u16::from(to) << 6) | (role.map(u16::from).unwrap_or_default() << 12),
-    )
+    );
 }
 
 #[cfg(test)]
@@ -66,12 +67,12 @@ mod tests {
             },
         ];
 
-        let mut writer = Cursor::new(Vec::new());
+        let mut buf = Vec::new();
         for uci in &moves {
-            write_uci(&mut writer, uci).unwrap();
+            write_uci(&mut buf, uci);
         }
 
-        let mut reader = Cursor::new(writer.into_inner());
+        let mut reader = Cursor::new(buf);
         for uci in moves {
             assert_eq!(uci, read_uci(&mut reader).unwrap());
         }

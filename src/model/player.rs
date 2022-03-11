@@ -1,11 +1,12 @@
 use std::{
     cmp::{max, min, Reverse},
     fmt,
-    io::{self, Read, Write},
+    io::{self, Read},
     time::{Duration, SystemTime},
 };
 
-use byteorder::{ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::ReadBytesExt as _;
+use bytes::BufMut;
 use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 
@@ -49,8 +50,8 @@ impl Header {
         })
     }
 
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_u8(match *self {
+    fn write<B: BufMut>(&self, buf: &mut B) {
+        buf.put_u8(match *self {
             Header::End => 0,
             Header::Group {
                 mode,
@@ -140,13 +141,13 @@ impl PlayerEntry {
         }
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn write<B: BufMut>(&self, buf: &mut B) {
         for (i, (uci, sub_entry)) in self.sub_entries.iter().enumerate() {
             if i > 0 {
-                Header::End.write(writer)?;
+                Header::End.write(buf);
             }
 
-            write_uci(writer, uci)?;
+            write_uci(buf, uci);
 
             for (speed, by_mode) in sub_entry.as_ref().zip_speed() {
                 for (mode, group) in by_mode.as_ref().zip_mode() {
@@ -156,24 +157,22 @@ impl PlayerEntry {
                             mode,
                             num_games: min(group.games.len(), MAX_PLAYER_GAMES),
                         }
-                        .write(writer)?;
+                        .write(buf);
 
-                        group.stats.write(writer)?;
+                        group.stats.write(buf);
 
                         for (game_idx, game) in group
                             .games
                             .iter()
                             .skip(group.games.len().saturating_sub(MAX_PLAYER_GAMES))
                         {
-                            write_uint(writer, *game_idx)?;
-                            game.write(writer)?;
+                            write_uint(buf, *game_idx);
+                            game.write(buf);
                         }
                     }
                 }
             }
         }
-
-        Ok(())
     }
 
     pub fn prepare(self, filter: &PlayerQueryFilter, limits: &Limits) -> PreparedResponse {
@@ -311,23 +310,23 @@ impl PlayerStatus {
         })
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_uint(writer, self.latest_created_at)?;
-        write_uint(writer, self.revisit_ongoing_created_at.unwrap_or(0))?;
+    pub fn write<B: BufMut>(&self, buf: &mut B) {
+        write_uint(buf, self.latest_created_at);
+        write_uint(buf, self.revisit_ongoing_created_at.unwrap_or(0));
         write_uint(
-            writer,
+            buf,
             self.indexed_at
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .expect("duration since unix epoch")
                 .as_secs(),
-        )?;
+        );
         write_uint(
-            writer,
+            buf,
             self.revisited_at
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .expect("duration since unix epoch")
                 .as_secs(),
-        )
+        );
     }
 }
 
@@ -379,12 +378,12 @@ mod tests {
             Header::End,
         ];
 
-        let mut writer = Cursor::new(Vec::new());
+        let mut buf = Vec::new();
         for header in &headers {
-            header.write(&mut writer).unwrap();
+            header.write(&mut buf);
         }
 
-        let mut reader = Cursor::new(writer.into_inner());
+        let mut reader = Cursor::new(buf);
         for header in headers {
             assert_eq!(Header::read(&mut reader).unwrap(), header);
         }
@@ -437,29 +436,29 @@ mod tests {
             1700,
         );
 
-        let mut cursor = Cursor::new(Vec::new());
-        a.write(&mut cursor).unwrap();
+        let mut buf = Vec::new();
+        a.write(&mut buf);
         assert_eq!(
-            cursor.position() as usize,
+            buf.len(),
             PlayerEntry::SIZE_HINT,
             "optimized for single entries"
         );
 
         let mut deserialized = PlayerEntry::default();
         deserialized
-            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .extend_from_reader(&mut Cursor::new(buf))
             .unwrap();
 
-        let mut cursor = Cursor::new(Vec::new());
-        b.write(&mut cursor).unwrap();
+        let mut buf = Vec::new();
+        b.write(&mut buf);
         deserialized
-            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .extend_from_reader(&mut Cursor::new(buf))
             .unwrap();
 
-        let mut cursor = Cursor::new(Vec::new());
-        c.write(&mut cursor).unwrap();
+        let mut buf = Vec::new();
+        c.write(&mut buf);
         deserialized
-            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .extend_from_reader(&mut Cursor::new(buf))
             .unwrap();
 
         assert_eq!(deserialized.sub_entries.len(), 2);
@@ -477,11 +476,11 @@ mod tests {
         assert_eq!(group.games.len(), 2);
 
         // Roundtrip the combined entry.
-        let mut cursor = Cursor::new(Vec::new());
-        deserialized.write(&mut cursor).unwrap();
+        let mut buf = Vec::new();
+        deserialized.write(&mut buf);
         let mut deserialized = PlayerEntry::default();
         deserialized
-            .extend_from_reader(&mut Cursor::new(cursor.into_inner()))
+            .extend_from_reader(&mut Cursor::new(buf))
             .unwrap();
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(2));

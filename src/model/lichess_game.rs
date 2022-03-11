@@ -1,9 +1,10 @@
 use std::{
     convert::{TryFrom, TryInto},
-    io::{self, Read, Write},
+    io::{self, Read},
 };
 
-use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::{LittleEndian, ReadBytesExt as _};
+use bytes::BufMut;
 use serde::{Deserialize, Serialize};
 use shakmaty::{ByColor, Color, Outcome};
 
@@ -23,8 +24,8 @@ pub struct LichessGame {
 impl LichessGame {
     pub const SIZE_HINT: usize = 1 + 2 * (1 + 20 + 2) + 2;
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_u8(
+    pub fn write<B: BufMut>(&self, buf: &mut B) {
+        buf.put_u8(
             match self.speed {
                 Speed::UltraBullet => 0,
                 Speed::Bullet => 1,
@@ -44,11 +45,11 @@ impl LichessGame {
                 | (if self.mode.is_rated() { 1 } else { 0 } << 5)
                 | (if self.indexed_player.white { 1 } else { 0 } << 6)
                 | (if self.indexed_player.black { 1 } else { 0 } << 7),
-        )?;
-        self.players.white.write(writer)?;
-        self.players.black.write(writer)?;
-        writer.write_u16::<LittleEndian>(u16::from(self.month))?;
-        writer.write_u8(if self.indexed_lichess { 1 } else { 0 })
+        );
+        self.players.white.write(buf);
+        self.players.black.write(buf);
+        buf.put_u16_le(u16::from(self.month));
+        buf.put_u8(u8::from(self.indexed_lichess));
     }
 
     pub fn read<R: Read>(reader: &mut R) -> io::Result<LichessGame> {
@@ -105,10 +106,10 @@ pub struct GamePlayer {
 }
 
 impl GamePlayer {
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_uint(writer, self.name.len() as u64)?;
-        writer.write_all(self.name.as_bytes())?;
-        writer.write_u16::<LittleEndian>(self.rating)
+    fn write<B: BufMut>(&self, buf: &mut B) {
+        write_uint(buf, self.name.len() as u64);
+        buf.put_slice(self.name.as_bytes());
+        buf.put_u16_le(self.rating);
     }
 
     fn read<R: Read>(reader: &mut R) -> io::Result<GamePlayer> {

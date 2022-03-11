@@ -9,7 +9,8 @@ use axum::{
     body,
     response::{IntoResponse, Response},
 };
-use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use byteorder::{LittleEndian, ReadBytesExt as _};
+use bytes::BufMut;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
@@ -161,7 +162,7 @@ impl MastersEntry {
         }
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn write<B: BufMut>(&self, buf: &mut B) {
         let mut top_games = Vec::new();
         for group in self.groups.values() {
             top_games.extend(&group.games);
@@ -169,26 +170,25 @@ impl MastersEntry {
         sort_by_key_and_truncate(&mut top_games, 15, |(sort_key, _)| Reverse(*sort_key));
 
         for (uci, group) in &self.groups {
-            write_uci(writer, uci)?;
+            write_uci(buf, uci);
 
-            group.stats.write(writer)?;
+            group.stats.write(buf);
 
             let num_games = if group.games.len() == 1 {
                 1
             } else {
                 group.games.iter().filter(|g| top_games.contains(g)).count()
             };
-            writer.write_u8(num_games as u8)?;
+            buf.put_u8(num_games as u8);
             for (sort_key, id) in group
                 .games
                 .iter()
                 .filter(|g| group.games.len() == 1 || top_games.contains(g))
             {
-                writer.write_u16::<LittleEndian>(*sort_key)?;
-                id.write(writer)?;
+                buf.put_u16_le(*sort_key);
+                id.write(buf);
             }
         }
-        Ok(())
     }
 
     fn total(&self) -> Stats {
@@ -266,15 +266,15 @@ mod tests {
         let game = "aaaaaaaa".parse().unwrap();
         let a = MastersEntry::new_single(uci.clone(), game, Outcome::Draw, 1600, 1700);
 
-        let mut writer = Cursor::new(Vec::with_capacity(MastersEntry::SIZE_HINT));
-        a.write(&mut writer).unwrap();
+        let mut buf = Vec::with_capacity(MastersEntry::SIZE_HINT);
+        a.write(&mut buf);
         assert_eq!(
-            writer.position() as usize,
+            buf.len(),
             MastersEntry::SIZE_HINT,
             "optimized for single entries"
         );
 
-        let mut reader = Cursor::new(writer.into_inner());
+        let mut reader = Cursor::new(buf);
         let mut deserialized = MastersEntry::default();
         deserialized.extend_from_reader(&mut reader).unwrap();
 
