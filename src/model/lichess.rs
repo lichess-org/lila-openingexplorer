@@ -10,7 +10,7 @@ use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 
 use crate::{
-    api::LichessQueryFilter,
+    api::{LichessQueryFilter, Limits},
     model::{read_uci, read_uint, write_uci, write_uint, BySpeed, GameId, Speed, Stats},
 };
 
@@ -347,7 +347,7 @@ impl LichessEntry {
         Ok(())
     }
 
-    pub fn prepare(self, filter: &LichessQueryFilter) -> PreparedResponse {
+    pub fn prepare(self, filter: &LichessQueryFilter, limits: &Limits) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
         let mut recent_games: Vec<(RatingGroup, Speed, u64, Uci, GameId)> = Vec::new();
@@ -392,16 +392,17 @@ impl LichessEntry {
         }
 
         moves.sort_by_key(|row| Reverse(row.stats.total()));
+        moves.truncate(limits.moves.unwrap_or(12));
 
         // Split out top games from recent games.
-        let top_games = if let Some(top_group) = filter.top_group() {
-            recent_games.sort_by_key(|(rating_group, _, idx, _, _)| {
+        let mut top_games = Vec::new();
+        if let Some(top_group) = filter.top_group() {
+            recent_games.sort_unstable_by_key(|(rating_group, _, idx, _, _)| {
                 (
                     Reverse(min(*rating_group, RatingGroup::Group2500)),
                     Reverse(*idx),
                 )
             });
-            let mut top_games = Vec::with_capacity(MAX_TOP_GAMES);
             recent_games.retain(|(rating_group, speed, _, uci, game)| {
                 if top_games.len() < MAX_TOP_GAMES
                     && *rating_group >= top_group
@@ -413,14 +414,14 @@ impl LichessEntry {
                     true
                 }
             });
-            top_games
-        } else {
-            Vec::new()
-        };
+        }
+        let valid_recent_games = MAX_LICHESS_GAMES - top_games.len();
+        top_games.truncate(limits.top_games);
 
         // Prepare recent games.
-        recent_games.sort_by_key(|(_, _, idx, _, _)| Reverse(*idx));
-        recent_games.truncate(MAX_LICHESS_GAMES - top_games.len());
+        let num_recent_games = min(valid_recent_games, limits.recent_games);
+        recent_games.sort_unstable_by_key(|(_, _, idx, _, _)| Reverse(*idx));
+        recent_games.truncate(num_recent_games);
 
         PreparedResponse {
             total,
@@ -533,12 +534,19 @@ mod tests {
         assert_eq!(deserialized.max_game_idx, Some(1));
 
         // Run query.
-        let res = deserialized.prepare(&LichessQueryFilter {
-            speeds: None,
-            ratings: Some(vec![RatingGroup::Group2000]),
-            since: Month::default(),
-            until: Month::max_value(),
-        });
+        let res = deserialized.prepare(
+            &LichessQueryFilter {
+                speeds: None,
+                ratings: Some(vec![RatingGroup::Group2000]),
+                since: Month::default(),
+                until: Month::max_value(),
+            },
+            &Limits {
+                recent_games: usize::MAX,
+                top_games: usize::MAX,
+                moves: None,
+            },
+        );
         assert_eq!(
             res.recent_games,
             &[

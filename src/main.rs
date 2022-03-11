@@ -397,14 +397,10 @@ async fn lichess(
     } = query.play.position(openings)?;
     let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
     let lichess_db = db.lichess();
-    let mut filtered = lichess_db
+    let filtered = lichess_db
         .read_lichess(&key, query.filter.since, query.filter.until)
         .expect("get lichess")
-        .prepare(&query.filter);
-
-    filtered.moves.truncate(query.limits.moves.unwrap_or(12));
-    filtered.recent_games.truncate(query.limits.recent_games);
-    filtered.top_games.truncate(query.limits.top_games);
+        .prepare(&query.filter, &query.limits);
 
     Ok(Json(ExplorerResponse {
         total: filtered.total,
