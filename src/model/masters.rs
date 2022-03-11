@@ -1,5 +1,5 @@
 use std::{
-    cmp::Reverse,
+    cmp::{min, Reverse},
     io,
     io::{Cursor, Read, Write},
     ops::AddAssign,
@@ -16,10 +16,11 @@ use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
 
 use crate::{
+    api::Limits,
     model::{
         read_uci, write_uci, GameId, GamePlayer, LaxDate, PreparedMove, PreparedResponse, Stats,
     },
-    util::ByColorDef,
+    util::{sort_by_key_and_truncate, ByColorDef},
 };
 
 #[serde_as]
@@ -165,8 +166,7 @@ impl MastersEntry {
         for group in self.groups.values() {
             top_games.extend(&group.games);
         }
-        top_games.sort_by_key(|(sort_key, _)| Reverse(*sort_key));
-        top_games.truncate(15);
+        sort_by_key_and_truncate(&mut top_games, 15, |(sort_key, _)| Reverse(*sort_key));
 
         for (uci, group) in &self.groups {
             write_uci(writer, uci)?;
@@ -199,7 +199,7 @@ impl MastersEntry {
         sum
     }
 
-    pub fn prepare(self) -> PreparedResponse {
+    pub fn prepare(self, limits: &Limits) -> PreparedResponse {
         let total = self.total();
 
         let mut top_games = Vec::new();
@@ -208,8 +208,11 @@ impl MastersEntry {
                 top_games.push((*sort_key, uci.to_owned(), *game));
             }
         }
-        top_games.sort_by_key(|(sort_key, _, _)| Reverse(*sort_key));
-        top_games.truncate(15);
+        sort_by_key_and_truncate(
+            &mut top_games,
+            min(limits.top_games, 15),
+            |(sort_key, _, _)| Reverse(*sort_key),
+        );
 
         let mut moves: Vec<PreparedMove> = self
             .groups
@@ -229,7 +232,9 @@ impl MastersEntry {
                 }
             })
             .collect();
-        moves.sort_by_key(|m| Reverse(m.stats.total()));
+        sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(12), |m| {
+            Reverse(m.stats.total())
+        });
 
         PreparedResponse {
             total,

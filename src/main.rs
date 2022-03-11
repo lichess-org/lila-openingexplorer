@@ -323,13 +323,10 @@ async fn masters(
     } = query.play.position(openings)?;
     let key = KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash());
     let masters_db = db.masters();
-    let mut entry = masters_db
+    let entry = masters_db
         .read(key, query.since, query.until)
         .expect("get masters")
-        .prepare();
-
-    entry.moves.truncate(query.limits.moves.unwrap_or(12));
-    entry.top_games.truncate(query.limits.top_games);
+        .prepare(&query.limits);
 
     Ok(Json(ExplorerResponse {
         total: entry.total,
