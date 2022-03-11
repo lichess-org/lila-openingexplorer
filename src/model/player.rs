@@ -10,11 +10,12 @@ use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 
 use crate::{
-    api::PlayerQueryFilter,
+    api::{Limits, PlayerQueryFilter},
     model::{
         read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode,
         PreparedMove, PreparedResponse, Speed, Stats,
     },
+    util::sort_by_key_and_truncate,
 };
 
 const MAX_PLAYER_GAMES: usize = 8; // must fit into 4 bits
@@ -177,7 +178,7 @@ impl PlayerEntry {
         Ok(())
     }
 
-    pub fn prepare(self, filter: &PlayerQueryFilter) -> PreparedResponse {
+    pub fn prepare(self, filter: &PlayerQueryFilter, limits: &Limits) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
         let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
@@ -233,8 +234,12 @@ impl PlayerEntry {
             }
         }
 
-        moves.sort_by_key(|row| Reverse(row.stats.total()));
-        recent_games.sort_by_key(|(idx, _, _)| Reverse(*idx));
+        sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(usize::MAX), |row| {
+            Reverse(row.stats.total())
+        });
+        sort_by_key_and_truncate(&mut recent_games, MAX_PLAYER_GAMES, |(idx, _, _)| {
+            Reverse(*idx)
+        });
 
         PreparedResponse {
             total,
@@ -242,7 +247,6 @@ impl PlayerEntry {
             recent_games: recent_games
                 .into_iter()
                 .map(|(_, uci, game)| (uci, game))
-                .take(MAX_PLAYER_GAMES as usize)
                 .collect(),
             top_games: Vec::new(),
         }

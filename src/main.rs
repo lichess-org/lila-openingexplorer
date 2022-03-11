@@ -268,13 +268,10 @@ async fn player(
             };
 
             let lichess_db = state.db.lichess();
-            let mut filtered = lichess_db
+            let filtered = lichess_db
                 .read_player(&state.key, state.filter.since, state.filter.until)
                 .expect("read player")
-                .prepare(&state.filter);
-
-            filtered.moves.truncate(state.limits.moves.unwrap_or(usize::MAX));
-            filtered.recent_games.truncate(state.limits.recent_games);
+                .prepare(&state.filter, &state.limits);
 
             Some((
                 ExplorerResponse {
