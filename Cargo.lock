@@ -811,6 +811,7 @@ dependencies = [
  "env_logger 0.9.0",
  "futures-util",
  "log",
+ "partial_sort",
  "pin-project-lite",
  "quickcheck",
  "reqwest",
@@ -1038,6 +1039,12 @@ dependencies = [
  "smallvec",
  "windows-sys",
 ]
+
+[[package]]
+name = "partial_sort"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00cf940f4ef65cb3c91884b1897d846adbdd54896b2db1936a23e43526b59c91"
 
 [[package]]
 name = "peeking_take_while"

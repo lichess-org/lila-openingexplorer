@@ -12,6 +12,7 @@ use shakmaty::{uci::Uci, Outcome};
 use crate::{
     api::{LichessQueryFilter, Limits},
     model::{read_uci, read_uint, write_uci, write_uint, BySpeed, GameId, Speed, Stats},
+    util::sort_by_key_and_truncate,
 };
 
 const MAX_LICHESS_GAMES: usize = 8;
@@ -391,8 +392,9 @@ impl LichessEntry {
             total += stats;
         }
 
-        moves.sort_by_key(|row| Reverse(row.stats.total()));
-        moves.truncate(limits.moves.unwrap_or(12));
+        sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(12), |row| {
+            Reverse(row.stats.total())
+        });
 
         // Split out top games from recent games.
         let mut top_games = Vec::new();
@@ -419,9 +421,11 @@ impl LichessEntry {
         top_games.truncate(limits.top_games);
 
         // Prepare recent games.
-        let num_recent_games = min(valid_recent_games, limits.recent_games);
-        recent_games.sort_unstable_by_key(|(_, _, idx, _, _)| Reverse(*idx));
-        recent_games.truncate(num_recent_games);
+        sort_by_key_and_truncate(
+            &mut recent_games,
+            min(valid_recent_games, limits.recent_games),
+            |(_, _, idx, _, _)| Reverse(*idx),
+        );
 
         PreparedResponse {
             total,

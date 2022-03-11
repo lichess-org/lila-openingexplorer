@@ -1,9 +1,11 @@
 use std::{
+    cmp::min,
     pin::Pin,
     task::{Context, Poll},
 };
 
 use futures_util::{ready, stream::Stream};
+use partial_sort::partial_sort;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use shakmaty::ByColor;
@@ -13,6 +15,16 @@ use shakmaty::ByColor;
 pub struct ByColorDef<T> {
     white: T,
     black: T,
+}
+
+pub fn sort_by_key_and_truncate<T, K, F>(vec: &mut Vec<T>, num: usize, mut f: F)
+where
+    F: FnMut(&T) -> K,
+    K: Ord,
+{
+    let num = min(num, vec.len());
+    partial_sort(vec, num, |a, b| f(a).lt(&f(b)));
+    vec.truncate(num);
 }
 
 pub trait DedupStreamExt: Stream {
