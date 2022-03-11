@@ -415,7 +415,11 @@ impl LichessEntry {
                     )
                 },
             );
-            recent_games.retain(|game| !top_games.contains(game));
+            recent_games.retain(|(_, _, _, _, recent_game)| {
+                !top_games
+                    .iter()
+                    .any(|(_, _, _, _, top_game)| recent_game == top_game)
+            });
             top_games
         } else {
             Vec::new()
