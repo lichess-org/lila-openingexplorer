@@ -19,17 +19,9 @@ impl Stats {
     pub fn new_single(outcome: Outcome, rating: u16) -> Stats {
         Stats {
             rating_sum: u64::from(rating),
-            white: if outcome.winner() == Some(Color::White) {
-                1
-            } else {
-                0
-            },
-            black: if outcome.winner() == Some(Color::Black) {
-                1
-            } else {
-                0
-            },
-            draws: if outcome.winner().is_none() { 1 } else { 0 },
+            white: u64::from(outcome.winner() == Some(Color::White)),
+            black: u64::from(outcome.winner() == Some(Color::Black)),
+            draws: u64::from(outcome.winner().is_none()),
         }
     }
 }
