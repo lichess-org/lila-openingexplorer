@@ -1,18 +1,14 @@
-use std::{
-    convert::TryFrom,
-    io::{self, Read},
-};
+use std::convert::TryFrom;
 
-use byteorder::{LittleEndian, ReadBytesExt as _};
-use bytes::BufMut;
+use bytes::{Buf, BufMut};
 use shakmaty::{uci::Uci, Role, Square};
 
-pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
-    let n = reader.read_u16::<LittleEndian>()?;
+pub fn read_uci<B: Buf>(buf: &mut B) -> Uci {
+    let n = buf.get_u16_le();
     let from = Square::new(u32::from(n & 63));
     let to = Square::new(u32::from((n >> 6) & 63));
     let role = Role::try_from(n >> 12).ok();
-    Ok(if from == to {
+    if from == to {
         match role {
             Some(role) => Uci::Put { role, to },
             None => Uci::Null,
@@ -23,7 +19,7 @@ pub fn read_uci<R: Read>(reader: &mut R) -> io::Result<Uci> {
             to,
             promotion: role,
         }
-    })
+    }
 }
 
 pub fn write_uci<B: BufMut>(buf: &mut B, uci: &Uci) {
@@ -43,8 +39,6 @@ pub fn write_uci<B: BufMut>(buf: &mut B, uci: &Uci) {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use super::*;
 
     #[test]
@@ -72,9 +66,9 @@ mod tests {
             write_uci(&mut buf, uci);
         }
 
-        let mut reader = Cursor::new(buf);
+        let mut reader = &buf[..];
         for uci in moves {
-            assert_eq!(uci, read_uci(&mut reader).unwrap());
+            assert_eq!(uci, read_uci(&mut reader));
         }
     }
 }

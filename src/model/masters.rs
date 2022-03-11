@@ -1,7 +1,7 @@
 use std::{
     cmp::{min, Reverse},
     io,
-    io::{Cursor, Read, Write},
+    io::{Cursor, Write},
     ops::AddAssign,
 };
 
@@ -9,8 +9,7 @@ use axum::{
     body,
     response::{IntoResponse, Response},
 };
-use byteorder::{LittleEndian, ReadBytesExt as _};
-use bytes::BufMut;
+use bytes::{Buf, BufMut};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
@@ -140,24 +139,17 @@ impl MastersEntry {
         MastersEntry { groups }
     }
 
-    pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
-        loop {
-            let uci = match read_uci(reader) {
-                Ok(uci) => uci,
-                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
-                Err(err) => return Err(err),
-            };
-
+    pub fn extend_from_reader<B: Buf>(&mut self, buf: &mut B) {
+        while buf.has_remaining() {
+            let uci = read_uci(buf);
             let group = self.groups.entry(uci).or_default();
 
-            group.stats += Stats::read(reader)?;
+            group.stats += Stats::read(buf);
 
-            let num_games = usize::from(reader.read_u8()?);
+            let num_games = usize::from(buf.get_u8());
             group.games.reserve_exact(num_games);
             for _ in 0..num_games {
-                group
-                    .games
-                    .push((reader.read_u16::<LittleEndian>()?, GameId::read(reader)?));
+                group.games.push((buf.get_u16_le(), GameId::read(buf)));
             }
         }
     }
@@ -250,8 +242,6 @@ impl MastersEntry {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use shakmaty::Square;
 
     use super::*;
@@ -274,9 +264,9 @@ mod tests {
             "optimized for single entries"
         );
 
-        let mut reader = Cursor::new(buf);
+        let mut reader = &buf[..];
         let mut deserialized = MastersEntry::default();
-        deserialized.extend_from_reader(&mut reader).unwrap();
+        deserialized.extend_from_reader(&mut reader);
 
         let group = deserialized.groups.get(&uci).unwrap();
         assert_eq!(group.stats.draws, 1);

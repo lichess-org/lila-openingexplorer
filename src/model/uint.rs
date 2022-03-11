@@ -1,20 +1,15 @@
-use std::io::{self, Read};
+use bytes::{Buf, BufMut};
 
-use byteorder::ReadBytesExt as _;
-use bytes::BufMut;
-
-pub fn read_uint<R: Read>(reader: &mut R) -> io::Result<u64> {
+pub fn read_uint<B: Buf>(buf: &mut B) -> u64 {
     let mut n = 0;
     for shift in (0..).step_by(7) {
-        let byte = reader.read_u8()?;
-        n |= u64::from(byte & 127)
-            .checked_shl(shift)
-            .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidData))?;
+        let byte = buf.get_u8();
+        n |= u64::from(byte & 127) << shift;
         if byte & 128 == 0 {
             break;
         }
     }
-    Ok(n)
+    n
 }
 
 pub fn write_uint<B: BufMut>(buf: &mut B, mut n: u64) {
@@ -27,8 +22,6 @@ pub fn write_uint<B: BufMut>(buf: &mut B, mut n: u64) {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use quickcheck::quickcheck;
 
     use super::*;
@@ -38,8 +31,8 @@ mod tests {
             let mut buf = Vec::new();
             write_uint(&mut buf, n);
 
-            let mut reader = Cursor::new(buf);
-            read_uint(&mut reader).unwrap() == n
+            let mut reader = &buf[..];
+            read_uint(&mut reader) == n
         }
     }
 }

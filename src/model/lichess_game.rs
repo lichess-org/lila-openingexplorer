@@ -1,10 +1,6 @@
-use std::{
-    convert::{TryFrom, TryInto},
-    io::{self, Read},
-};
+use std::convert::{TryFrom, TryInto};
 
-use byteorder::{LittleEndian, ReadBytesExt as _};
-use bytes::BufMut;
+use bytes::{Buf, BufMut};
 use serde::{Deserialize, Serialize};
 use shakmaty::{ByColor, Color, Outcome};
 
@@ -52,8 +48,8 @@ impl LichessGame {
         buf.put_u8(u8::from(self.indexed_lichess));
     }
 
-    pub fn read<R: Read>(reader: &mut R) -> io::Result<LichessGame> {
-        let byte = reader.read_u8()?;
+    pub fn read<B: Buf>(buf: &mut B) -> LichessGame {
+        let byte = buf.get_u8();
         let speed = match byte & 7 {
             0 => Speed::UltraBullet,
             1 => Speed::Bullet,
@@ -61,7 +57,7 @@ impl LichessGame {
             3 => Speed::Rapid,
             4 => Speed::Classical,
             5 => Speed::Correspondence,
-            _ => return Err(io::ErrorKind::InvalidData.into()),
+            _ => panic!("invalid speed"),
         };
         let outcome = match (byte >> 3) & 3 {
             0 => Outcome::Decisive {
@@ -71,7 +67,7 @@ impl LichessGame {
                 winner: Color::White,
             },
             2 => Outcome::Draw,
-            _ => return Err(io::ErrorKind::InvalidData.into()),
+            _ => panic!("invalid outcome"),
         };
         let mode = Mode::from_rated((byte >> 5) & 1 == 1);
         let indexed_player = ByColor {
@@ -79,15 +75,12 @@ impl LichessGame {
             black: (byte >> 7) & 1 == 1,
         };
         let players = ByColor {
-            white: GamePlayer::read(reader)?,
-            black: GamePlayer::read(reader)?,
+            white: GamePlayer::read(buf),
+            black: GamePlayer::read(buf),
         };
-        let month = reader
-            .read_u16::<LittleEndian>()?
-            .try_into()
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-        let indexed_lichess = reader.read_u8()? != 0;
-        Ok(LichessGame {
+        let month = buf.get_u16_le().try_into().expect("month");
+        let indexed_lichess = buf.get_u8() != 0;
+        LichessGame {
             outcome,
             speed,
             mode,
@@ -95,7 +88,7 @@ impl LichessGame {
             month,
             indexed_player,
             indexed_lichess,
-        })
+        }
     }
 }
 
@@ -112,15 +105,13 @@ impl GamePlayer {
         buf.put_u16_le(self.rating);
     }
 
-    fn read<R: Read>(reader: &mut R) -> io::Result<GamePlayer> {
-        let len = usize::try_from(read_uint(reader)?)
-            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-        let mut buf = vec![0; len as usize];
-        reader.read_exact(&mut buf)?;
-        Ok(GamePlayer {
-            name: String::from_utf8(buf)
-                .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?,
-            rating: reader.read_u16::<LittleEndian>()?,
-        })
+    fn read<B: Buf>(buf: &mut B) -> GamePlayer {
+        let len = usize::try_from(read_uint(buf)).expect("player name len");
+        let mut name = vec![0; len as usize];
+        buf.copy_to_slice(&mut name);
+        GamePlayer {
+            name: String::from_utf8(name).expect("name utf-8"),
+            rating: buf.get_u16_le(),
+        }
     }
 }

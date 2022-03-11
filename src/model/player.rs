@@ -1,12 +1,10 @@
 use std::{
     cmp::{max, min, Reverse},
     fmt,
-    io::{self, Read},
     time::{Duration, SystemTime},
 };
 
-use byteorder::ReadBytesExt as _;
-use bytes::BufMut;
+use bytes::{Buf, BufMut};
 use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 
@@ -32,22 +30,22 @@ enum Header {
 }
 
 impl Header {
-    fn read<R: Read>(reader: &mut R) -> io::Result<Header> {
-        let n = reader.read_u8()?;
-        Ok(Header::Group {
+    fn read<B: Buf>(buf: &mut B) -> Header {
+        let n = buf.get_u8();
+        Header::Group {
             speed: match n & 7 {
-                0 => return Ok(Header::End),
+                0 => return Header::End,
                 1 => Speed::UltraBullet,
                 2 => Speed::Bullet,
                 3 => Speed::Blitz,
                 4 => Speed::Rapid,
                 5 => Speed::Classical,
                 6 => Speed::Correspondence,
-                _ => return Err(io::ErrorKind::InvalidData.into()),
+                _ => panic!("invalid player header"),
             },
             mode: Mode::from_rated((n >> 3) & 1 == 1),
             num_games: usize::from(n >> 4),
-        })
+        }
     }
 
     fn write<B: BufMut>(&self, buf: &mut B) {
@@ -103,34 +101,27 @@ impl PlayerEntry {
         }
     }
 
-    pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
+    pub fn extend_from_reader<B: Buf>(&mut self, buf: &mut B) {
         let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
-        loop {
-            let uci = match read_uci(reader) {
-                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
-                Err(err) => return Err(err),
-                Ok(uci) => uci,
-            };
-
+        while buf.has_remaining() {
+            let uci = read_uci(buf);
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
-            loop {
-                match Header::read(reader) {
-                    Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
-                    Err(err) => return Err(err),
-                    Ok(Header::End) => break,
-                    Ok(Header::Group {
+            while buf.has_remaining() {
+                match Header::read(buf) {
+                    Header::End => break,
+                    Header::Group {
                         speed,
                         mode,
                         num_games,
-                    }) => {
-                        let stats = Stats::read(reader)?;
+                    } => {
+                        let stats = Stats::read(buf);
                         let mut games = Vec::with_capacity(num_games);
                         for _ in 0..num_games {
-                            let game_idx = base_game_idx + read_uint(reader)?;
+                            let game_idx = base_game_idx + read_uint(buf);
                             self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
-                            let game = GameId::read(reader)?;
+                            let game = GameId::read(buf);
                             games.push((game_idx, game));
                         }
                         let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
@@ -301,13 +292,13 @@ impl PlayerStatus {
         }
     }
 
-    pub fn read<R: Read>(reader: &mut R) -> io::Result<PlayerStatus> {
-        Ok(PlayerStatus {
-            latest_created_at: read_uint(reader)?,
-            revisit_ongoing_created_at: Some(read_uint(reader)?).filter(|t| *t != 0),
-            indexed_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(reader)?),
-            revisited_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(reader)?),
-        })
+    pub fn read<B: Buf>(buf: &mut B) -> PlayerStatus {
+        PlayerStatus {
+            latest_created_at: read_uint(buf),
+            revisit_ongoing_created_at: Some(read_uint(buf)).filter(|t| *t != 0),
+            indexed_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(buf)),
+            revisited_at: SystemTime::UNIX_EPOCH + Duration::from_secs(read_uint(buf)),
+        }
     }
 
     pub fn write<B: BufMut>(&self, buf: &mut B) {
@@ -361,8 +352,6 @@ impl fmt::Display for IndexRun {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use shakmaty::{Color, Square};
 
     use super::*;
@@ -383,9 +372,9 @@ mod tests {
             header.write(&mut buf);
         }
 
-        let mut reader = Cursor::new(buf);
+        let mut reader = &buf[..];
         for header in headers {
-            assert_eq!(Header::read(&mut reader).unwrap(), header);
+            assert_eq!(Header::read(&mut reader), header);
         }
     }
 
@@ -445,21 +434,15 @@ mod tests {
         );
 
         let mut deserialized = PlayerEntry::default();
-        deserialized
-            .extend_from_reader(&mut Cursor::new(buf))
-            .unwrap();
+        deserialized.extend_from_reader(&mut &buf[..]);
 
         let mut buf = Vec::new();
         b.write(&mut buf);
-        deserialized
-            .extend_from_reader(&mut Cursor::new(buf))
-            .unwrap();
+        deserialized.extend_from_reader(&mut &buf[..]);
 
         let mut buf = Vec::new();
         c.write(&mut buf);
-        deserialized
-            .extend_from_reader(&mut Cursor::new(buf))
-            .unwrap();
+        deserialized.extend_from_reader(&mut &buf[..]);
 
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(2));
@@ -479,9 +462,7 @@ mod tests {
         let mut buf = Vec::new();
         deserialized.write(&mut buf);
         let mut deserialized = PlayerEntry::default();
-        deserialized
-            .extend_from_reader(&mut Cursor::new(buf))
-            .unwrap();
+        deserialized.extend_from_reader(&mut &buf[..]);
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(2));
     }

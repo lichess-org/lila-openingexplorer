@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ByteOrder as _, LittleEndian};
+use bytes::{Buf, BufMut};
 use sha1::{Digest, Sha1};
 use shakmaty::{variant::Variant, Color};
 
@@ -16,7 +16,7 @@ impl KeyBuilder {
         hash.update(user.as_lowercase_str());
         let buf = hash.finalize();
         KeyBuilder {
-            base: LittleEndian::read_u128(buf.as_slice()),
+            base: (&mut buf.as_slice()).get_u128_le(),
         }
     }
 
@@ -64,14 +64,14 @@ impl KeyPrefix {
     pub fn with_month(&self, month: Month) -> Key {
         let mut buf = [0; Key::SIZE];
         buf[..KeyPrefix::SIZE].clone_from_slice(&self.prefix[..KeyPrefix::SIZE]);
-        BigEndian::write_u16(&mut buf[KeyPrefix::SIZE..], u16::from(month));
+        (&mut buf[KeyPrefix::SIZE..]).put_u16(u16::from(month));
         Key(buf)
     }
 
     pub fn with_year(&self, year: Year) -> Key {
         let mut buf = [0; Key::SIZE];
         buf[..KeyPrefix::SIZE].clone_from_slice(&self.prefix[..KeyPrefix::SIZE]);
-        BigEndian::write_u16(&mut buf[KeyPrefix::SIZE..], u16::from(year));
+        (&mut buf[KeyPrefix::SIZE..]).put_u16(u16::from(year));
         Key(buf)
     }
 }

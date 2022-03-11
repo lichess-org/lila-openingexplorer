@@ -1,9 +1,6 @@
-use std::{
-    io::{self, Read},
-    ops::AddAssign,
-};
+use std::ops::AddAssign;
 
-use bytes::BufMut;
+use bytes::{Buf, BufMut};
 use serde::Serialize;
 use shakmaty::{Color, Outcome};
 
@@ -63,9 +60,9 @@ impl Stats {
         self.rating_sum.checked_div(self.total())
     }
 
-    pub fn read<R: Read>(reader: &mut R) -> io::Result<Stats> {
-        let rating_sum = read_uint(reader)?;
-        Ok(match read_uint(reader)? {
+    pub fn read<B: Buf>(buf: &mut B) -> Stats {
+        let rating_sum = read_uint(buf);
+        match read_uint(buf) {
             0 => Stats {
                 rating_sum,
                 white: 1,
@@ -87,10 +84,10 @@ impl Stats {
             white_plus_three => Stats {
                 rating_sum,
                 white: white_plus_three - 3,
-                draws: read_uint(reader)?,
-                black: read_uint(reader)?,
+                draws: read_uint(buf),
+                black: read_uint(buf),
             },
-        })
+        }
     }
 
     pub fn write<B: BufMut>(&self, buf: &mut B) {
@@ -130,8 +127,6 @@ impl Stats {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use quickcheck::{quickcheck, Arbitrary, Gen};
 
     use super::*;
@@ -152,8 +147,8 @@ mod tests {
             let mut buf = Vec::new();
             stats.write(&mut buf);
 
-            let mut cursor = Cursor::new(buf);
-            Stats::read(&mut cursor).unwrap() == stats
+            let mut reader = &buf[..];
+            Stats::read(&mut reader) == stats
         }
     }
 }

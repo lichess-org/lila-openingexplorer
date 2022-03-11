@@ -1,4 +1,4 @@
-use std::{io::Cursor, path::Path};
+use std::path::Path;
 
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
@@ -226,11 +226,8 @@ impl MastersDatabase<'_> {
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_masters, opt);
         iter.seek_to_first();
 
-        while let Some(value) = iter.value() {
-            let mut cursor = Cursor::new(value);
-            entry
-                .extend_from_reader(&mut cursor)
-                .expect("deserialize masters entry");
+        while let Some(mut value) = iter.value() {
+            entry.extend_from_reader(&mut value);
             iter.next();
         }
 
@@ -292,10 +289,7 @@ impl LichessDatabase<'_> {
         Ok(self
             .inner
             .get_pinned_cf(self.cf_lichess_game, id.to_bytes())?
-            .map(|buf| {
-                let mut cursor = Cursor::new(buf);
-                LichessGame::read(&mut cursor).expect("deserialize game info")
-            }))
+            .map(|buf| LichessGame::read(&mut buf.as_ref())))
     }
 
     pub fn games<I: IntoIterator<Item = GameId>>(
@@ -309,12 +303,8 @@ impl LichessDatabase<'_> {
             )
             .into_iter()
             .map(|maybe_buf_or_err| {
-                maybe_buf_or_err.map(|maybe_buf| {
-                    maybe_buf.map(|buf| {
-                        let mut cursor = Cursor::new(buf);
-                        LichessGame::read(&mut cursor).expect("deserialize game info")
-                    })
-                })
+                maybe_buf_or_err
+                    .map(|maybe_buf| maybe_buf.map(|buf| LichessGame::read(&mut &buf[..])))
             })
             .collect()
     }
@@ -335,11 +325,8 @@ impl LichessDatabase<'_> {
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
         iter.seek_to_first();
 
-        while let Some(value) = iter.value() {
-            let mut cursor = Cursor::new(value);
-            entry
-                .extend_from_reader(&mut cursor)
-                .expect("deserialize lichess entry");
+        while let Some(mut value) = iter.value() {
+            entry.extend_from_reader(&mut value);
             iter.next();
         }
 
@@ -362,11 +349,8 @@ impl LichessDatabase<'_> {
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_player, opt);
         iter.seek_to_first();
 
-        while let Some(value) = iter.value() {
-            let mut cursor = Cursor::new(value);
-            entry
-                .extend_from_reader(&mut cursor)
-                .expect("deserialize player entry");
+        while let Some(mut value) = iter.value() {
+            entry.extend_from_reader(&mut value);
             iter.next();
         }
 
@@ -377,10 +361,7 @@ impl LichessDatabase<'_> {
         Ok(self
             .inner
             .get_pinned_cf(self.cf_player_status, id.as_lowercase_str())?
-            .map(|buf| {
-                let mut cursor = Cursor::new(buf);
-                PlayerStatus::read(&mut cursor).expect("deserialize status")
-            }))
+            .map(|buf| PlayerStatus::read(&mut buf.as_ref())))
     }
 
     pub fn put_player_status(
@@ -441,12 +422,9 @@ fn lichess_merge(
 ) -> Option<Vec<u8>> {
     let mut entry = LichessEntry::default();
     let mut size_hint = 0;
-    for op in existing.into_iter().chain(operands.into_iter()) {
-        let mut cursor = Cursor::new(op);
-        entry
-            .extend_from_reader(&mut cursor)
-            .expect("deserialize for lichess merge");
+    for mut op in existing.into_iter().chain(operands.into_iter()) {
         size_hint += op.len();
+        entry.extend_from_reader(&mut op);
     }
     let mut buf = Vec::with_capacity(size_hint);
     entry.write(&mut buf);
@@ -461,16 +439,15 @@ fn lichess_game_merge(
     // Take latest game info, but merge index status.
     let mut info: Option<LichessGame> = None;
     let mut size_hint = 0;
-    for op in existing.into_iter().chain(operands.into_iter()) {
-        let mut cursor = Cursor::new(op);
-        let mut new_info = LichessGame::read(&mut cursor).expect("read for lichess game merge");
+    for mut op in existing.into_iter().chain(operands.into_iter()) {
+        size_hint = op.len();
+        let mut new_info = LichessGame::read(&mut op);
         if let Some(old_info) = info {
             new_info.indexed_player.white |= old_info.indexed_player.white;
             new_info.indexed_player.black |= old_info.indexed_player.black;
             new_info.indexed_lichess |= old_info.indexed_lichess;
         }
         info = Some(new_info);
-        size_hint = op.len();
     }
     info.map(|info| {
         let mut buf = Vec::with_capacity(size_hint);
@@ -482,12 +459,9 @@ fn lichess_game_merge(
 fn player_merge(_key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) -> Option<Vec<u8>> {
     let mut entry = PlayerEntry::default();
     let mut size_hint = 0;
-    for op in existing.into_iter().chain(operands.into_iter()) {
-        let mut cursor = Cursor::new(op);
-        entry
-            .extend_from_reader(&mut cursor)
-            .expect("deserialize for player merge");
+    for mut op in existing.into_iter().chain(operands.into_iter()) {
         size_hint += op.len();
+        entry.extend_from_reader(&mut op);
     }
     let mut buf = Vec::with_capacity(size_hint);
     entry.write(&mut buf);
@@ -501,12 +475,9 @@ fn masters_merge(
 ) -> Option<Vec<u8>> {
     let mut entry = MastersEntry::default();
     let mut size_hint = 0;
-    for op in existing.into_iter().chain(operands.into_iter()) {
-        let mut cursor = Cursor::new(op);
-        entry
-            .extend_from_reader(&mut cursor)
-            .expect("deserialize for masters merge");
+    for mut op in existing.into_iter().chain(operands.into_iter()) {
         size_hint += op.len();
+        entry.extend_from_reader(&mut op);
     }
     let mut buf = Vec::with_capacity(size_hint);
     entry.write(&mut buf);

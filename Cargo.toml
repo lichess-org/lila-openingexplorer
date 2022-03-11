@@ -15,7 +15,6 @@ edition = "2021"
 [dependencies]
 async-channel = "1"
 axum = "0.4"
-byteorder = "1"
 bytes = "1"
 chrono = { version = "0.4", default-features = false }
 clap = { version = "3", features = ["derive", "env"] }

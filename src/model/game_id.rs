@@ -1,11 +1,9 @@
 use std::{
     fmt::{self, Write as _},
-    io::{self, Read},
     str::FromStr,
 };
 
-use byteorder::{ByteOrder as _, LittleEndian, ReadBytesExt as _};
-use bytes::BufMut;
+use bytes::{Buf, BufMut};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -20,21 +18,18 @@ impl GameId {
 
     pub fn to_bytes(&self) -> [u8; Self::SIZE] {
         let mut buf = [0u8; Self::SIZE];
-        LittleEndian::write_u48(&mut buf[..], self.0);
+        self.write(&mut &mut buf[..]);
         buf
     }
 
     pub fn write<B: BufMut>(&self, buf: &mut B) {
-        buf.put_slice(&self.to_bytes());
+        buf.put_uint_le(self.0, Self::SIZE);
     }
 
-    pub fn read<R: Read>(reader: &mut R) -> io::Result<GameId> {
-        let n = reader.read_u48::<LittleEndian>()?;
-        if n < 62u64.pow(8) {
-            Ok(GameId(n))
-        } else {
-            Err(io::ErrorKind::InvalidData.into())
-        }
+    pub fn read<B: Buf>(buf: &mut B) -> GameId {
+        let n = buf.get_uint_le(Self::SIZE);
+        assert!(n < 62u64.pow(8), "invalid game id");
+        GameId(n)
     }
 }
 

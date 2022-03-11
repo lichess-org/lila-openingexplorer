@@ -1,13 +1,11 @@
 use std::{
     array,
     cmp::{max, min, Reverse},
-    io::{self, Read},
     ops::AddAssign,
     str::FromStr,
 };
 
-use byteorder::ReadBytesExt as _;
-use bytes::BufMut;
+use bytes::{Buf, BufMut};
 use rustc_hash::FxHashMap;
 use shakmaty::{uci::Uci, Outcome};
 
@@ -170,17 +168,17 @@ enum LichessHeader {
 }
 
 impl LichessHeader {
-    fn read<R: Read>(reader: &mut R) -> io::Result<LichessHeader> {
-        let n = reader.read_u8()?;
+    fn read<B: Buf>(buf: &mut B) -> LichessHeader {
+        let n = buf.get_u8();
         let speed = match n & 7 {
-            0 => return Ok(LichessHeader::End),
+            0 => return LichessHeader::End,
             1 => Speed::UltraBullet,
             2 => Speed::Bullet,
             3 => Speed::Blitz,
             4 => Speed::Rapid,
             5 => Speed::Classical,
             6 => Speed::Correspondence,
-            _ => return Err(io::ErrorKind::InvalidData.into()),
+            _ => panic!("invalid speed"),
         };
         let rating_group = match (n >> 3) & 7 {
             0 => RatingGroup::GroupLow,
@@ -194,15 +192,15 @@ impl LichessHeader {
             _ => unreachable!(),
         };
         let at_least_num_games = usize::from(n >> 6);
-        Ok(LichessHeader::Group {
+        LichessHeader::Group {
             speed,
             rating_group,
             num_games: if at_least_num_games >= 3 {
-                read_uint(reader)? as usize
+                read_uint(buf) as usize
             } else {
                 at_least_num_games
             },
-        })
+        }
     }
 
     fn write<B: BufMut>(&self, buf: &mut B) {
@@ -287,34 +285,27 @@ impl LichessEntry {
         }
     }
 
-    pub fn extend_from_reader<R: Read>(&mut self, reader: &mut R) -> io::Result<()> {
+    pub fn extend_from_reader<B: Buf>(&mut self, buf: &mut B) {
         let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
-        loop {
-            let uci = match read_uci(reader) {
-                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
-                Err(err) => return Err(err),
-                Ok(uci) => uci,
-            };
-
+        while buf.has_remaining() {
+            let uci = read_uci(buf);
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
-            loop {
-                match LichessHeader::read(reader) {
-                    Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Ok(()),
-                    Err(err) => return Err(err),
-                    Ok(LichessHeader::End) => break,
-                    Ok(LichessHeader::Group {
+            while buf.has_remaining() {
+                match LichessHeader::read(buf) {
+                    LichessHeader::End => break,
+                    LichessHeader::Group {
                         speed,
                         rating_group,
                         num_games,
-                    }) => {
-                        let stats = Stats::read(reader)?;
+                    } => {
+                        let stats = Stats::read(buf);
                         let mut games = Vec::with_capacity(num_games);
                         for _ in 0..num_games {
-                            let game_idx = base_game_idx + read_uint(reader)?;
+                            let game_idx = base_game_idx + read_uint(buf);
                             self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
-                            let game = GameId::read(reader)?;
+                            let game = GameId::read(buf);
                             games.push((game_idx, game));
                         }
                         let group = sub_entry
@@ -481,8 +472,6 @@ pub struct PreparedMove {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use shakmaty::{Color, Square};
 
     use super::*;
@@ -515,9 +504,7 @@ mod tests {
         );
 
         let mut deserialized = LichessEntry::default();
-        deserialized
-            .extend_from_reader(&mut Cursor::new(buf))
-            .unwrap();
+        deserialized.extend_from_reader(&mut &buf[..]);
 
         assert_eq!(deserialized.sub_entries.len(), 1);
         assert_eq!(deserialized.max_game_idx, Some(0));
@@ -542,9 +529,7 @@ mod tests {
 
         let mut buf = Vec::new();
         b.write(&mut buf);
-        deserialized
-            .extend_from_reader(&mut Cursor::new(buf))
-            .unwrap();
+        deserialized.extend_from_reader(&mut &buf[..]);
 
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(1));
@@ -553,9 +538,7 @@ mod tests {
         let mut buf = Vec::new();
         deserialized.write(&mut buf);
         let mut deserialized = LichessEntry::default();
-        deserialized
-            .extend_from_reader(&mut Cursor::new(buf))
-            .unwrap();
+        deserialized.extend_from_reader(&mut &buf[..]);
 
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(1));
