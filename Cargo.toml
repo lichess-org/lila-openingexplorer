@@ -35,7 +35,7 @@ sha-1 = "0.10"
 shakmaty = { version = "0.21", features = ["variant"] }
 sync_wrapper = "0.1"
 thiserror = "1"
-tikv-jemallocator = "0.4"
+tikv-jemallocator = "0.4" # matching rocksdb
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 tokio-util = { version = "0.7", features = ["io"] }
