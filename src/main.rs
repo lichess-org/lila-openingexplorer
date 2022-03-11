@@ -79,6 +79,8 @@ async fn main() {
 
     let opt = Opt::parse();
 
+    let barrier = Arc::new(tokio::sync::Barrier::new(2));
+
     let openings: &'static Openings = Box::leak(Box::new(Openings::build_table()));
     let db = Arc::new(Database::open(opt.db).expect("db"));
     let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
@@ -109,6 +111,7 @@ async fn main() {
         .route("/master/pgn/:id", get(masters_pgn)) // bc
         .route("/master", get(masters)) // bc
         .route("/personal", get(player)) // bc
+        .route("/exit", post(exit))
         .layer(
             ServiceBuilder::new()
                 .layer(Extension(openings))
@@ -117,7 +120,8 @@ async fn main() {
                 .layer(Extension(lichess_cache))
                 .layer(Extension(masters_importer))
                 .layer(Extension(lichess_importer))
-                .layer(Extension(indexer)),
+                .layer(Extension(indexer))
+                .layer(Extension(barrier.clone())),
         );
 
     let app = if opt.cors {
@@ -133,12 +137,19 @@ async fn main() {
 
     axum::Server::bind(&opt.bind)
         .serve(app.into_make_service())
+        .with_graceful_shutdown(async {
+            barrier.wait().await;
+        })
         .await
         .expect("bind");
 
     for join_handle in join_handles {
         join_handle.await.expect("indexer");
     }
+}
+
+async fn exit(Extension(barrier): Extension<Arc<tokio::sync::Barrier>>) {
+    barrier.wait().await;
 }
 
 #[derive(Deserialize)]

@@ -46,6 +46,9 @@ tower-http = { version = "0.2", features = ["set-header"] }
 quickcheck = "1"
 iai = "0.1"
 
+[profile.release]
+debug = true
+
 [[bench]]
 name = "benches"
 harness = false
