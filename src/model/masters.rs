@@ -143,11 +143,9 @@ impl MastersEntry {
         while buf.has_remaining() {
             let uci = read_uci(buf);
             let group = self.groups.entry(uci).or_default();
-
             group.stats += Stats::read(buf);
-
             let num_games = usize::from(buf.get_u8());
-            group.games.reserve_exact(num_games);
+            group.games.reserve(num_games);
             for _ in 0..num_games {
                 group.games.push((buf.get_u16_le(), GameId::read(buf)));
             }

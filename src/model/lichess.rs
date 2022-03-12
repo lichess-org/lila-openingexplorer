@@ -1,7 +1,6 @@
 use std::{
     array,
     cmp::{max, min, Reverse},
-    ops::AddAssign,
     str::FromStr,
 };
 
@@ -245,13 +244,6 @@ pub struct LichessGroup {
     pub games: Vec<(u64, GameId)>,
 }
 
-impl AddAssign for LichessGroup {
-    fn add_assign(&mut self, rhs: LichessGroup) {
-        self.stats += rhs.stats;
-        self.games.extend(rhs.games);
-    }
-}
-
 #[derive(Default)]
 pub struct LichessEntry {
     sub_entries: FxHashMap<Uci, BySpeed<ByRatingGroup<LichessGroup>>>,
@@ -300,18 +292,17 @@ impl LichessEntry {
                         rating_group,
                         num_games,
                     } => {
-                        let stats = Stats::read(buf);
-                        let mut games = Vec::with_capacity(num_games);
+                        let group = sub_entry
+                            .by_speed_mut(speed)
+                            .by_rating_group_mut(rating_group);
+                        group.stats += Stats::read(buf);
+                        group.games.reserve(num_games);
                         for _ in 0..num_games {
                             let game_idx = base_game_idx + read_uint(buf);
                             self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
                             let game = GameId::read(buf);
-                            games.push((game_idx, game));
+                            group.games.push((game_idx, game));
                         }
-                        let group = sub_entry
-                            .by_speed_mut(speed)
-                            .by_rating_group_mut(rating_group);
-                        *group += LichessGroup { stats, games };
                     }
                 }
             }
