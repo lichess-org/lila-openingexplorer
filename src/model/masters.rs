@@ -17,9 +17,7 @@ use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
 
 use crate::{
     api::Limits,
-    model::{
-        read_uci, write_uci, GameId, GamePlayer, LaxDate, PreparedMove, PreparedResponse, Stats,
-    },
+    model::{GameId, GamePlayer, LaxDate, PreparedMove, PreparedResponse, RawUci, Stats},
     util::{sort_by_key_and_truncate, ByColorDef},
 };
 
@@ -115,7 +113,7 @@ impl AddAssign for MastersGroup {
 
 #[derive(Default, Debug)]
 pub struct MastersEntry {
-    pub groups: FxHashMap<Uci, MastersGroup>,
+    pub groups: FxHashMap<RawUci, MastersGroup>,
 }
 
 impl MastersEntry {
@@ -130,7 +128,7 @@ impl MastersEntry {
     ) -> MastersEntry {
         let mut groups = FxHashMap::with_capacity_and_hasher(1, Default::default());
         groups.insert(
-            uci,
+            RawUci::from(uci),
             MastersGroup {
                 stats: Stats::new_single(outcome, mover_rating),
                 games: vec![(mover_rating.saturating_add(opponent_rating), id)],
@@ -141,7 +139,7 @@ impl MastersEntry {
 
     pub fn extend_from_reader<B: Buf>(&mut self, buf: &mut B) {
         while buf.has_remaining() {
-            let uci = read_uci(buf);
+            let uci = RawUci::read(buf);
             let group = self.groups.entry(uci).or_default();
             group.stats += Stats::read(buf);
             let num_games = usize::from(buf.get_u8());
@@ -160,8 +158,7 @@ impl MastersEntry {
         sort_by_key_and_truncate(&mut top_games, 15, |(sort_key, _)| Reverse(*sort_key));
 
         for (uci, group) in &self.groups {
-            write_uci(buf, uci);
-
+            uci.write(buf);
             group.stats.write(buf);
 
             let num_games = if group.games.len() == 1 {
@@ -170,6 +167,7 @@ impl MastersEntry {
                 group.games.iter().filter(|g| top_games.contains(g)).count()
             };
             buf.put_u8(num_games as u8);
+
             for (sort_key, id) in group
                 .games
                 .iter()
@@ -214,7 +212,7 @@ impl MastersEntry {
                     None
                 };
                 PreparedMove {
-                    uci,
+                    uci: Uci::from(uci),
                     average_rating: group.stats.average_rating(),
                     average_opponent_rating: None,
                     game: single_game,
@@ -231,7 +229,7 @@ impl MastersEntry {
             moves,
             top_games: top_games
                 .into_iter()
-                .map(|(_, uci, game)| (uci, game))
+                .map(|(_, uci, game)| (Uci::from(uci), game))
                 .collect(),
             recent_games: Vec::new(),
         }
@@ -266,7 +264,7 @@ mod tests {
         let mut deserialized = MastersEntry::default();
         deserialized.extend_from_reader(&mut reader);
 
-        let group = deserialized.groups.get(&uci).unwrap();
+        let group = deserialized.groups.get(&RawUci::from(uci)).unwrap();
         assert_eq!(group.stats.draws, 1);
         assert_eq!(group.games[0], (1600 + 1700, game));
     }

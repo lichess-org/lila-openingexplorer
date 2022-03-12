@@ -22,6 +22,6 @@ pub use mode::{ByMode, Mode};
 pub use player::{IndexRun, PlayerEntry, PlayerStatus};
 pub use speed::{BySpeed, Speed};
 pub use stats::Stats;
-pub use uci::{read_uci, write_uci};
+pub use uci::RawUci;
 pub use uint::{read_uint, write_uint};
 pub use user::{UserId, UserName};

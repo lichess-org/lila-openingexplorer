@@ -10,7 +10,7 @@ use shakmaty::{uci::Uci, Outcome};
 
 use crate::{
     api::{LichessQueryFilter, Limits},
-    model::{read_uci, read_uint, write_uci, write_uint, BySpeed, GameId, Speed, Stats},
+    model::{read_uint, write_uint, BySpeed, GameId, RawUci, Speed, Stats},
     util::sort_by_key_and_truncate,
 };
 
@@ -233,7 +233,7 @@ pub struct LichessGroup {
 
 #[derive(Default)]
 pub struct LichessEntry {
-    sub_entries: FxHashMap<Uci, BySpeed<ByRatingGroup<LichessGroup>>>,
+    sub_entries: FxHashMap<RawUci, BySpeed<ByRatingGroup<LichessGroup>>>,
     max_game_idx: Option<u64>,
 }
 
@@ -257,7 +257,7 @@ impl LichessEntry {
             games: vec![(0, game_id)],
         };
         let mut sub_entries = FxHashMap::with_capacity_and_hasher(1, Default::default());
-        sub_entries.insert(uci, sub_entry);
+        sub_entries.insert(RawUci::from(uci), sub_entry);
         LichessEntry {
             sub_entries,
             max_game_idx: Some(0),
@@ -268,7 +268,7 @@ impl LichessEntry {
         let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
         while buf.has_remaining() {
-            let uci = read_uci(buf);
+            let uci = RawUci::read(buf);
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
             while buf.has_remaining() {
@@ -301,7 +301,7 @@ impl LichessEntry {
                 LichessHeader::End.write(buf);
             }
 
-            write_uci(buf, uci);
+            uci.write(buf);
 
             for (speed, by_rating_group) in sub_entry.as_ref().zip_speed() {
                 for (rating_group, group) in by_rating_group.as_ref().zip_rating_group() {
@@ -332,7 +332,7 @@ impl LichessEntry {
     pub fn prepare(self, filter: &LichessQueryFilter, limits: &Limits) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(RatingGroup, Speed, u64, Uci, GameId)> = Vec::new();
+        let mut recent_games: Vec<(RatingGroup, Speed, u64, RawUci, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
             let mut latest_game: Option<(u64, GameId)> = None;
@@ -351,9 +351,13 @@ impl LichessEntry {
                                 }
                             }
 
-                            recent_games.extend(group.games.iter().copied().map(|(idx, game)| {
-                                (rating_group, speed, idx, uci.to_owned(), game)
-                            }));
+                            recent_games.extend(
+                                group
+                                    .games
+                                    .iter()
+                                    .copied()
+                                    .map(|(idx, game)| (rating_group, speed, idx, uci, game)),
+                            );
                         }
                     }
                 }
@@ -361,7 +365,7 @@ impl LichessEntry {
 
             if !stats.is_empty() || latest_game.is_some() {
                 moves.push(PreparedMove {
-                    uci,
+                    uci: Uci::from(uci),
                     stats: stats.clone(),
                     average_rating: stats.average_rating(),
                     average_opponent_rating: None,
@@ -419,11 +423,11 @@ impl LichessEntry {
             moves,
             top_games: top_games
                 .into_iter()
-                .map(|(_, _, _, uci, game)| (uci, game))
+                .map(|(_, _, _, uci, game)| (Uci::from(uci), game))
                 .collect(),
             recent_games: recent_games
                 .into_iter()
-                .map(|(_, _, _, uci, game)| (uci, game))
+                .map(|(_, _, _, uci, game)| (Uci::from(uci), game))
                 .collect(),
         }
     }

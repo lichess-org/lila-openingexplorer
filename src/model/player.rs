@@ -11,8 +11,8 @@ use shakmaty::{uci::Uci, Outcome};
 use crate::{
     api::{Limits, PlayerQueryFilter},
     model::{
-        read_uci, read_uint, write_uci, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode,
-        PreparedMove, PreparedResponse, Speed, Stats,
+        read_uint, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode, PreparedMove,
+        PreparedResponse, RawUci, Speed, Stats,
     },
     util::sort_by_key_and_truncate,
 };
@@ -72,7 +72,7 @@ impl Header {
 
 #[derive(Default, Debug)]
 pub struct PlayerEntry {
-    sub_entries: FxHashMap<Uci, BySpeed<ByMode<LichessGroup>>>,
+    sub_entries: FxHashMap<RawUci, BySpeed<ByMode<LichessGroup>>>,
     max_game_idx: Option<u64>,
 }
 
@@ -93,7 +93,7 @@ impl PlayerEntry {
             games: vec![(0, game_id)],
         };
         let mut sub_entries = FxHashMap::with_capacity_and_hasher(1, Default::default());
-        sub_entries.insert(uci, sub_entry);
+        sub_entries.insert(RawUci::from(uci), sub_entry);
 
         PlayerEntry {
             sub_entries,
@@ -105,7 +105,7 @@ impl PlayerEntry {
         let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
         while buf.has_remaining() {
-            let uci = read_uci(buf);
+            let uci = RawUci::read(buf);
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
             while buf.has_remaining() {
@@ -136,7 +136,7 @@ impl PlayerEntry {
                 Header::End.write(buf);
             }
 
-            write_uci(buf, uci);
+            uci.write(buf);
 
             for (speed, by_mode) in sub_entry.as_ref().zip_speed() {
                 for (mode, group) in by_mode.as_ref().zip_mode() {
@@ -167,7 +167,7 @@ impl PlayerEntry {
     pub fn prepare(self, filter: &PlayerQueryFilter, limits: &Limits) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(u64, Uci, GameId)> = Vec::new();
+        let mut recent_games: Vec<(u64, RawUci, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
             let mut latest_game: Option<(u64, GameId)> = None;
@@ -199,7 +199,7 @@ impl PlayerEntry {
                                     .games
                                     .iter()
                                     .copied()
-                                    .map(|(idx, game)| (idx, uci.to_owned(), game)),
+                                    .map(|(idx, game)| (idx, uci, game)),
                             );
                         }
                     }
@@ -208,7 +208,7 @@ impl PlayerEntry {
 
             if !stats.is_empty() || latest_game.is_some() {
                 moves.push(PreparedMove {
-                    uci,
+                    uci: Uci::from(uci),
                     stats: stats.clone(),
                     average_rating: None,
                     average_opponent_rating: stats.average_rating(),
@@ -231,7 +231,7 @@ impl PlayerEntry {
             moves,
             recent_games: recent_games
                 .into_iter()
-                .map(|(_, uci, game)| (uci, game))
+                .map(|(_, uci, game)| (Uci::from(uci), game))
                 .collect(),
             top_games: Vec::new(),
         }
@@ -443,7 +443,12 @@ mod tests {
 
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(2));
-        let group = &deserialized.sub_entries.get(&uci_ab).unwrap().bullet.rated;
+        let group = &deserialized
+            .sub_entries
+            .get(&RawUci::from(uci_ab))
+            .unwrap()
+            .bullet
+            .rated;
         assert_eq!(group.stats.white, 1);
         assert_eq!(group.stats.draws, 0);
         assert_eq!(group.stats.black, 1);
