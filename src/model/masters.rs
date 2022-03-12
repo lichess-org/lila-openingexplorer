@@ -21,6 +21,8 @@ use crate::{
     util::{sort_by_key_and_truncate, ByColorDef},
 };
 
+const MAX_MASTERS_GAMES: usize = 15;
+
 #[serde_as]
 #[derive(Deserialize, Debug)]
 pub struct MastersGameWithId {
@@ -155,7 +157,7 @@ impl MastersEntry {
             .values()
             .flat_map(|group| group.games.iter().copied())
             .collect();
-        sort_by_key_and_truncate(&mut top_games, 15, |(sort_key, _)| Reverse(*sort_key));
+        sort_by_key_and_truncate(&mut top_games, MAX_MASTERS_GAMES, |(sort_key, _)| Reverse(*sort_key));
 
         for (uci, group) in &self.groups {
             uci.write(buf);
@@ -198,7 +200,7 @@ impl MastersEntry {
         }
         sort_by_key_and_truncate(
             &mut top_games,
-            min(limits.top_games, 15),
+            min(limits.top_games, MAX_MASTERS_GAMES),
             |(sort_key, _, _)| Reverse(*sort_key),
         );
 
