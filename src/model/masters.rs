@@ -152,10 +152,11 @@ impl MastersEntry {
     }
 
     pub fn write<B: BufMut>(&self, buf: &mut B) {
-        let mut top_games = Vec::new();
-        for group in self.groups.values() {
-            top_games.extend(&group.games);
-        }
+        let mut top_games = self
+            .groups
+            .values()
+            .flat_map(|group| group.games.iter().copied())
+            .collect();
         sort_by_key_and_truncate(&mut top_games, 15, |(sort_key, _)| Reverse(*sort_key));
 
         for (uci, group) in &self.groups {
