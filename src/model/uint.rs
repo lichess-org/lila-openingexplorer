@@ -2,14 +2,17 @@ use bytes::{Buf, BufMut};
 
 pub fn read_uint<B: Buf>(buf: &mut B) -> u64 {
     let mut n = 0;
-    for shift in (0..).step_by(7) {
+    let mut shift = 0;
+    loop {
         let byte = buf.get_u8();
-        n |= u64::from(byte & 127) << shift;
         if byte & 128 == 0 {
-            break;
+            n |= u64::from(byte) << shift;
+            return n;
+        } else {
+            n |= u64::from(byte & 127) << shift;
         }
+        shift += 7;
     }
-    n
 }
 
 pub fn write_uint<B: BufMut>(buf: &mut B, mut n: u64) {
