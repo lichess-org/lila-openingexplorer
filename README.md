@@ -21,8 +21,6 @@ EXPLORER_LOG=lila_openingexplorer=debug cargo run -- --lila https://lichess:***@
 :warning: Administrative endpoints must be protected using a reverse proxy.
 It's best to whitelist only `/masters`, `/lichess`, and `/player`.
 
-:warning: Carefully test and analyze memory usage when upgrading RocksDB.
-
 HTTP API
 --------
 
@@ -77,7 +75,7 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
             "averageOpponentRating": 1500, // or null
             "game": { // only game for this move.
                       // would not actually be sent, because there are multiple
-                      // in this case, but for example:
+                      // games in this case, but for example:
                 "id": "uPdCG6Ts",
                 "winner": "black",
                 "speed": "correspondence",
