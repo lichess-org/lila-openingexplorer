@@ -49,13 +49,6 @@ pub struct ByMode<T> {
 }
 
 impl<T> ByMode<T> {
-    pub fn by_mode(&self, mode: Mode) -> &T {
-        match mode {
-            Mode::Rated => &self.rated,
-            Mode::Casual => &self.casual,
-        }
-    }
-
     pub fn by_mode_mut(&mut self, mode: Mode) -> &mut T {
         match mode {
             Mode::Rated => &mut self.rated,

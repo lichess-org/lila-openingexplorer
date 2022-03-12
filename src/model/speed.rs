@@ -56,17 +56,6 @@ pub struct BySpeed<T> {
 }
 
 impl<T> BySpeed<T> {
-    pub fn by_speed(&self, speed: Speed) -> &T {
-        match speed {
-            Speed::UltraBullet => &self.ultra_bullet,
-            Speed::Bullet => &self.bullet,
-            Speed::Blitz => &self.blitz,
-            Speed::Rapid => &self.rapid,
-            Speed::Classical => &self.classical,
-            Speed::Correspondence => &self.correspondence,
-        }
-    }
-
     pub fn by_speed_mut(&mut self, speed: Speed) -> &mut T {
         match speed {
             Speed::UltraBullet => &mut self.ultra_bullet,

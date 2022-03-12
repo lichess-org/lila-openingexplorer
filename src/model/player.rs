@@ -173,19 +173,18 @@ impl PlayerEntry {
             let mut latest_game: Option<(u64, GameId)> = None;
             let mut stats = Stats::default();
 
-            for speed in Speed::ALL {
+            for (speed, group) in sub_entry.as_ref().zip_speed() {
                 if filter
                     .speeds
                     .as_ref()
                     .map_or(true, |speeds| speeds.contains(&speed))
                 {
-                    for mode in Mode::ALL {
+                    for (mode, group) in group.as_ref().zip_mode() {
                         if filter
                             .modes
                             .as_ref()
                             .map_or(true, |modes| modes.contains(&mode))
                         {
-                            let group = sub_entry.by_speed(speed).by_mode(mode);
                             stats += group.stats.to_owned();
 
                             for (idx, game) in group.games.iter().copied() {
@@ -444,12 +443,7 @@ mod tests {
 
         assert_eq!(deserialized.sub_entries.len(), 2);
         assert_eq!(deserialized.max_game_idx, Some(2));
-        let group = deserialized
-            .sub_entries
-            .get(&uci_ab)
-            .unwrap()
-            .by_speed(Speed::Bullet)
-            .by_mode(Mode::Rated);
+        let group = &deserialized.sub_entries.get(&uci_ab).unwrap().bullet.rated;
         assert_eq!(group.stats.white, 1);
         assert_eq!(group.stats.draws, 0);
         assert_eq!(group.stats.black, 1);

@@ -85,19 +85,6 @@ struct ByRatingGroup<T> {
 }
 
 impl<T> ByRatingGroup<T> {
-    fn by_rating_group(&self, rating_group: RatingGroup) -> &T {
-        match rating_group {
-            RatingGroup::GroupLow => &self.group_low,
-            RatingGroup::Group1600 => &self.group_1600,
-            RatingGroup::Group1800 => &self.group_1800,
-            RatingGroup::Group2000 => &self.group_2000,
-            RatingGroup::Group2200 => &self.group_2200,
-            RatingGroup::Group2500 => &self.group_2500,
-            RatingGroup::Group2800 => &self.group_2800,
-            RatingGroup::Group3200 => &self.group_3200,
-        }
-    }
-
     fn by_rating_group_mut(&mut self, rating_group: RatingGroup) -> &mut T {
         match rating_group {
             RatingGroup::GroupLow => &mut self.group_low,
@@ -351,11 +338,10 @@ impl LichessEntry {
             let mut latest_game: Option<(u64, GameId)> = None;
             let mut stats = Stats::default();
 
-            for rating_group in RatingGroup::ALL {
-                if filter.contains_rating_group(rating_group) {
-                    for speed in Speed::ALL {
-                        if filter.contains_speed(speed) {
-                            let group = sub_entry.by_speed(speed).by_rating_group(rating_group);
+            for (speed, group) in sub_entry.as_ref().zip_speed() {
+                if filter.contains_speed(speed) {
+                    for (rating_group, group) in group.as_ref().zip_rating_group() {
+                        if filter.contains_rating_group(rating_group) {
                             stats += group.stats.to_owned();
 
                             for (idx, game) in group.games.iter().copied() {
