@@ -173,3 +173,9 @@ pub struct Limits {
     #[serde(default)]
     pub moves: Option<usize>,
 }
+
+impl Limits {
+    pub fn wants_games(&self) -> bool {
+        self.top_games > 0 || self.recent_games > 0
+    }
+}

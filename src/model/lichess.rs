@@ -351,13 +351,15 @@ impl LichessEntry {
                                 }
                             }
 
-                            recent_games.extend(
-                                group
-                                    .games
-                                    .iter()
-                                    .copied()
-                                    .map(|(idx, game)| (rating_group, speed, idx, uci, game)),
-                            );
+                            if limits.wants_games() {
+                                recent_games.extend(
+                                    group
+                                        .games
+                                        .iter()
+                                        .copied()
+                                        .map(|(idx, game)| (rating_group, speed, idx, uci, game)),
+                                );
+                            }
                         }
                     }
                 }

@@ -157,7 +157,9 @@ impl MastersEntry {
             .values()
             .flat_map(|group| group.games.iter().copied())
             .collect();
-        sort_by_key_and_truncate(&mut top_games, MAX_MASTERS_GAMES, |(sort_key, _)| Reverse(*sort_key));
+        sort_by_key_and_truncate(&mut top_games, MAX_MASTERS_GAMES, |(sort_key, _)| {
+            Reverse(*sort_key)
+        });
 
         for (uci, group) in &self.groups {
             uci.write(buf);
