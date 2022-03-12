@@ -296,13 +296,12 @@ impl LichessEntry {
                             .by_speed_mut(speed)
                             .by_rating_group_mut(rating_group);
                         group.stats += Stats::read(buf);
-                        group.games.reserve(num_games);
-                        for _ in 0..num_games {
+                        group.games.extend((0..num_games).map(|_| {
                             let game_idx = base_game_idx + read_uint(buf);
                             self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
                             let game = GameId::read(buf);
-                            group.games.push((game_idx, game));
-                        }
+                            (game_idx, game)
+                        }));
                     }
                 }
             }
