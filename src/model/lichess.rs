@@ -332,9 +332,11 @@ impl LichessEntry {
     pub fn prepare(self, filter: &LichessQueryFilter, limits: &Limits) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(RatingGroup, Speed, u64, RawUci, GameId)> = Vec::new();
+        let mut recent_games: Vec<(RatingGroup, Speed, u64, Uci, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
+            let uci = Uci::from(uci);
+
             let mut latest_game: Option<(u64, GameId)> = None;
             let mut stats = Stats::default();
 
@@ -352,13 +354,9 @@ impl LichessEntry {
                             }
 
                             if limits.wants_games() {
-                                recent_games.extend(
-                                    group
-                                        .games
-                                        .iter()
-                                        .copied()
-                                        .map(|(idx, game)| (rating_group, speed, idx, uci, game)),
-                                );
+                                recent_games.extend(group.games.iter().copied().map(
+                                    |(idx, game)| (rating_group, speed, idx, uci.clone(), game),
+                                ));
                             }
                         }
                     }
@@ -367,7 +365,7 @@ impl LichessEntry {
 
             if !stats.is_empty() || latest_game.is_some() {
                 moves.push(PreparedMove {
-                    uci: Uci::from(uci),
+                    uci,
                     stats: stats.clone(),
                     average_rating: stats.average_rating(),
                     average_opponent_rating: None,
@@ -425,11 +423,11 @@ impl LichessEntry {
             moves,
             top_games: top_games
                 .into_iter()
-                .map(|(_, _, _, uci, game)| (Uci::from(uci), game))
+                .map(|(_, _, _, uci, game)| (uci, game))
                 .collect(),
             recent_games: recent_games
                 .into_iter()
-                .map(|(_, _, _, uci, game)| (Uci::from(uci), game))
+                .map(|(_, _, _, uci, game)| (uci, game))
                 .collect(),
         }
     }

@@ -183,47 +183,44 @@ impl MastersEntry {
         }
     }
 
-    fn total(&self) -> Stats {
-        let mut sum = Stats::default();
-        for group in self.groups.values() {
-            sum += group.stats.clone();
-        }
-        sum
-    }
-
     pub fn prepare(self, limits: &Limits) -> PreparedResponse {
-        let total = self.total();
-
+        let mut total = Stats::default();
+        let mut moves = Vec::with_capacity(self.groups.len());
         let mut top_games = Vec::new();
-        for (uci, group) in &self.groups {
-            for (sort_key, game) in &group.games {
-                top_games.push((*sort_key, uci.to_owned(), *game));
-            }
+
+        for (uci, group) in self.groups {
+            total += group.stats.clone();
+
+            let uci = Uci::from(uci);
+
+            let single_game = if group.stats.is_single() {
+                group.games.iter().map(|(_, id)| *id).next()
+            } else {
+                None
+            };
+            moves.push(PreparedMove {
+                uci: uci.clone(),
+                average_rating: group.stats.average_rating(),
+                average_opponent_rating: None,
+                game: single_game,
+                stats: group.stats,
+            });
+
+            top_games.extend(
+                group
+                    .games
+                    .iter()
+                    .copied()
+                    .map(|(sort_key, game)| (sort_key, uci.clone(), game)),
+            );
         }
+
         sort_by_key_and_truncate(
             &mut top_games,
             min(limits.top_games, MAX_MASTERS_GAMES),
             |(sort_key, _, _)| Reverse(*sort_key),
         );
 
-        let mut moves: Vec<PreparedMove> = self
-            .groups
-            .into_iter()
-            .map(|(uci, group)| {
-                let single_game = if group.stats.is_single() {
-                    group.games.iter().map(|(_, id)| *id).next()
-                } else {
-                    None
-                };
-                PreparedMove {
-                    uci: Uci::from(uci),
-                    average_rating: group.stats.average_rating(),
-                    average_opponent_rating: None,
-                    game: single_game,
-                    stats: group.stats,
-                }
-            })
-            .collect();
         sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(12), |m| {
             Reverse(m.stats.total())
         });
@@ -233,7 +230,7 @@ impl MastersEntry {
             moves,
             top_games: top_games
                 .into_iter()
-                .map(|(_, uci, game)| (Uci::from(uci), game))
+                .map(|(_, uci, game)| (uci, game))
                 .collect(),
             recent_games: Vec::new(),
         }
