@@ -117,7 +117,7 @@ impl PlayerEntry {
                         num_games,
                     } => {
                         let group = sub_entry.by_speed_mut(speed).by_mode_mut(mode);
-                        group.stats += Stats::read(buf);
+                        group.stats += &Stats::read(buf);
                         group.games.extend((0..num_games).map(|_| {
                             let game_idx = base_game_idx + read_uint(buf);
                             self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
@@ -183,7 +183,7 @@ impl PlayerEntry {
                             .as_ref()
                             .map_or(true, |modes| modes.contains(&mode))
                         {
-                            stats += group.stats.to_owned();
+                            stats += &group.stats;
 
                             for (idx, game) in group.games.iter().copied() {
                                 if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
@@ -205,15 +205,15 @@ impl PlayerEntry {
             }
 
             if !stats.is_empty() || latest_game.is_some() {
+                total += &stats;
+
                 moves.push(PreparedMove {
                     uci: Uci::from(uci),
-                    stats: stats.clone(),
                     average_rating: None,
                     average_opponent_rating: stats.average_rating(),
                     game: latest_game.filter(|_| stats.is_single()).map(|(_, id)| id),
+                    stats,
                 });
-
-                total += stats;
             }
         }
 

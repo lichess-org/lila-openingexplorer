@@ -1,4 +1,4 @@
-use std::{array, ops::AddAssign, str::FromStr};
+use std::{array, str::FromStr};
 
 use serde::Serialize;
 use thiserror::Error;
@@ -77,12 +77,5 @@ impl<T> IntoIterator for ByMode<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         [self.rated, self.casual].into_iter()
-    }
-}
-
-impl<T: AddAssign> AddAssign for ByMode<T> {
-    fn add_assign(&mut self, rhs: ByMode<T>) {
-        self.rated += rhs.rated;
-        self.casual += rhs.casual;
     }
 }

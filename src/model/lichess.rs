@@ -282,7 +282,7 @@ impl LichessEntry {
                         let group = sub_entry
                             .by_speed_mut(speed)
                             .by_rating_group_mut(rating_group);
-                        group.stats += Stats::read(buf);
+                        group.stats += &Stats::read(buf);
                         group.games.extend((0..num_games).map(|_| {
                             let game_idx = base_game_idx + read_uint(buf);
                             self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
@@ -342,7 +342,7 @@ impl LichessEntry {
                 if filter.contains_speed(speed) {
                     for (rating_group, group) in group.as_ref().zip_rating_group() {
                         if filter.contains_rating_group(rating_group) {
-                            stats += group.stats.to_owned();
+                            stats += &group.stats;
 
                             for (idx, game) in group.games.iter().copied() {
                                 if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
@@ -362,16 +362,16 @@ impl LichessEntry {
             }
 
             if !stats.is_empty() || latest_game.is_some() {
+                total += &stats;
+
                 moves.push(PreparedMove {
                     uci,
-                    stats: stats.clone(),
                     average_rating: stats.average_rating(),
                     average_opponent_rating: None,
                     game: latest_game.filter(|_| stats.is_single()).map(|(_, id)| id),
+                    stats,
                 });
             }
-
-            total += stats;
         }
 
         sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(12), |row| {

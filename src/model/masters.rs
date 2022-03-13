@@ -2,7 +2,6 @@ use std::{
     cmp::{min, Reverse},
     io,
     io::{Cursor, Write},
-    ops::AddAssign,
 };
 
 use axum::{
@@ -106,13 +105,6 @@ pub struct MastersGroup {
     pub games: Vec<(u16, GameId)>,
 }
 
-impl AddAssign for MastersGroup {
-    fn add_assign(&mut self, rhs: MastersGroup) {
-        self.stats += rhs.stats;
-        self.games.extend(rhs.games);
-    }
-}
-
 #[derive(Default, Debug)]
 pub struct MastersEntry {
     pub groups: FxHashMap<RawUci, MastersGroup>,
@@ -143,7 +135,7 @@ impl MastersEntry {
         while buf.has_remaining() {
             let uci = RawUci::read(buf);
             let group = self.groups.entry(uci).or_default();
-            group.stats += Stats::read(buf);
+            group.stats += &Stats::read(buf);
             let num_games = usize::from(buf.get_u8());
             group
                 .games
@@ -189,7 +181,7 @@ impl MastersEntry {
         let mut top_games = Vec::new();
 
         for (uci, group) in self.groups {
-            total += group.stats.clone();
+            total += &group.stats;
 
             let uci = Uci::from(uci);
 

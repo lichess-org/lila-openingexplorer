@@ -26,8 +26,8 @@ impl Stats {
     }
 }
 
-impl AddAssign for Stats {
-    fn add_assign(&mut self, rhs: Stats) {
+impl AddAssign<&Stats> for Stats {
+    fn add_assign(&mut self, rhs: &Stats) {
         self.rating_sum += rhs.rating_sum;
         self.white += rhs.white;
         self.draws += rhs.draws;

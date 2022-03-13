@@ -1,4 +1,4 @@
-use std::{array, ops::AddAssign, str::FromStr};
+use std::{array, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -104,16 +104,5 @@ impl<T> IntoIterator for BySpeed<T> {
             self.correspondence,
         ]
         .into_iter()
-    }
-}
-
-impl<T: AddAssign> AddAssign for BySpeed<T> {
-    fn add_assign(&mut self, rhs: BySpeed<T>) {
-        self.ultra_bullet += rhs.ultra_bullet;
-        self.bullet += rhs.bullet;
-        self.blitz += rhs.blitz;
-        self.rapid += rhs.rapid;
-        self.classical += rhs.classical;
-        self.correspondence += rhs.correspondence;
     }
 }
