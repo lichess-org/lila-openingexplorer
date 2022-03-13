@@ -10,7 +10,7 @@ use thiserror::Error;
 #[error("invalid game id")]
 pub struct InvalidGameId;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct GameId(u64);
 
 impl GameId {
