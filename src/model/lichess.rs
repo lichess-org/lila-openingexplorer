@@ -315,10 +315,8 @@ impl LichessEntry {
 
                         group.stats.write(buf);
 
-                        for (game_idx, game) in group
-                            .games
-                            .iter()
-                            .skip(group.games.len().saturating_sub(MAX_LICHESS_GAMES))
+                        for (game_idx, game) in
+                            &group.games[group.games.len().saturating_sub(MAX_LICHESS_GAMES)..]
                         {
                             write_uint(buf, *game_idx);
                             game.write(buf);

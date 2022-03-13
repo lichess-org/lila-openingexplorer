@@ -150,10 +150,8 @@ impl PlayerEntry {
 
                         group.stats.write(buf);
 
-                        for (game_idx, game) in group
-                            .games
-                            .iter()
-                            .skip(group.games.len().saturating_sub(MAX_PLAYER_GAMES))
+                        for (game_idx, game) in
+                            &group.games[group.games.len().saturating_sub(MAX_PLAYER_GAMES)..]
                         {
                             write_uint(buf, *game_idx);
                             game.write(buf);
