@@ -107,13 +107,13 @@ impl IndexerStub {
 
         // Queue indexing request.
         let mut guard = self.indexing.write().await;
-        let entry = match guard.entry(player.to_owned()) {
+        let entry = match guard.entry(player.clone()) {
             Entry::Occupied(entry) => return Some(entry.get().subscribe()),
             Entry::Vacant(entry) => entry,
         };
 
         match self.tx.try_send(IndexerMessage::IndexPlayer {
-            player: player.to_owned(),
+            player: player.clone(),
             status,
             index_run,
         }) {

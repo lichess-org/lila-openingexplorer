@@ -20,7 +20,7 @@ pub fn write_uint<B: BufMut>(buf: &mut B, mut n: u64) {
         buf.put_u8((n as u8 & 127) | 128);
         n >>= 7;
     }
-    buf.put_u8(n as u8)
+    buf.put_u8(n as u8);
 }
 
 #[cfg(test)]

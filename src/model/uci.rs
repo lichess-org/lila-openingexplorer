@@ -12,7 +12,7 @@ impl RawUci {
     }
 
     pub fn write<B: BufMut>(&self, buf: &mut B) {
-        buf.put_u16_le(self.0)
+        buf.put_u16_le(self.0);
     }
 }
 

@@ -66,7 +66,7 @@ impl Header {
                 }) | (u8::from(mode.is_rated()) << 3)
                     | ((num_games as u8) << 4)
             }
-        })
+        });
     }
 }
 
