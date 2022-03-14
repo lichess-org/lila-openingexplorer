@@ -13,8 +13,8 @@ use shakmaty::ByColor;
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "ByColor")]
 pub struct ByColorDef<T> {
-    white: T,
     black: T,
+    white: T,
 }
 
 pub fn sort_by_key_and_truncate<T, K, F>(vec: &mut Vec<T>, num: usize, mut f: F)
