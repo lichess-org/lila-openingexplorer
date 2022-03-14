@@ -144,33 +144,40 @@ impl MastersEntry {
     }
 
     pub fn write<B: BufMut>(&self, buf: &mut B) {
-        let mut top_games = self
+        let mut top_games: Vec<_> = self
             .groups
             .values()
             .flat_map(|group| group.games.iter().copied())
             .collect();
-        sort_by_key_and_truncate(&mut top_games, MAX_MASTERS_GAMES, |g| Reverse(*g));
 
-        if let Some(lowest_top_game) = top_games.last() {
-            for (uci, group) in &self.groups {
-                uci.write(buf);
-                group.stats.write(buf);
+        let lowest_top_game = if top_games.len() > MAX_MASTERS_GAMES {
+            let (_, lowest_top_game, _) =
+                top_games.select_nth_unstable_by_key(MAX_MASTERS_GAMES - 1, |g| Reverse(*g));
+            lowest_top_game
+        } else if let Some(lowest_top_game) = top_games.iter().min() {
+            lowest_top_game
+        } else {
+            return;
+        };
 
-                let num_games = if group.games.len() == 1 {
-                    1
-                } else {
-                    group.games.iter().filter(|g| *g >= lowest_top_game).count()
-                };
-                buf.put_u8(num_games as u8);
+        for (uci, group) in &self.groups {
+            uci.write(buf);
+            group.stats.write(buf);
 
-                for (sort_key, id) in group
-                    .games
-                    .iter()
-                    .filter(|g| group.games.len() == 1 || *g >= lowest_top_game)
-                {
-                    buf.put_u16_le(*sort_key);
-                    id.write(buf);
-                }
+            let num_games = if group.games.len() == 1 {
+                1
+            } else {
+                group.games.iter().filter(|g| *g >= lowest_top_game).count()
+            };
+            buf.put_u8(num_games as u8);
+
+            for (sort_key, id) in group
+                .games
+                .iter()
+                .filter(|g| group.games.len() == 1 || *g >= lowest_top_game)
+            {
+                buf.put_u16_le(*sort_key);
+                id.write(buf);
             }
         }
     }
