@@ -9,10 +9,10 @@ use crate::model::{read_uint, write_uint};
 #[derive(Debug, Default, Clone, Eq, PartialEq, Serialize)]
 pub struct Stats {
     #[serde(skip)]
-    pub rating_sum: u64,
-    pub white: u64,
-    pub draws: u64,
-    pub black: u64,
+    rating_sum: u64,
+    white: u64,
+    draws: u64,
+    black: u64,
 }
 
 impl Stats {
@@ -48,8 +48,28 @@ impl Stats {
         self.total() == 1
     }
 
-    pub fn average_rating(&self) -> Option<u64> {
-        self.rating_sum.checked_div(self.total())
+    pub fn white(&self) -> u64 {
+        self.white
+    }
+
+    pub fn black(&self) -> u64 {
+        self.black
+    }
+
+    pub fn draws(&self) -> u64 {
+        self.draws
+    }
+
+    fn average_rating_f64(&self) -> Option<f64> {
+        if self.total() > 0 {
+            Some(self.rating_sum as f64 / self.total() as f64)
+        } else {
+            None
+        }
+    }
+
+    pub fn average_rating(&self) -> Option<u16> {
+        self.average_rating_f64().map(|avg| avg.round() as u16)
     }
 
     pub fn performance(&self, color: Color) -> Option<i32> {
@@ -66,13 +86,14 @@ impl Stats {
             501.0, 538.0, 589.0, 677.0, 800.0,
         ];
 
-        self.average_rating().map(|avg_opponent_rating| {
+        self.average_rating_f64().map(|avg_opponent_rating| {
             let score = 100 * color.fold_wb(self.white, self.black) + 50 * self.draws;
             let p = (score as f64) / (self.total() as f64);
             let idx = p.trunc() as usize;
-            let delta = DELTAS[idx] * (1.0 - p.fract())
-                + *DELTAS.get(idx + 1).unwrap_or(&800.0) * p.fract();
-            (avg_opponent_rating as f64 + delta).round() as i32
+            (avg_opponent_rating
+                + DELTAS[idx] * (1.0 - p.fract())
+                + *DELTAS.get(idx + 1).unwrap_or(&800.0) * p.fract())
+            .round() as i32
         })
     }
 

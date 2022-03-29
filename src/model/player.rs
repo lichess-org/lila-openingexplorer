@@ -455,9 +455,9 @@ mod tests {
             .unwrap()
             .bullet
             .rated;
-        assert_eq!(group.stats.white, 1);
-        assert_eq!(group.stats.draws, 0);
-        assert_eq!(group.stats.black, 1);
+        assert_eq!(group.stats.white(), 1);
+        assert_eq!(group.stats.draws(), 0);
+        assert_eq!(group.stats.black(), 1);
         assert_eq!(group.stats.average_rating(), Some(1700));
         assert_eq!(group.games.len(), 2);
 

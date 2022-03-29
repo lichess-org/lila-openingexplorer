@@ -266,7 +266,7 @@ mod tests {
         deserialized.extend_from_reader(&mut reader);
 
         let group = deserialized.groups.get(&RawUci::from(uci)).unwrap();
-        assert_eq!(group.stats.draws, 1);
+        assert_eq!(group.stats.draws(), 1);
         assert_eq!(group.games[0], (1600 + 1700, game));
     }
 }

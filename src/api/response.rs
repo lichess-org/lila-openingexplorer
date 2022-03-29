@@ -31,9 +31,9 @@ pub struct ExplorerMove {
     #[serde_as(as = "DisplayFromStr")]
     pub san: SanPlus,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub average_rating: Option<u64>,
+    pub average_rating: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub average_opponent_rating: Option<u64>,
+    pub average_opponent_rating: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance: Option<i32>,
     #[serde(flatten)]

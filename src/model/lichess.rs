@@ -445,8 +445,8 @@ pub struct PreparedMove {
     pub uci: Uci,
     pub stats: Stats,
     pub game: Option<GameId>,
-    pub average_rating: Option<u64>,
-    pub average_opponent_rating: Option<u64>,
+    pub average_rating: Option<u16>,
+    pub average_opponent_rating: Option<u16>,
     pub performance: Option<i32>,
 }
 
