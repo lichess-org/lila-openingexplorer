@@ -421,12 +421,10 @@ fn lichess_merge(
     operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut entry = LichessEntry::default();
-    let mut size_hint = 0;
     for mut op in existing.into_iter().chain(operands.into_iter()) {
-        size_hint += op.len();
         entry.extend_from_reader(&mut op);
     }
-    let mut buf = Vec::with_capacity(size_hint);
+    let mut buf = Vec::new();
     entry.write(&mut buf);
     Some(buf)
 }
@@ -458,12 +456,10 @@ fn lichess_game_merge(
 
 fn player_merge(_key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) -> Option<Vec<u8>> {
     let mut entry = PlayerEntry::default();
-    let mut size_hint = 0;
     for mut op in existing.into_iter().chain(operands.into_iter()) {
-        size_hint += op.len();
         entry.extend_from_reader(&mut op);
     }
-    let mut buf = Vec::with_capacity(size_hint);
+    let mut buf = Vec::new();
     entry.write(&mut buf);
     Some(buf)
 }
@@ -474,12 +470,10 @@ fn masters_merge(
     operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut entry = MastersEntry::default();
-    let mut size_hint = 0;
     for mut op in existing.into_iter().chain(operands.into_iter()) {
-        size_hint += op.len();
         entry.extend_from_reader(&mut op);
     }
-    let mut buf = Vec::with_capacity(size_hint);
+    let mut buf = Vec::new();
     entry.write(&mut buf);
     Some(buf)
 }
