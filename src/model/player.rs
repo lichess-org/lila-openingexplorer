@@ -140,7 +140,7 @@ impl PlayerEntry {
 
             for (speed, by_mode) in sub_entry.as_ref().zip_speed() {
                 for (mode, group) in by_mode.as_ref().zip_mode() {
-                    if !group.games.is_empty() || !group.stats.is_empty() {
+                    if !group.stats.is_empty() {
                         Header::Group {
                             speed,
                             mode,
@@ -209,7 +209,7 @@ impl PlayerEntry {
                 }
             }
 
-            if !stats.is_empty() || latest_game.is_some() {
+            if !stats.is_empty() {
                 total += &stats;
 
                 moves.push(PreparedMove {

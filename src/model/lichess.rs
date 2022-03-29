@@ -305,7 +305,7 @@ impl LichessEntry {
 
             for (speed, by_rating_group) in sub_entry.as_ref().zip_speed() {
                 for (rating_group, group) in by_rating_group.as_ref().zip_rating_group() {
-                    if !group.games.is_empty() || !group.stats.is_empty() {
+                    if !group.stats.is_empty() {
                         LichessHeader::Group {
                             speed,
                             rating_group,
@@ -361,7 +361,7 @@ impl LichessEntry {
                 }
             }
 
-            if !stats.is_empty() || latest_game.is_some() {
+            if !stats.is_empty() {
                 total += &stats;
 
                 moves.push(PreparedMove {
