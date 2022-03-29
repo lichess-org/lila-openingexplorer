@@ -73,6 +73,7 @@ impl Header {
 #[derive(Default, Debug)]
 pub struct PlayerEntry {
     sub_entries: HashMap<RawUci, BySpeed<ByMode<LichessGroup>>>,
+    min_game_idx: Option<u64>,
     max_game_idx: Option<u64>,
 }
 
@@ -94,6 +95,7 @@ impl PlayerEntry {
         };
         PlayerEntry {
             sub_entries: HashMap::from([(RawUci::from(uci), sub_entry)]),
+            min_game_idx: Some(0),
             max_game_idx: Some(0),
         }
     }
@@ -117,6 +119,8 @@ impl PlayerEntry {
                         group.stats += &Stats::read(buf);
                         group.games.extend((0..num_games).map(|_| {
                             let game_idx = base_game_idx + read_uint(buf);
+                            self.min_game_idx =
+                                Some(min(self.min_game_idx.unwrap_or(u64::MAX), game_idx));
                             self.max_game_idx = Some(max(self.max_game_idx.unwrap_or(0), game_idx));
                             let game = GameId::read(buf);
                             (game_idx, game)
@@ -150,7 +154,7 @@ impl PlayerEntry {
                         for (game_idx, game) in
                             &group.games[group.games.len().saturating_sub(MAX_PLAYER_GAMES)..]
                         {
-                            write_uint(buf, *game_idx);
+                            write_uint(buf, *game_idx - self.min_game_idx.unwrap_or(0));
                             game.write(buf);
                         }
                     }
