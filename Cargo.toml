@@ -43,3 +43,8 @@ tower-http = { version = "0.2", features = ["set-header"] }
 
 [dev-dependencies]
 quickcheck = "1"
+iai = "0.1"
+
+[[bench]]
+name = "benches"
+harness = false
