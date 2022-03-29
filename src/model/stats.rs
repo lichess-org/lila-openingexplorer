@@ -52,6 +52,30 @@ impl Stats {
         self.rating_sum.checked_div(self.total())
     }
 
+    pub fn performance(&self, color: Color) -> Option<i32> {
+        // https://handbook.fide.com/chapter/B022017
+        const DELTAS: [f64; 101] = [
+            -800.0, -677.0, -589.0, -538.0, -501.0, -470.0, -444.0, -422.0, -401.0, -383.0, -366.0,
+            -351.0, -336.0, -322.0, -309.0, -296.0, -284.0, -273.0, -262.0, -251.0, -240.0, -230.0,
+            -220.0, -211.0, -202.0, -193.0, -184.0, -175.0, -166.0, -158.0, -149.0, -141.0, -133.0,
+            -125.0, -117.0, -110.0, -102.0, -95.0, -87.0, -80.0, -72.0, -65.0, -57.0, -50.0, -43.0,
+            -36.0, -29.0, -21.0, -14.0, -7.0, 0.0, 7.0, 14.0, 21.0, 29.0, 36.0, 43.0, 50.0, 57.0,
+            65.0, 72.0, 80.0, 87.0, 95.0, 102.0, 110.0, 117.0, 125.0, 133.0, 141.0, 149.0, 158.0,
+            166.0, 175.0, 184.0, 193.0, 202.0, 211.0, 220.0, 230.0, 240.0, 251.0, 262.0, 273.0,
+            284.0, 296.0, 309.0, 322.0, 336.0, 351.0, 366.0, 383.0, 401.0, 422.0, 444.0, 470.0,
+            501.0, 538.0, 589.0, 677.0, 800.0,
+        ];
+
+        self.average_rating().map(|avg_opponent_rating| {
+            let score = 100 * color.fold_wb(self.white, self.black) + 50 * self.draws;
+            let p = (score as f64) / (self.total() as f64);
+            let idx = p.trunc() as usize;
+            let delta = DELTAS[idx] * (1.0 - p.fract())
+                + *DELTAS.get(idx + 1).unwrap_or(&800.0) * p.fract();
+            (avg_opponent_rating as f64 + delta).round() as i32
+        })
+    }
+
     pub fn read<B: Buf>(buf: &mut B) -> Stats {
         let rating_sum = read_uint(buf);
         match read_uint(buf) {
@@ -142,5 +166,35 @@ mod tests {
             let mut reader = &buf[..];
             Stats::read(&mut reader) == stats
         }
+    }
+
+    #[test]
+    fn test_performance() {
+        let single = Stats {
+            white: 1,
+            draws: 0,
+            black: 0,
+            rating_sum: 1500,
+        };
+        assert_eq!(single.performance(Color::White), Some(2300));
+        assert_eq!(single.performance(Color::Black), Some(700));
+
+        let symmetrical = Stats {
+            white: 123,
+            draws: 10,
+            black: 123,
+            rating_sum: (123 + 10 + 123) * 987,
+        };
+        assert_eq!(symmetrical.performance(Color::White), Some(987));
+        assert_eq!(symmetrical.performance(Color::Black), Some(987));
+
+        let p5 = Stats {
+            white: 5,
+            draws: 0,
+            black: 95,
+            rating_sum: 0,
+        };
+        assert_eq!(p5.performance(Color::White), Some(-470));
+        assert_eq!(p5.performance(Color::Black), Some(470));
     }
 }

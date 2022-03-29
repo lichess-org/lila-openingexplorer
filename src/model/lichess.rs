@@ -368,6 +368,7 @@ impl LichessEntry {
                     uci,
                     average_rating: stats.average_rating(),
                     average_opponent_rating: None,
+                    performance: None,
                     game: latest_game.filter(|_| stats.is_single()).map(|(_, id)| id),
                     stats,
                 });
@@ -446,6 +447,7 @@ pub struct PreparedMove {
     pub game: Option<GameId>,
     pub average_rating: Option<u64>,
     pub average_opponent_rating: Option<u64>,
+    pub performance: Option<i32>,
 }
 
 #[cfg(test)]

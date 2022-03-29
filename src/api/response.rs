@@ -34,6 +34,8 @@ pub struct ExplorerMove {
     pub average_rating: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub average_opponent_rating: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub performance: Option<i32>,
     #[serde(flatten)]
     pub stats: Stats,
     pub game: Option<ExplorerGame>,

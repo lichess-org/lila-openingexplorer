@@ -6,7 +6,7 @@ use std::{
 
 use bytes::{Buf, BufMut};
 use rustc_hash::FxHashMap;
-use shakmaty::{uci::Uci, Outcome};
+use shakmaty::{uci::Uci, Color, Outcome};
 
 use crate::{
     api::{Limits, PlayerQueryFilter},
@@ -162,7 +162,12 @@ impl PlayerEntry {
         }
     }
 
-    pub fn prepare(self, filter: &PlayerQueryFilter, limits: &Limits) -> PreparedResponse {
+    pub fn prepare(
+        self,
+        color: Color,
+        filter: &PlayerQueryFilter,
+        limits: &Limits,
+    ) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
         let mut recent_games: Vec<(u64, RawUci, GameId)> = Vec::new();
@@ -211,6 +216,7 @@ impl PlayerEntry {
                     uci: Uci::from(uci),
                     average_rating: None,
                     average_opponent_rating: stats.average_rating(),
+                    performance: stats.performance(color),
                     game: latest_game.filter(|_| stats.is_single()).map(|(_, id)| id),
                     stats,
                 });

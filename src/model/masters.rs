@@ -201,6 +201,7 @@ impl MastersEntry {
                 uci: uci.clone(),
                 average_rating: group.stats.average_rating(),
                 average_opponent_rating: None,
+                performance: None,
                 game: single_game,
                 stats: group.stats,
             });

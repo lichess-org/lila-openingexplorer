@@ -24,6 +24,7 @@ use shakmaty::{
     san::{San, SanPlus},
     uci::Uci,
     variant::VariantPosition,
+    Color,
 };
 use tikv_jemallocator::Jemalloc;
 use tokio::sync::watch;
@@ -182,6 +183,7 @@ fn finalize_lichess_moves(
             uci: p.uci,
             average_rating: p.average_rating,
             average_opponent_rating: p.average_opponent_rating,
+            performance: p.performance,
             game: p.game.and_then(|id| {
                 lichess_db
                     .game(id)
@@ -214,6 +216,7 @@ struct PlayerStreamState {
     indexing: Option<watch::Receiver<()>>,
     key: KeyPrefix,
     db: Arc<Database>,
+    color: Color,
     filter: PlayerQueryFilter,
     limits: Limits,
     pos: VariantPosition,
@@ -238,6 +241,7 @@ async fn player(
     let key = KeyBuilder::player(&player, query.color).with_zobrist(variant, pos.zobrist_hash());
 
     let state = PlayerStreamState {
+        color: query.color,
         filter: query.filter,
         limits: query.limits,
         db,
@@ -271,7 +275,7 @@ async fn player(
             let filtered = lichess_db
                 .read_player(&state.key, state.filter.since, state.filter.until)
                 .expect("read player")
-                .prepare(&state.filter, &state.limits);
+                .prepare(state.color, &state.filter, &state.limits);
 
             Some((
                 ExplorerResponse {
@@ -341,6 +345,7 @@ async fn masters(
                 uci: p.uci,
                 average_rating: p.average_rating,
                 average_opponent_rating: p.average_opponent_rating,
+                performance: p.performance,
                 stats: p.stats,
                 game: p.game.and_then(|id| {
                     masters_db
