@@ -226,9 +226,11 @@ impl PlayerEntry {
         sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(usize::MAX), |row| {
             Reverse(row.stats.total())
         });
-        sort_by_key_and_truncate(&mut recent_games, MAX_PLAYER_GAMES, |(idx, _, _)| {
-            Reverse(*idx)
-        });
+        sort_by_key_and_truncate(
+            &mut recent_games,
+            min(limits.recent_games, MAX_PLAYER_GAMES),
+            |(idx, _, _)| Reverse(*idx),
+        );
 
         PreparedResponse {
             total,
