@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use rustc_hash::FxHashMap;
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
@@ -29,12 +27,12 @@ struct OpeningRecord {
 }
 
 pub struct Openings {
-    data: FxHashMap<u128, Opening>,
+    data: HashMap<u128, Opening>,
 }
 
 impl Openings {
     pub fn build_table() -> Openings {
-        let mut data = HashMap::with_hasher(Default::default());
+        let mut data = HashMap::new();
 
         for tsv in TSV_DATA {
             let mut tsv = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(tsv);

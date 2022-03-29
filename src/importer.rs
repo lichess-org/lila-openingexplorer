@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use rustc_hash::FxHashMap;
+use hashbrown::HashMap;
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 use shakmaty::{
@@ -58,8 +58,8 @@ impl MastersImporter {
             return Err(Error::DuplicateGame(body.id));
         }
 
-        let mut without_loops: FxHashMap<Key, (Uci, Color)> =
-            FxHashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
+        let mut without_loops: HashMap<Key, (Uci, Color)> =
+            HashMap::with_capacity(body.game.moves.len());
         let mut pos: Zobrist<Chess, u128> = Zobrist::default();
         let mut final_key = None;
         for uci in &body.game.moves {
@@ -162,8 +162,8 @@ impl LichessImporter {
             None => VariantPosition::new(variant),
         });
 
-        let mut without_loops: FxHashMap<Key, (Uci, Color)> =
-            FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
+        let mut without_loops: HashMap<Key, (Uci, Color)> =
+            HashMap::with_capacity(game.moves.len());
         for (ply, san) in game.moves.into_iter().enumerate() {
             if ply >= MAX_PLIES {
                 break;

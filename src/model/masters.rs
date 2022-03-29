@@ -9,7 +9,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use bytes::{Buf, BufMut};
-use rustc_hash::FxHashMap;
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
@@ -107,7 +107,7 @@ pub struct MastersGroup {
 
 #[derive(Default, Debug)]
 pub struct MastersEntry {
-    groups: FxHashMap<RawUci, MastersGroup>,
+    groups: HashMap<RawUci, MastersGroup>,
 }
 
 impl MastersEntry {
@@ -120,15 +120,15 @@ impl MastersEntry {
         mover_rating: u16,
         opponent_rating: u16,
     ) -> MastersEntry {
-        let mut groups = FxHashMap::with_capacity_and_hasher(1, Default::default());
-        groups.insert(
-            RawUci::from(uci),
-            MastersGroup {
-                stats: Stats::new_single(outcome, mover_rating),
-                games: vec![(mover_rating.saturating_add(opponent_rating), id)],
-            },
-        );
-        MastersEntry { groups }
+        MastersEntry {
+            groups: HashMap::from([(
+                RawUci::from(uci),
+                MastersGroup {
+                    stats: Stats::new_single(outcome, mover_rating),
+                    games: vec![(mover_rating.saturating_add(opponent_rating), id)],
+                },
+            )]),
+        }
     }
 
     pub fn extend_from_reader<B: Buf>(&mut self, buf: &mut B) {

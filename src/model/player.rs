@@ -5,7 +5,7 @@ use std::{
 };
 
 use bytes::{Buf, BufMut};
-use rustc_hash::FxHashMap;
+use hashbrown::HashMap;
 use shakmaty::{uci::Uci, Color, Outcome};
 
 use crate::{
@@ -72,7 +72,7 @@ impl Header {
 
 #[derive(Default, Debug)]
 pub struct PlayerEntry {
-    sub_entries: FxHashMap<RawUci, BySpeed<ByMode<LichessGroup>>>,
+    sub_entries: HashMap<RawUci, BySpeed<ByMode<LichessGroup>>>,
     max_game_idx: Option<u64>,
 }
 
@@ -92,11 +92,8 @@ impl PlayerEntry {
             stats: Stats::new_single(outcome, opponent_rating),
             games: vec![(0, game_id)],
         };
-        let mut sub_entries = FxHashMap::with_capacity_and_hasher(1, Default::default());
-        sub_entries.insert(RawUci::from(uci), sub_entry);
-
         PlayerEntry {
-            sub_entries,
+            sub_entries: HashMap::from([(RawUci::from(uci), sub_entry)]),
             max_game_idx: Some(0),
         }
     }

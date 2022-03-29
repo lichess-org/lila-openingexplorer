@@ -1,5 +1,4 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -8,7 +7,7 @@ use async_channel::TrySendError;
 use axum::http::StatusCode;
 use clap::Parser;
 use futures_util::StreamExt;
-use rustc_hash::FxHashMap;
+use hashbrown::hash_map::{Entry, HashMap};
 use shakmaty::{
     uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Outcome, Position,
 };
@@ -355,8 +354,7 @@ impl IndexerActor {
         };
 
         // Build an intermediate table to remove loops (due to repetitions).
-        let mut table: FxHashMap<u128, Uci> =
-            FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
+        let mut table: HashMap<u128, Uci> = HashMap::with_capacity(game.moves.len());
 
         for (ply, san) in game.moves.into_iter().enumerate() {
             if ply >= MAX_PLIES {
