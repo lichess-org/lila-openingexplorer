@@ -4,7 +4,7 @@ use lila_openingexplorer::{
     model::{LichessEntry, Month, PreparedResponse},
 };
 
-fn bench_lichess() -> PreparedResponse {
+fn bench_lichess_response() -> PreparedResponse {
     let mut entry = LichessEntry::default();
 
     let mut reader = black_box(LICHESS_ENTRY_1);
@@ -25,6 +25,16 @@ fn bench_lichess() -> PreparedResponse {
             moves: None,
         },
     )
+}
+
+fn bench_lichess_rewrite() -> Vec<u8> {
+    let mut entry = LichessEntry::default();
+    let mut reader = black_box(LICHESS_ENTRY_1);
+    entry.extend_from_reader(&mut reader);
+
+    let mut buf = Vec::new();
+    entry.write(&mut buf);
+    buf
 }
 
 const LICHESS_ENTRY_1: &[u8] = &[
@@ -1308,4 +1318,4 @@ const LICHESS_ENTRY_2: &[u8] = &[
     152,
 ];
 
-iai::main!(bench_lichess);
+iai::main!(bench_lichess_response, bench_lichess_rewrite);
