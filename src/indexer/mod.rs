@@ -1,4 +1,5 @@
 use std::{
+    collections::{hash_map::Entry, HashMap},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -7,7 +8,7 @@ use async_channel::TrySendError;
 use axum::http::StatusCode;
 use clap::Parser;
 use futures_util::StreamExt;
-use hashbrown::hash_map::{Entry, HashMap};
+use rustc_hash::FxHashMap;
 use shakmaty::{
     uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Outcome, Position,
 };
@@ -354,7 +355,8 @@ impl IndexerActor {
         };
 
         // Build an intermediate table to remove loops (due to repetitions).
-        let mut table: HashMap<u128, Uci> = HashMap::with_capacity(game.moves.len());
+        let mut without_loops: FxHashMap<u128, Uci> =
+            FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
 
         for (ply, san) in game.moves.into_iter().enumerate() {
             if ply >= MAX_PLIES {
@@ -377,7 +379,7 @@ impl IndexerActor {
             };
 
             let uci = m.to_uci(CastlingMode::Chess960);
-            table.insert(pos.zobrist_hash(), uci);
+            without_loops.insert(pos.zobrist_hash(), uci);
 
             pos.play_unchecked(&m);
         }
@@ -403,7 +405,7 @@ impl IndexerActor {
             },
         );
 
-        for (zobrist, uci) in table {
+        for (zobrist, uci) in without_loops {
             batch.merge_player(
                 hash.get(color)
                     .with_zobrist(variant, zobrist)

@@ -9,7 +9,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use bytes::{Buf, BufMut};
-use hashbrown::HashMap;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
@@ -107,7 +107,7 @@ pub struct MastersGroup {
 
 #[derive(Default, Debug)]
 pub struct MastersEntry {
-    groups: HashMap<RawUci, MastersGroup>,
+    groups: FxHashMap<RawUci, MastersGroup>,
 }
 
 impl MastersEntry {
@@ -121,13 +121,15 @@ impl MastersEntry {
         opponent_rating: u16,
     ) -> MastersEntry {
         MastersEntry {
-            groups: HashMap::from([(
+            groups: [(
                 RawUci::from(uci),
                 MastersGroup {
                     stats: Stats::new_single(outcome, mover_rating),
                     games: vec![(mover_rating.saturating_add(opponent_rating), id)],
                 },
-            )]),
+            )]
+            .into_iter()
+            .collect(),
         }
     }
 
