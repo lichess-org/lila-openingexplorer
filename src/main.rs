@@ -18,6 +18,7 @@ use axum::{
 };
 use clap::Parser;
 use futures_util::stream::Stream;
+use moka::sync::Cache;
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
@@ -62,6 +63,8 @@ struct Opt {
     indexer: IndexerOpt,
 }
 
+type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
+
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_env(
@@ -82,6 +85,16 @@ async fn main() {
     let masters_importer = MastersImporter::new(Arc::clone(&db));
     let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
+    let lichess_cache: ExplorerCache<LichessQuery> = Cache::builder()
+        .max_capacity(1000)
+        .time_to_live(Duration::from_secs(5 * 60))
+        .build();
+
+    let masters_cache: ExplorerCache<MastersQuery> = Cache::builder()
+        .max_capacity(1000)
+        .time_to_live(Duration::from_secs(5 * 60))
+        .build();
+
     let app = Router::new()
         .route("/monitor/cf/:cf/:prop", get(cf_prop))
         .route("/monitor/db/:prop", get(db_prop))
@@ -100,6 +113,8 @@ async fn main() {
             ServiceBuilder::new()
                 .layer(Extension(openings))
                 .layer(Extension(db))
+                .layer(Extension(masters_cache))
+                .layer(Extension(lichess_cache))
                 .layer(Extension(masters_importer))
                 .layer(Extension(lichess_importer))
                 .layer(Extension(indexer)),
@@ -315,63 +330,66 @@ async fn masters_pgn(
 async fn masters(
     Extension(openings): Extension<&'static Openings>,
     Extension(db): Extension<Arc<Database>>,
+    Extension(masters_cache): Extension<ExplorerCache<MastersQuery>>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    let PlayPosition {
-        variant,
-        pos,
-        opening,
-    } = query.play.position(openings)?;
-    let key = KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash());
-    let masters_db = db.masters();
-    let entry = masters_db
-        .read(key, query.since, query.until)
-        .expect("get masters")
-        .prepare(&query.limits);
+    masters_cache.get_with(query.clone(), || {
+        let PlayPosition {
+            variant,
+            pos,
+            opening,
+        } = query.play.position(openings)?;
+        let key = KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash());
+        let masters_db = db.masters();
+        let entry = masters_db
+            .read(key, query.since, query.until)
+            .expect("get masters")
+            .prepare(&query.limits);
 
-    Ok(Json(ExplorerResponse {
-        total: entry.total,
-        moves: entry
-            .moves
-            .into_iter()
-            .map(|p| ExplorerMove {
-                san: p.uci.to_move(&pos).map_or(
-                    SanPlus {
-                        san: San::Null,
-                        suffix: None,
-                    },
-                    |m| SanPlus::from_move(pos.clone(), &m),
-                ),
-                uci: p.uci,
-                average_rating: p.average_rating,
-                average_opponent_rating: p.average_opponent_rating,
-                performance: p.performance,
-                stats: p.stats,
-                game: p.game.and_then(|id| {
-                    masters_db
-                        .game(id)
-                        .expect("get masters game")
-                        .map(|info| ExplorerGame::from_masters(id, info))
-                }),
-            })
-            .collect(),
-        top_games: Some(
-            masters_db
-                .games(entry.top_games.iter().map(|(_, id)| *id))
-                .expect("get masters games")
+        Ok(Json(ExplorerResponse {
+            total: entry.total,
+            moves: entry
+                .moves
                 .into_iter()
-                .zip(entry.top_games.into_iter())
-                .filter_map(|(info, (uci, id))| {
-                    info.map(|info| ExplorerGameWithUci {
-                        uci: uci.clone(),
-                        row: ExplorerGame::from_masters(id, info),
-                    })
+                .map(|p| ExplorerMove {
+                    san: p.uci.to_move(&pos).map_or(
+                        SanPlus {
+                            san: San::Null,
+                            suffix: None,
+                        },
+                        |m| SanPlus::from_move(pos.clone(), &m),
+                    ),
+                    uci: p.uci,
+                    average_rating: p.average_rating,
+                    average_opponent_rating: p.average_opponent_rating,
+                    performance: p.performance,
+                    stats: p.stats,
+                    game: p.game.and_then(|id| {
+                        masters_db
+                            .game(id)
+                            .expect("get masters game")
+                            .map(|info| ExplorerGame::from_masters(id, info))
+                    }),
                 })
                 .collect(),
-        ),
-        opening,
-        recent_games: None,
-    }))
+            top_games: Some(
+                masters_db
+                    .games(entry.top_games.iter().map(|(_, id)| *id))
+                    .expect("get masters games")
+                    .into_iter()
+                    .zip(entry.top_games.into_iter())
+                    .filter_map(|(info, (uci, id))| {
+                        info.map(|info| ExplorerGameWithUci {
+                            uci: uci.clone(),
+                            row: ExplorerGame::from_masters(id, info),
+                        })
+                    })
+                    .collect(),
+            ),
+            opening,
+            recent_games: None,
+        }))
+    })
 }
 
 async fn lichess_import(
@@ -387,25 +405,28 @@ async fn lichess_import(
 async fn lichess(
     Extension(openings): Extension<&'static Openings>,
     Extension(db): Extension<Arc<Database>>,
+    Extension(lichess_cache): Extension<ExplorerCache<LichessQuery>>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    let PlayPosition {
-        variant,
-        pos,
-        opening,
-    } = query.play.position(openings)?;
-    let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
-    let lichess_db = db.lichess();
-    let filtered = lichess_db
-        .read_lichess(&key, query.filter.since, query.filter.until)
-        .expect("get lichess")
-        .prepare(&query.filter, &query.limits);
+    lichess_cache.get_with(query.clone(), || {
+        let PlayPosition {
+            variant,
+            pos,
+            opening,
+        } = query.play.position(openings)?;
+        let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
+        let lichess_db = db.lichess();
+        let filtered = lichess_db
+            .read_lichess(&key, query.filter.since, query.filter.until)
+            .expect("get lichess")
+            .prepare(&query.filter, &query.limits);
 
-    Ok(Json(ExplorerResponse {
-        total: filtered.total,
-        moves: finalize_lichess_moves(filtered.moves, pos.as_inner(), &lichess_db),
-        recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
-        top_games: Some(finalize_lichess_games(filtered.top_games, &lichess_db)),
-        opening,
-    }))
+        Ok(Json(ExplorerResponse {
+            total: filtered.total,
+            moves: finalize_lichess_moves(filtered.moves, pos.as_inner(), &lichess_db),
+            recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
+            top_games: Some(finalize_lichess_games(filtered.top_games, &lichess_db)),
+            opening,
+        }))
+    })
 }

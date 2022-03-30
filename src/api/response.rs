@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[serde_as]
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ExplorerResponse {
     #[serde(flatten)]
@@ -23,7 +23,7 @@ pub struct ExplorerResponse {
 }
 
 #[serde_as]
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ExplorerMove {
     #[serde_as(as = "DisplayFromStr")]
@@ -42,7 +42,7 @@ pub struct ExplorerMove {
 }
 
 #[serde_as]
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct ExplorerGameWithUci {
     #[serde_as(as = "DisplayFromStr")]
     pub uci: Uci,
@@ -51,7 +51,7 @@ pub struct ExplorerGameWithUci {
 }
 
 #[serde_as]
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct ExplorerGame {
     #[serde_as(as = "DisplayFromStr")]
     pub id: GameId,

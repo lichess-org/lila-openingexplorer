@@ -66,7 +66,7 @@ impl fmt::Display for LaxDate {
 
 const MAX_YEAR: u16 = 3000; // MAX_YEAR * 12 + 12 < 2^16
 
-#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Year(u16);
 
 impl Year {
@@ -106,7 +106,7 @@ impl TryFrom<u16> for Year {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Month(u16);
 
 impl Month {

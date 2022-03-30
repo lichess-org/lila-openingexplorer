@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::model::GameId;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum Error {
     #[error("bad request: {0}")]
     PositionError(#[from] PositionError<VariantPosition>),

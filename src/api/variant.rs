@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use shakmaty::variant::Variant;
 
-#[derive(Debug, Deserialize, Copy, Clone)]
+#[derive(Debug, Deserialize, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum LilaVariant {
     #[serde(alias = "antichess")]
     Antichess,

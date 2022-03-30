@@ -17,7 +17,7 @@ use crate::{
 const MAX_LICHESS_GAMES: usize = 8;
 const MAX_TOP_GAMES: usize = 4; // <= MAX_LICHESS_GAMES
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RatingGroup {
     GroupLow,
     Group1600,

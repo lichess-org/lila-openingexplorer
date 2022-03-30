@@ -17,7 +17,7 @@ use crate::{
 };
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct MastersQuery {
     #[serde(flatten)]
     pub play: Play,
@@ -32,7 +32,7 @@ pub struct MastersQuery {
 }
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct LichessQuery {
     #[serde(flatten)]
     pub play: Play,
@@ -43,7 +43,7 @@ pub struct LichessQuery {
 }
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct LichessQueryFilter {
     #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, Speed>>")]
     #[serde(default)]
@@ -120,7 +120,7 @@ pub struct PlayerQueryFilter {
 }
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Play {
     #[serde(default)]
     pub variant: LilaVariant,
@@ -160,7 +160,7 @@ impl Play {
 }
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Limits {
     #[serde_as(as = "DisplayFromStr")]
