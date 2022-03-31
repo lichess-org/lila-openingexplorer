@@ -61,6 +61,8 @@ struct Opt {
     cors: bool,
     #[clap(flatten)]
     indexer: IndexerOpt,
+    #[clap(long, default_value = "2000")]
+    cache_size: u64,
 }
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
@@ -86,12 +88,12 @@ async fn main() {
     let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
     let lichess_cache: ExplorerCache<LichessQuery> = Cache::builder()
-        .max_capacity(1000)
+        .max_capacity(opt.cache_size)
         .time_to_live(Duration::from_secs(5 * 60))
         .build();
 
     let masters_cache: ExplorerCache<MastersQuery> = Cache::builder()
-        .max_capacity(1000)
+        .max_capacity(opt.cache_size)
         .time_to_live(Duration::from_secs(5 * 60))
         .build();
 
