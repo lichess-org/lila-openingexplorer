@@ -44,7 +44,7 @@ It's best to whitelist only `/masters`, `/lichess`, and `/player`.
    cargo run --release -- *.pgn.bz2
    ```
 
-Note that does not import *all* games. Sampling rates are hardcoded in
+Note that this does not import *all* games. Sampling rates are hardcoded in
 `index-pgn/src/bin/index-lichess.rs`.
 
 HTTP API
