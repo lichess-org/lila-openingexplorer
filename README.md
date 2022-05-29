@@ -13,13 +13,39 @@ for lichess.org, capable of handling billions of positions, featuring:
 Usage
 -----
 
-```sh
-git submodule update --init
-EXPLORER_LOG=lila_openingexplorer=debug cargo run -- --lila https://lichess:***@lichess.dev --bearer lip_***
-```
+### Run server
 
-:warning: Administrative endpoints must be protected using a reverse proxy.
+1. Install recent stable Rust ([rustup](https://rustup.rs/) recommended).
+
+2. `git submodule update --init`
+
+3. `EXPLORER_LOG=lila_openingexplorer=debug cargo run --release`
+
+:warning: In a production environment, administrative endpoints must be
+protected using a reverse proxy.
 It's best to whitelist only `/masters`, `/lichess`, and `/player`.
+
+### Index games
+
+1. Download database dumps from https://database.lichess.org/.
+
+2. Decompress and index.
+
+   ```
+   cd index-pgn
+   pbunzip2 *.pgn.bz2
+   cargo run --release -- *.pgn
+   ```
+
+   Or directly import compressed files, if you're short on space.
+
+   ```
+   cd index-pgn
+   cargo run --release -- *.pgn.bz2
+   ```
+
+Note that does not import *all* games. Sampling rates are hardcoded in
+`index-pgn/src/bin/index-lichess.rs`.
 
 HTTP API
 --------
