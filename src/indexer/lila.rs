@@ -1,12 +1,12 @@
 use std::io;
 
-use chrono::{DateTime, Utc};
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{
     serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator, TimestampMilliSeconds,
 };
 use shakmaty::{fen::Fen, san::San, ByColor, Color};
+use time::PrimitiveDateTime;
 use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::io::StreamReader;
@@ -82,7 +82,7 @@ pub struct Game {
     pub rated: bool,
     pub created_at: u64,
     #[serde_as(as = "TimestampMilliSeconds")]
-    pub last_move_at: DateTime<Utc>,
+    pub last_move_at: PrimitiveDateTime,
     pub status: Status,
     pub variant: LilaVariant,
     #[serde(with = "ByColorDef")]
@@ -142,5 +142,20 @@ impl Status {
             self,
             Status::UnknownFinish | Status::NoStart | Status::Aborted
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Month;
+
+    #[test]
+    fn test_deserialize_game() {
+        let record = r#"{"id":"oV2tflO2","rated":false,"variant":"standard","speed":"rapid","perf":"rapid","createdAt":1651131730149,"lastMoveAt":1651131935030,"status":"mate","players":{"white":{"user":{"name":"revoof","patron":true,"id":"revoof"},"rating":1887,"provisional":true},"black":{"user":{"name":"maia1","title":"BOT","id":"maia1"},"rating":1417}},"winner":"white","moves":"d4 d5 c4 dxc4 Nc3 e6 e4 Nc6 Nf3 Bb4 Bxc4 Bxc3+ bxc3 Nf6 Bd3 O-O O-O b6 Bg5 Bb7 e5 h6 Bh4 g5 Nxg5 hxg5 Bxg5 Qd5 c4 Qxd4 Bxf6 Nxe5 Qh5 Ng6 Bxg6 fxg6 Qxg6#","clock":{"initial":600,"increment":0,"totalTime":600}}"#;
+
+        let game: Game = serde_json::from_str(record).expect("deserialize");
+        let month = Month::from_time_saturating(game.last_move_at);
+        assert_eq!(month, Month::try_from(24267).unwrap());
     }
 }

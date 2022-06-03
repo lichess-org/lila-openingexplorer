@@ -1,7 +1,7 @@
 use std::{cmp::min, convert::TryFrom, fmt, str::FromStr};
 
-use chrono::{DateTime, Datelike as _, Utc};
 use thiserror::Error;
+use time::PrimitiveDateTime;
 
 #[derive(Error, Debug)]
 pub enum InvalidDate {
@@ -114,13 +114,10 @@ impl Month {
         Month(MAX_YEAR * 12 + 11)
     }
 
-    pub fn from_time_saturating(time: DateTime<Utc>) -> Month {
-        let year = match time.year_ce() {
-            (true, ce) => min(u32::from(MAX_YEAR), ce) as u16,
-            (false, _) => 0,
-        };
-
-        Month(year * 12 + time.month0() as u16)
+    pub fn from_time_saturating(time: PrimitiveDateTime) -> Month {
+        let year = time.year().clamp(0, MAX_YEAR as i32) as u16;
+        let month0 = u16::from(u8::from(time.month()) - 1);
+        Month(year * 12 + month0)
     }
 
     #[must_use]
