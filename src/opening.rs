@@ -67,6 +67,10 @@ impl Openings {
     ) -> Result<Option<&Opening>, Error> {
         let mut opening = None;
 
+        if play.len() == 0 && opening_sensible(root.as_inner().variant()) {
+            opening = self.data.get(&root.zobrist_hash());
+        }
+
         for uci in play {
             let m = uci.to_move(root)?;
             root.play_unchecked(&m);
