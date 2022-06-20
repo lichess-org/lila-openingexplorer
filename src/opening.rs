@@ -67,7 +67,7 @@ impl Openings {
     ) -> Result<Option<&Opening>, Error> {
         let mut opening = None;
 
-        if play.len() == 0 && opening_sensible(root.as_inner().variant()) {
+        if opening_sensible(root.as_inner().variant()) {
             opening = self.data.get(&root.zobrist_hash());
         }
 
