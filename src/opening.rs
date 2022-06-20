@@ -65,22 +65,24 @@ impl Openings {
         root: &mut Zobrist<VariantPosition, u128>,
         play: Vec<Uci>,
     ) -> Result<Option<&Opening>, Error> {
-        let mut opening = None;
-
-        if play.len() == 0 && opening_sensible(root.as_inner().variant()) {
-            opening = self.data.get(&root.zobrist_hash());
-        }
+        let mut opening = self.classify(root);
 
         for uci in play {
             let m = uci.to_move(root)?;
             root.play_unchecked(&m);
 
-            if opening_sensible(root.as_inner().variant()) {
-                opening = self.data.get(&root.zobrist_hash()).or(opening);
-            }
+            opening = self.classify(root).or(opening);
         }
 
         Ok(opening)
+    }
+
+    fn classify(&self, pos: &Zobrist<VariantPosition, u128>) -> Option<&Opening> {
+        if opening_sensible(pos.as_inner().variant()) {
+            self.data.get(&pos.zobrist_hash())
+        } else {
+            None
+        }
     }
 }
 
