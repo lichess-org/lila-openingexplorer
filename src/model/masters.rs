@@ -11,7 +11,7 @@ use axum::{
 use bytes::{Buf, BufMut};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
+use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
 
 use crate::{

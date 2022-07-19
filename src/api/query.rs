@@ -1,7 +1,9 @@
 use std::cmp::{max, min};
 
 use serde::Deserialize;
-use serde_with::{serde_as, CommaSeparator, DisplayFromStr, StringWithSeparator, TryFromInto};
+use serde_with::{
+    formats::CommaSeparator, serde_as, DisplayFromStr, StringWithSeparator, TryFromInto,
+};
 use shakmaty::{
     fen::Fen,
     uci::Uci,

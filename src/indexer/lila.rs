@@ -3,7 +3,7 @@ use std::io;
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{
-    serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator, TimestampMilliSeconds,
+    formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator, TimestampMilliSeconds,
 };
 use shakmaty::{fen::Fen, san::San, ByColor, Color};
 use time::PrimitiveDateTime;

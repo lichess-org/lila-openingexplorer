@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
-use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
+use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 use shakmaty::{
     fen::Fen,
     san::San,
