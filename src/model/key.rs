@@ -1,8 +1,10 @@
+use std::array::TryFromSliceError;
+
 use bytes::{Buf, BufMut};
 use sha1::{Digest, Sha1};
 use shakmaty::{variant::Variant, Color};
 
-use crate::model::{Month, UserId, Year};
+use crate::model::{InvalidDate, Month, UserId, Year};
 
 #[derive(Debug)]
 pub struct KeyBuilder {
@@ -84,6 +86,18 @@ impl Key {
 
     pub fn into_bytes(self) -> [u8; Self::SIZE] {
         self.0
+    }
+
+    pub fn month(&self) -> Result<Month, InvalidDate> {
+        (&mut &self.0[KeyPrefix::SIZE..]).get_u16().try_into()
+    }
+}
+
+impl TryFrom<&'_ [u8]> for Key {
+    type Error = TryFromSliceError;
+
+    fn try_from(value: &'_ [u8]) -> Result<Self, Self::Error> {
+        value.try_into().map(Key)
     }
 }
 

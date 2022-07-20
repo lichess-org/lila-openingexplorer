@@ -329,6 +329,24 @@ impl LichessEntry {
         }
     }
 
+    pub fn total(&self, filter: &LichessQueryFilter) -> Stats {
+        let mut stats = Stats::default();
+
+        for sub_entry in self.sub_entries.values() {
+            for (speed, group) in sub_entry.as_ref().zip_speed() {
+                if filter.contains_speed(speed) {
+                    for (rating_group, group) in group.as_ref().zip_rating_group() {
+                        if filter.contains_rating_group(rating_group) {
+                            stats += &group.stats;
+                        }
+                    }
+                }
+            }
+        }
+
+        stats
+    }
+
     pub fn prepare(self, filter: &LichessQueryFilter, limits: &Limits) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());

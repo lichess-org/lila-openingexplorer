@@ -33,13 +33,20 @@ pub struct MastersQuery {
     pub limits: Limits,
 }
 
-#[serde_as]
 #[derive(Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct LichessQuery {
     #[serde(flatten)]
     pub play: Play,
     #[serde(flatten)]
     pub limits: Limits,
+    #[serde(flatten)]
+    pub filter: LichessQueryFilter,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct LichessHistoryQuery {
+    #[serde(flatten)]
+    pub play: Play,
     #[serde(flatten)]
     pub filter: LichessQueryFilter,
 }

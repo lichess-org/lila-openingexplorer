@@ -12,7 +12,7 @@ mod uci;
 mod uint;
 mod user;
 
-pub use date::{LaxDate, Month, Year};
+pub use date::{InvalidDate, LaxDate, Month, Year};
 pub use game_id::{GameId, InvalidGameId};
 pub use key::{Key, KeyBuilder, KeyPrefix};
 pub use lichess::{LichessEntry, LichessGroup, PreparedMove, PreparedResponse, RatingGroup};

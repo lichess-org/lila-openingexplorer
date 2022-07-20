@@ -1,3 +1,4 @@
+use rustc_hash::FxHashMap;
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, TryFromInto};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Color};
@@ -93,4 +94,12 @@ impl ExplorerGame {
             month: info.date.month(),
         }
     }
+}
+
+#[serde_as]
+#[derive(Serialize, Clone, Debug)]
+pub struct ExplorerHistoryResponse {
+    #[serde_as(as = "FxHashMap<DisplayFromStr, _>")]
+    pub history: FxHashMap<Month, Stats>,
+    pub opening: Option<&'static Opening>,
 }

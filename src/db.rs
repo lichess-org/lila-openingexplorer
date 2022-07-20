@@ -4,10 +4,14 @@ use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
     MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
+use rustc_hash::FxHashMap;
 
-use crate::model::{
-    GameId, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry, MastersGame, Month,
-    PlayerEntry, PlayerStatus, UserId, Year,
+use crate::{
+    api::LichessQueryFilter,
+    model::{
+        GameId, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry, MastersGame, Month,
+        PlayerEntry, PlayerStatus, Stats, UserId, Year,
+    },
 };
 
 #[derive(Debug)]
@@ -338,6 +342,40 @@ impl LichessDatabase<'_> {
         }
 
         iter.status().map(|_| entry)
+    }
+
+    pub fn read_lichess_history(
+        &self,
+        key: &KeyPrefix,
+        filter: &LichessQueryFilter,
+    ) -> Result<FxHashMap<Month, Stats>, rocksdb::Error> {
+        let mut history = FxHashMap::default();
+
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(key.with_month(filter.since).into_bytes());
+        opt.set_iterate_upper_bound(
+            key.with_month(filter.until.add_months_saturating(1))
+                .into_bytes(),
+        );
+
+        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
+        iter.seek_to_first();
+
+        while let Some((key, mut value)) = iter.item() {
+            let mut entry = LichessEntry::default();
+            entry.extend_from_reader(&mut value);
+            history.insert(
+                Key::try_from(key)
+                    .expect("lichess key size")
+                    .month()
+                    .expect("read lichess key suffix"),
+                entry.total(filter),
+            );
+            iter.next();
+        }
+
+        iter.status().map(|_| history)
     }
 
     pub fn read_player(

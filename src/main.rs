@@ -33,8 +33,9 @@ use tower::ServiceBuilder;
 
 use crate::{
     api::{
-        Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, LichessQuery,
-        Limits, MastersQuery, NdJson, PlayPosition, PlayerQuery, PlayerQueryFilter,
+        Error, ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerMove,
+        ExplorerResponse, LichessHistoryQuery, LichessQuery, Limits, MastersQuery, NdJson,
+        PlayPosition, PlayerQuery, PlayerQueryFilter,
     },
     db::{Database, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
@@ -107,6 +108,7 @@ async fn main() {
         .route("/masters/pgn/:id", get(masters_pgn))
         .route("/masters", get(masters))
         .route("/lichess", get(lichess))
+        .route("/lichess/history", get(lichess_history))
         .route("/player", get(player))
         .route("/master/pgn/:id", get(masters_pgn)) // bc
         .route("/master", get(masters)) // bc
@@ -429,4 +431,24 @@ async fn lichess(
             opening,
         }))
     })
+}
+
+async fn lichess_history(
+    Extension(openings): Extension<&'static Openings>,
+    Extension(db): Extension<Arc<Database>>,
+    Query(query): Query<LichessHistoryQuery>,
+) -> Result<Json<ExplorerHistoryResponse>, Error> {
+    let PlayPosition {
+        variant,
+        pos,
+        opening,
+    } = query.play.position(openings)?;
+    let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
+    let lichess_db = db.lichess();
+    Ok(Json(ExplorerHistoryResponse {
+        history: lichess_db
+            .read_lichess_history(&key, &query.filter)
+            .expect("get lichess history"),
+        opening,
+    }))
 }

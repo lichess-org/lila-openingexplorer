@@ -7,8 +7,10 @@ mod variant;
 pub use error::Error;
 pub use nd_json::NdJson;
 pub use query::{
-    LichessQuery, LichessQueryFilter, Limits, MastersQuery, PlayPosition, PlayerQuery,
-    PlayerQueryFilter,
+    LichessHistoryQuery, LichessQuery, LichessQueryFilter, Limits, MastersQuery, PlayPosition,
+    PlayerQuery, PlayerQueryFilter,
 };
-pub use response::{ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse};
+pub use response::{
+    ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerMove, ExplorerResponse,
+};
 pub use variant::LilaVariant;
