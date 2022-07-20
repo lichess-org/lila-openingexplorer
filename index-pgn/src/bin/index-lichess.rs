@@ -5,7 +5,7 @@ use std::{
 use clap::Parser;
 use pgn_reader::{BufferedReader, Color, Outcome, RawHeader, SanPlus, Skip, Visitor};
 use serde::Serialize;
-use serde_with::{serde_as, DisplayFromStr, SpaceSeparator, StringWithSeparator};
+use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 
 #[derive(Debug, Serialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
