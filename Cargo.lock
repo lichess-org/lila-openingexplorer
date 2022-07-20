@@ -871,7 +871,7 @@ dependencies = [
 [[package]]
 name = "librocksdb-sys"
 version = "0.8.0+7.4.3"
-source = "git+https://github.com/niklasf/rust-rocksdb.git?branch=lichess#904311d73e1bc3ffba9e74c0a5eb953cd0be0d1b"
+source = "git+https://github.com/niklasf/rust-rocksdb.git?branch=lichess#0892910bce8cc5448a0e3f2a495563f8b6e44dab"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -1422,7 +1422,7 @@ dependencies = [
 [[package]]
 name = "rocksdb"
 version = "0.18.0"
-source = "git+https://github.com/niklasf/rust-rocksdb.git?branch=lichess#904311d73e1bc3ffba9e74c0a5eb953cd0be0d1b"
+source = "git+https://github.com/niklasf/rust-rocksdb.git?branch=lichess#0892910bce8cc5448a0e3f2a495563f8b6e44dab"
 dependencies = [
  "libc",
  "librocksdb-sys",
