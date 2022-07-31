@@ -4,10 +4,9 @@ use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
     MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
-use rustc_hash::FxHashMap;
 
 use crate::{
-    api::LichessQueryFilter,
+    api::{ExplorerHistorySegment, LichessQueryFilter},
     model::{
         GameId, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry, MastersGame, Month,
         PlayerEntry, PlayerStatus, Stats, UserId, Year,
@@ -325,15 +324,18 @@ impl LichessDatabase<'_> {
     pub fn read_lichess(
         &self,
         key: &KeyPrefix,
-        since: Month,
-        until: Month,
+        since: Option<Month>,
+        until: Option<Month>,
     ) -> Result<LichessEntry, rocksdb::Error> {
         let mut entry = LichessEntry::default();
 
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
-        opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
-        opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
+        opt.set_iterate_lower_bound(key.with_month(since.unwrap_or_default()).into_bytes());
+        opt.set_iterate_upper_bound(
+            key.with_month(until.map_or(Month::max_value(), |m| m.add_months_saturating(1)))
+                .into_bytes(),
+        );
 
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
         iter.seek_to_first();
@@ -350,30 +352,60 @@ impl LichessDatabase<'_> {
         &self,
         key: &KeyPrefix,
         filter: &LichessQueryFilter,
-    ) -> Result<FxHashMap<Month, Stats>, rocksdb::Error> {
-        let mut history = FxHashMap::default();
+    ) -> Result<Vec<ExplorerHistorySegment>, rocksdb::Error> {
+        let mut history = Vec::new();
+        let mut last_month: Option<Month> = filter.since;
 
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
-        opt.set_iterate_lower_bound(key.with_month(filter.since).into_bytes());
-        opt.set_iterate_upper_bound(
-            key.with_month(filter.until.add_months_saturating(1))
+        opt.set_iterate_lower_bound(
+            key.with_month(filter.since.unwrap_or_default())
                 .into_bytes(),
+        );
+        opt.set_iterate_upper_bound(
+            key.with_month(
+                filter
+                    .until
+                    .map_or(Month::max_value(), |m| m.add_months_saturating(1)),
+            )
+            .into_bytes(),
         );
 
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
         iter.seek_to_first();
 
         while let Some((key, mut value)) = iter.item() {
+            // Fill gap.
+            let month = Key::try_from(key)
+                .expect("lichess key size")
+                .month()
+                .expect("read lichess key suffix");
+            if let Some(mut last_month) = last_month {
+                let mut skipped = 0;
+                while last_month < month {
+                    if skipped > 500 {
+                        // Protect against extremely low filter.since.
+                        return Ok(history);
+                    }
+
+                    history.push(ExplorerHistorySegment {
+                        month: last_month,
+                        stats: Stats::default(),
+                    });
+                    last_month = last_month.add_months_saturating(1);
+                    skipped += 1;
+                }
+            }
+            last_month = Some(month);
+
+            // Add entry.
             let mut entry = LichessEntry::default();
             entry.extend_from_reader(&mut value);
-            history.insert(
-                Key::try_from(key)
-                    .expect("lichess key size")
-                    .month()
-                    .expect("read lichess key suffix"),
-                entry.total(filter),
-            );
+            history.push(ExplorerHistorySegment {
+                month,
+                stats: entry.total(filter),
+            });
+
             iter.next();
         }
 

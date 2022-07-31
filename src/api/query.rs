@@ -60,12 +60,12 @@ pub struct LichessQueryFilter {
     #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, RatingGroup>>")]
     #[serde(default)]
     pub ratings: Option<Vec<RatingGroup>>,
-    #[serde_as(as = "DisplayFromStr")]
+    #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    pub since: Month,
-    #[serde_as(as = "DisplayFromStr")]
-    #[serde(default = "Month::max_value")]
-    pub until: Month,
+    pub since: Option<Month>,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub until: Option<Month>,
 }
 
 impl LichessQueryFilter {

@@ -11,6 +11,7 @@ pub use query::{
     PlayerQuery, PlayerQueryFilter,
 };
 pub use response::{
-    ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerMove, ExplorerResponse,
+    ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerHistorySegment,
+    ExplorerMove, ExplorerResponse,
 };
 pub use variant::LilaVariant;
