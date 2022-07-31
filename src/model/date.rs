@@ -170,7 +170,11 @@ impl FromStr for Month {
                 let month_plus_one: u16 =
                     month_part.parse().map_err(|_| InvalidDate::InvalidMonth)?;
 
-                if MIN_YEAR <= year && year <= MAX_YEAR && 1 <= month_plus_one && month_plus_one <= 12 {
+                if MIN_YEAR <= year
+                    && year <= MAX_YEAR
+                    && 1 <= month_plus_one
+                    && month_plus_one <= 12
+                {
                     Ok(Month(year * 12 + month_plus_one - 1))
                 } else {
                     Err(InvalidDate::InvalidMonth)
@@ -189,7 +193,11 @@ mod tests {
 
     impl Arbitrary for Month {
         fn arbitrary(g: &mut Gen) -> Month {
-            Month(u16::arbitrary(g) % (u16::from(Month::max_value()) + 1))
+            Month(
+                u16::arbitrary(g)
+                    % (u16::from(Month::max_value()) - u16::from(Month::min_value()) + 1)
+                    + u16::from(Month::min_value()),
+            )
         }
     }
 }

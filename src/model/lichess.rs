@@ -475,7 +475,6 @@ mod tests {
     use shakmaty::{Color, Square};
 
     use super::*;
-    use crate::model::Month;
 
     #[test]
     fn test_lichess_entry() {
@@ -548,8 +547,8 @@ mod tests {
             &LichessQueryFilter {
                 speeds: None,
                 ratings: Some(vec![RatingGroup::Group2000]),
-                since: Month::default(),
-                until: Month::max_value(),
+                since: None,
+                until: None,
             },
             &Limits {
                 recent_games: usize::MAX,
