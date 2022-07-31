@@ -1,8 +1,7 @@
-use std::{
-    cmp::min, ffi::OsStr, fs::File, io, mem, num::Wrapping, path::PathBuf, thread, time::Duration,
-};
+use std::{cmp::min, ffi::OsStr, fs::File, io, mem, path::PathBuf, thread, time::Duration};
 
 use clap::Parser;
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use pgn_reader::{BufferedReader, Color, Outcome, RawHeader, SanPlus, Skip, Visitor};
 use serde::Serialize;
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
@@ -54,10 +53,20 @@ struct Batch {
     games: Vec<Game>,
 }
 
-struct Importer {
+impl Batch {
+    fn last_month(&self) -> &str {
+        self.games
+            .last()
+            .and_then(|g| g.date.as_deref())
+            .unwrap_or("")
+    }
+}
+
+struct Importer<'a> {
     tx: crossbeam::channel::Sender<Batch>,
     filename: PathBuf,
     batch_size: usize,
+    progress: &'a ProgressBar,
 
     current: Game,
     skip: bool,
@@ -86,12 +95,13 @@ struct Player {
     rating: Option<u16>,
 }
 
-impl Importer {
+impl Importer<'_> {
     fn new(
         tx: crossbeam::channel::Sender<Batch>,
         filename: PathBuf,
         batch_size: usize,
-    ) -> Importer {
+        progress: &ProgressBar,
+    ) -> Importer<'_> {
         Importer {
             tx,
             filename,
@@ -99,20 +109,21 @@ impl Importer {
             current: Game::default(),
             skip: false,
             batch: Vec::with_capacity(batch_size),
+            progress,
         }
     }
 
     pub fn send(&mut self) {
-        self.tx
-            .send(Batch {
-                filename: self.filename.clone(),
-                games: mem::replace(&mut self.batch, Vec::with_capacity(self.batch_size)),
-            })
-            .expect("send");
+        let batch = Batch {
+            filename: self.filename.clone(),
+            games: mem::replace(&mut self.batch, Vec::with_capacity(self.batch_size)),
+        };
+        self.progress.set_message(batch.last_month().to_string());
+        self.tx.send(batch).expect("send");
     }
 }
 
-impl Visitor for Importer {
+impl Visitor for Importer<'_> {
     type Result = ();
 
     fn begin_game(&mut self) {
@@ -270,9 +281,6 @@ fn main() -> Result<(), io::Error> {
     let (tx, rx) = crossbeam::channel::bounded::<Batch>(50);
 
     let bg = thread::spawn(move || {
-        let mut spinner_idx = Wrapping(0);
-        let spinner = &['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
-
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(60))
             .build()
@@ -285,39 +293,45 @@ fn main() -> Result<(), io::Error> {
                 .send()
                 .expect("send batch");
 
-            spinner_idx += Wrapping(1);
-
-            println!(
-                "{} {:?}: {}: {} - {}",
-                spinner[spinner_idx.0 % spinner.len()],
-                batch.filename,
-                batch
-                    .games
-                    .last()
-                    .and_then(|g| g.date.as_ref())
-                    .unwrap_or(&String::new()),
-                res.status(),
-                res.text().expect("decode response")
-            );
+            if !res.status().is_success() {
+                println!(
+                    "{:?}: {}: {} - {}",
+                    batch.filename,
+                    batch.last_month(),
+                    res.status(),
+                    res.text().expect("decode response")
+                );
+            }
         }
     });
 
     for arg in args.pgns {
         let file = File::open(&arg)?;
+        let progress = ProgressBar::with_draw_target(
+            Some(file.metadata()?.len()),
+            ProgressDrawTarget::stdout_with_hz(4),
+        )
+        .with_style(
+            ProgressStyle::with_template(
+                "{spinner} {prefix} {msg} {wide_bar} {bytes_per_sec:>14} {eta:>7}",
+            )
+            .unwrap(),
+        )
+        .with_prefix(format!("{arg:?}"));
+        let file = progress.wrap_read(file);
 
         let uncompressed: Box<dyn io::Read> = if arg.extension() == Some(OsStr::new("bz2")) {
-            println!("Reading compressed {:?} ...", arg);
             Box::new(bzip2::read::MultiBzDecoder::new(file))
         } else {
-            println!("Reading {:?} ...", arg);
             Box::new(file)
         };
 
         let mut reader = BufferedReader::new(uncompressed);
-
-        let mut importer = Importer::new(tx.clone(), arg, args.batch_size);
+        let mut importer = Importer::new(tx.clone(), arg, args.batch_size, &progress);
         reader.read_all(&mut importer)?;
         importer.send();
+
+        progress.finish();
     }
 
     drop(tx);
