@@ -384,12 +384,15 @@ impl LichessDatabase<'_> {
                 .month()
                 .expect("read lichess key suffix");
             if let Some(mut last_month) = last_month {
-                while last_month < month {
+                loop {
+                    last_month = last_month.add_months_saturating(1);
+                    if last_month >= month {
+                        break;
+                    }
                     history.push(ExplorerHistorySegment {
                         month: last_month,
                         stats: Stats::default(),
                     });
-                    last_month = last_month.add_months_saturating(1);
                 }
             }
             last_month = Some(month);
