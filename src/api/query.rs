@@ -24,7 +24,7 @@ pub struct MastersQuery {
     #[serde(flatten)]
     pub play: Play,
     #[serde_as(as = "TryFromInto<u16>")]
-    #[serde(default)]
+    #[serde(default = "Year::min_value")]
     pub since: Year,
     #[serde_as(as = "TryFromInto<u16>")]
     #[serde(default = "Year::max_value")]
@@ -121,7 +121,7 @@ pub struct PlayerQueryFilter {
     #[serde(default)]
     pub speeds: Option<Vec<Speed>>,
     #[serde_as(as = "DisplayFromStr")]
-    #[serde(default)]
+    #[serde(default = "Month::min_value")]
     pub since: Month,
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "Month::max_value")]

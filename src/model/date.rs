@@ -64,18 +64,20 @@ impl fmt::Display for LaxDate {
     }
 }
 
+const MIN_YEAR: u16 = 1952;
+
 const MAX_YEAR: u16 = 3000; // MAX_YEAR * 12 + 12 < 2^16
 
-#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Year(u16);
 
 impl Year {
-    pub fn max_value() -> Year {
-        Year(MAX_YEAR)
+    pub fn min_value() -> Year {
+        Year(MIN_YEAR)
     }
 
-    pub fn min_masters() -> Year {
-        Year(1952)
+    pub fn max_value() -> Year {
+        Year(MAX_YEAR)
     }
 
     pub fn max_masters() -> Year {
@@ -98,7 +100,7 @@ impl TryFrom<u16> for Year {
     type Error = InvalidDate;
 
     fn try_from(year: u16) -> Result<Year, InvalidDate> {
-        if year <= Year::max_value().0 {
+        if Year::min_value().0 <= year && year <= Year::max_value().0 {
             Ok(Year(year))
         } else {
             Err(InvalidDate::InvalidYear)
@@ -106,16 +108,20 @@ impl TryFrom<u16> for Year {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Month(u16);
 
 impl Month {
+    pub fn min_value() -> Month {
+        Month(MIN_YEAR * 12)
+    }
+
     pub fn max_value() -> Month {
         Month(MAX_YEAR * 12 + 11)
     }
 
     pub fn from_time_saturating(time: PrimitiveDateTime) -> Month {
-        let year = time.year().clamp(0, MAX_YEAR as i32) as u16;
+        let year = time.year().clamp(MIN_YEAR as i32, MAX_YEAR as i32) as u16;
         let month0 = u16::from(u8::from(time.month()) - 1);
         Month(year * 12 + month0)
     }
@@ -140,7 +146,7 @@ impl TryFrom<u16> for Month {
     type Error = InvalidDate;
 
     fn try_from(month: u16) -> Result<Month, InvalidDate> {
-        if month <= Month::max_value().0 {
+        if Month::min_value().0 <= month && month <= Month::max_value().0 {
             Ok(Month(month))
         } else {
             Err(InvalidDate::InvalidMonth)
@@ -164,7 +170,7 @@ impl FromStr for Month {
                 let month_plus_one: u16 =
                     month_part.parse().map_err(|_| InvalidDate::InvalidMonth)?;
 
-                if year <= MAX_YEAR && 1 <= month_plus_one && month_plus_one <= 12 {
+                if MIN_YEAR <= year && year <= MAX_YEAR && 1 <= month_plus_one && month_plus_one <= 12 {
                     Ok(Month(year * 12 + month_plus_one - 1))
                 } else {
                     Err(InvalidDate::InvalidMonth)

@@ -45,7 +45,7 @@ impl MastersImporter {
         }
 
         let year = body.game.date.year();
-        if year < Year::min_masters() || Year::max_masters() < year {
+        if Year::max_masters() < year {
             return Err(Error::RejectedImport(body.id));
         }
 

@@ -331,7 +331,10 @@ impl LichessDatabase<'_> {
 
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
-        opt.set_iterate_lower_bound(key.with_month(since.unwrap_or_default()).into_bytes());
+        opt.set_iterate_lower_bound(
+            key.with_month(since.unwrap_or_else(Month::min_value))
+                .into_bytes(),
+        );
         opt.set_iterate_upper_bound(
             key.with_month(until.map_or(Month::max_value(), |m| m.add_months_saturating(1)))
                 .into_bytes(),
@@ -359,7 +362,7 @@ impl LichessDatabase<'_> {
         let mut opt = ReadOptions::default();
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(
-            key.with_month(filter.since.unwrap_or_default())
+            key.with_month(filter.since.unwrap_or_else(Month::min_value))
                 .into_bytes(),
         );
         opt.set_iterate_upper_bound(
@@ -381,19 +384,12 @@ impl LichessDatabase<'_> {
                 .month()
                 .expect("read lichess key suffix");
             if let Some(mut last_month) = last_month {
-                let mut skipped = 0;
                 while last_month < month {
-                    if skipped > 500 {
-                        // Protect against extremely low filter.since.
-                        return Ok(history);
-                    }
-
                     history.push(ExplorerHistorySegment {
                         month: last_month,
                         stats: Stats::default(),
                     });
                     last_month = last_month.add_months_saturating(1);
-                    skipped += 1;
                 }
             }
             last_month = Some(month);
