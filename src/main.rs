@@ -11,7 +11,7 @@ pub mod util;
 use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use axum::{
-    extract::{Extension, Path, Query},
+    extract::{FromRef, Path, Query, State},
     http::StatusCode,
     routing::{get, post, put},
     Json, Router,
@@ -29,7 +29,6 @@ use shakmaty::{
 };
 use tikv_jemallocator::Jemalloc;
 use tokio::sync::watch;
-use tower::ServiceBuilder;
 
 use crate::{
     api::{
@@ -68,6 +67,58 @@ struct Opt {
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 
+struct AppState {
+    openings: &'static Openings,
+    db: Arc<Database>,
+    lichess_cache: ExplorerCache<LichessQuery>,
+    masters_cache: ExplorerCache<MastersQuery>,
+    lichess_importer: LichessImporter,
+    masters_importer: MastersImporter,
+    indexer: IndexerStub,
+}
+
+impl FromRef<AppState> for &'static Openings {
+    fn from_ref(state: &AppState) -> &'static Openings {
+        state.openings
+    }
+}
+
+impl FromRef<AppState> for Arc<Database> {
+    fn from_ref(state: &AppState) -> Arc<Database> {
+        Arc::clone(&state.db)
+    }
+}
+
+impl FromRef<AppState> for ExplorerCache<LichessQuery> {
+    fn from_ref(state: &AppState) -> ExplorerCache<LichessQuery> {
+        state.lichess_cache.clone()
+    }
+}
+
+impl FromRef<AppState> for ExplorerCache<MastersQuery> {
+    fn from_ref(state: &AppState) -> ExplorerCache<MastersQuery> {
+        state.masters_cache.clone()
+    }
+}
+
+impl FromRef<AppState> for LichessImporter {
+    fn from_ref(state: &AppState) -> LichessImporter {
+        state.lichess_importer.clone()
+    }
+}
+
+impl FromRef<AppState> for MastersImporter {
+    fn from_ref(state: &AppState) -> MastersImporter {
+        state.masters_importer.clone()
+    }
+}
+
+impl FromRef<AppState> for IndexerStub {
+    fn from_ref(state: &AppState) -> IndexerStub {
+        state.indexer.clone()
+    }
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_env(
@@ -82,47 +133,38 @@ async fn main() {
 
     let opt = Opt::parse();
 
-    let openings: &'static Openings = Box::leak(Box::new(Openings::build_table()));
     let db = Arc::new(Database::open(opt.db).expect("db"));
     let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
-    let masters_importer = MastersImporter::new(Arc::clone(&db));
-    let lichess_importer = LichessImporter::new(Arc::clone(&db));
 
-    let lichess_cache: ExplorerCache<LichessQuery> = Cache::builder()
-        .max_capacity(opt.cache_size)
-        .time_to_live(Duration::from_secs(5 * 60))
-        .build();
-
-    let masters_cache: ExplorerCache<MastersQuery> = Cache::builder()
-        .max_capacity(opt.cache_size)
-        .time_to_live(Duration::from_secs(5 * 60))
-        .build();
-
-    let app = Router::new()
-        .route("/monitor/cf/:cf/:prop", get(cf_prop))
-        .route("/monitor/db/:prop", get(db_prop))
-        .route("/monitor/indexing", get(num_indexing))
-        .route("/compact", post(compact))
-        .route("/import/masters", put(masters_import))
-        .route("/import/lichess", put(lichess_import))
-        .route("/masters/pgn/:id", get(masters_pgn))
-        .route("/masters", get(masters))
-        .route("/lichess", get(lichess))
-        .route("/lichess/history", get(lichess_history))
-        .route("/player", get(player))
-        .route("/master/pgn/:id", get(masters_pgn)) // bc
-        .route("/master", get(masters)) // bc
-        .route("/personal", get(player)) // bc
-        .layer(
-            ServiceBuilder::new()
-                .layer(Extension(openings))
-                .layer(Extension(db))
-                .layer(Extension(masters_cache))
-                .layer(Extension(lichess_cache))
-                .layer(Extension(masters_importer))
-                .layer(Extension(lichess_importer))
-                .layer(Extension(indexer)),
-        );
+    let app = Router::with_state(AppState {
+        openings: Box::leak(Box::new(Openings::build_table())),
+        lichess_cache: Cache::builder()
+            .max_capacity(opt.cache_size)
+            .time_to_live(Duration::from_secs(5 * 60))
+            .build(),
+        masters_cache: Cache::builder()
+            .max_capacity(opt.cache_size)
+            .time_to_live(Duration::from_secs(5 * 60))
+            .build(),
+        lichess_importer: LichessImporter::new(Arc::clone(&db)),
+        masters_importer: MastersImporter::new(Arc::clone(&db)),
+        indexer,
+        db,
+    })
+    .route("/monitor/cf/:cf/:prop", get(cf_prop))
+    .route("/monitor/db/:prop", get(db_prop))
+    .route("/monitor/indexing", get(num_indexing))
+    .route("/compact", post(compact))
+    .route("/import/masters", put(masters_import))
+    .route("/import/lichess", put(lichess_import))
+    .route("/masters/pgn/:id", get(masters_pgn))
+    .route("/masters", get(masters))
+    .route("/lichess", get(lichess))
+    .route("/lichess/history", get(lichess_history))
+    .route("/player", get(player))
+    .route("/master/pgn/:id", get(masters_pgn)) // bc
+    .route("/master", get(masters)) // bc
+    .route("/personal", get(player)); // bc
 
     let app = if opt.cors {
         app.layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
@@ -151,7 +193,7 @@ struct ColumnFamilyProp {
 
 async fn cf_prop(
     Path(path): Path<ColumnFamilyProp>,
-    Extension(db): Extension<Arc<Database>>,
+    State(db): State<Arc<Database>>,
 ) -> Result<String, StatusCode> {
     db.inner
         .cf_handle(&path.cf)
@@ -165,7 +207,7 @@ async fn cf_prop(
 
 async fn db_prop(
     Path(prop): Path<String>,
-    Extension(db): Extension<Arc<Database>>,
+    State(db): State<Arc<Database>>,
 ) -> Result<String, StatusCode> {
     db.inner
         .property_value(&prop)
@@ -173,11 +215,11 @@ async fn db_prop(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
-async fn num_indexing(Extension(indexer): Extension<IndexerStub>) -> String {
+async fn num_indexing(State(indexer): State<IndexerStub>) -> String {
     indexer.num_indexing().await.to_string()
 }
 
-async fn compact(Extension(db): Extension<Arc<Database>>) {
+async fn compact(State(db): State<Arc<Database>>) {
     db.compact();
 }
 
@@ -243,9 +285,9 @@ struct PlayerStreamState {
 }
 
 async fn player(
-    Extension(openings): Extension<&'static Openings>,
-    Extension(db): Extension<Arc<Database>>,
-    Extension(indexer): Extension<IndexerStub>,
+    State(openings): State<&'static Openings>,
+    State(db): State<Arc<Database>>,
+    State(indexer): State<IndexerStub>,
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
@@ -309,8 +351,8 @@ async fn player(
 }
 
 async fn masters_import(
+    State(importer): State<MastersImporter>,
     Json(body): Json<MastersGameWithId>,
-    Extension(importer): Extension<MastersImporter>,
 ) -> Result<(), Error> {
     importer.import(body).await
 }
@@ -321,7 +363,7 @@ struct MastersGameId(#[serde_as(as = "DisplayFromStr")] GameId);
 
 async fn masters_pgn(
     Path(MastersGameId(id)): Path<MastersGameId>,
-    Extension(db): Extension<Arc<Database>>,
+    State(db): State<Arc<Database>>,
 ) -> Result<MastersGame, StatusCode> {
     match db.masters().game(id).expect("get masters game") {
         Some(game) => Ok(game),
@@ -330,9 +372,9 @@ async fn masters_pgn(
 }
 
 async fn masters(
-    Extension(openings): Extension<&'static Openings>,
-    Extension(db): Extension<Arc<Database>>,
-    Extension(masters_cache): Extension<ExplorerCache<MastersQuery>>,
+    State(openings): State<&'static Openings>,
+    State(db): State<Arc<Database>>,
+    State(masters_cache): State<ExplorerCache<MastersQuery>>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache.get_with(query.clone(), || {
@@ -395,8 +437,8 @@ async fn masters(
 }
 
 async fn lichess_import(
+    State(importer): State<LichessImporter>,
     Json(body): Json<Vec<LichessGameImport>>,
-    Extension(importer): Extension<LichessImporter>,
 ) -> Result<(), Error> {
     for game in body {
         importer.import(game).await?;
@@ -405,9 +447,9 @@ async fn lichess_import(
 }
 
 async fn lichess(
-    Extension(openings): Extension<&'static Openings>,
-    Extension(db): Extension<Arc<Database>>,
-    Extension(lichess_cache): Extension<ExplorerCache<LichessQuery>>,
+    State(openings): State<&'static Openings>,
+    State(db): State<Arc<Database>>,
+    State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache.get_with(query.clone(), || {
@@ -434,8 +476,8 @@ async fn lichess(
 }
 
 async fn lichess_history(
-    Extension(openings): Extension<&'static Openings>,
-    Extension(db): Extension<Arc<Database>>,
+    State(openings): State<&'static Openings>,
+    State(db): State<Arc<Database>>,
     Query(query): Query<LichessHistoryQuery>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
     let PlayPosition {
