@@ -893,7 +893,7 @@ dependencies = [
 [[package]]
 name = "librocksdb-sys"
 version = "0.8.0+7.4.4"
-source = "git+https://github.com/niklasf/rust-rocksdb?branch=lz4-sys#7ff66a63077da02798e07a366256e1d9ee957ee1"
+source = "git+https://github.com/niklasf/rust-rocksdb?branch=lz4-sys#2abc4c37061c662a656d29b8d69b5a5912ee6a07"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -1454,7 +1454,7 @@ dependencies = [
 [[package]]
 name = "rocksdb"
 version = "0.19.0"
-source = "git+https://github.com/niklasf/rust-rocksdb?branch=lz4-sys#7ff66a63077da02798e07a366256e1d9ee957ee1"
+source = "git+https://github.com/niklasf/rust-rocksdb?branch=lz4-sys#2abc4c37061c662a656d29b8d69b5a5912ee6a07"
 dependencies = [
  "libc",
  "librocksdb-sys",
