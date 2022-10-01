@@ -889,7 +889,7 @@ dependencies = [
 [[package]]
 name = "librocksdb-sys"
 version = "0.8.0+7.4.4"
-source = "git+https://github.com/rust-rocksdb/rust-rocksdb#6cd1c020b0f0f9517ebe962fa485008938a46aab"
+source = "git+https://github.com/niklasf/rust-rocksdb?branch=uring-sys#22bfcd111b85841ac13205b614af0874113ea8f2"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -899,6 +899,7 @@ dependencies = [
  "libz-sys",
  "lz4-sys",
  "tikv-jemalloc-sys",
+ "uring-sys",
  "zstd-sys",
 ]
 
@@ -1444,7 +1445,7 @@ dependencies = [
 [[package]]
 name = "rocksdb"
 version = "0.19.0"
-source = "git+https://github.com/rust-rocksdb/rust-rocksdb#6cd1c020b0f0f9517ebe962fa485008938a46aab"
+source = "git+https://github.com/niklasf/rust-rocksdb?branch=uring-sys#22bfcd111b85841ac13205b614af0874113ea8f2"
 dependencies = [
  "libc",
  "librocksdb-sys",
@@ -1976,6 +1977,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
+]
+
+[[package]]
+name = "uring-sys"
+version = "0.7.4"
+source = "git+https://github.com/niklasf/uring-sys?branch=dep-uring-include#03a1e63997525c98216b482b584f4fcc11e03e80"
+dependencies = [
+ "cc",
+ "libc",
 ]
 
 [[package]]
