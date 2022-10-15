@@ -41,7 +41,7 @@ impl MastersImporter {
 
     pub async fn import(&self, body: MastersGameWithId) -> Result<(), Error> {
         let avg_rating = body.game.players.white.rating / 2 + body.game.players.black.rating / 2;
-        if avg_rating / 2 < 2200 {
+        if avg_rating < 2200 {
             return Err(Error::RejectedRating {
                 id: body.id,
                 rating: avg_rating,
