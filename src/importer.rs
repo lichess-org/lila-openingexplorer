@@ -40,13 +40,20 @@ impl MastersImporter {
     }
 
     pub async fn import(&self, body: MastersGameWithId) -> Result<(), Error> {
-        if body.game.players.white.rating / 2 + body.game.players.black.rating / 2 < 2200 {
-            return Err(Error::RejectedImport(body.id));
+        let avg_rating = body.game.players.white.rating / 2 + body.game.players.black.rating / 2;
+        if avg_rating / 2 < 2200 {
+            return Err(Error::RejectedRating {
+                id: body.id,
+                rating: avg_rating,
+            });
         }
 
         let year = body.game.date.year();
         if Year::max_masters() < year {
-            return Err(Error::RejectedImport(body.id));
+            return Err(Error::RejectedDate {
+                id: body.id,
+                date: body.game.date,
+            });
         }
 
         let _guard = self.mutex.lock();
@@ -55,7 +62,7 @@ impl MastersImporter {
             .has_game(body.id)
             .expect("check for masters game")
         {
-            return Err(Error::DuplicateGame(body.id));
+            return Err(Error::DuplicateGame { id: body.id });
         }
 
         let mut without_loops: FxHashMap<Key, (Uci, Color)> =
@@ -74,7 +81,7 @@ impl MastersImporter {
 
         if let Some(final_key) = final_key {
             if masters_db.has(final_key).expect("check for masters entry") {
-                return Err(Error::DuplicateGame(body.id));
+                return Err(Error::DuplicateGame { id: body.id });
             }
         }
 
@@ -149,7 +156,10 @@ impl LichessImporter {
             Some(month) => month,
             None => {
                 log::error!("lichess game {} missing month", game.id);
-                return Err(Error::RejectedImport(game.id));
+                return Err(Error::RejectedDate {
+                    id: game.id,
+                    date: game.date,
+                });
             }
         };
         let outcome = Outcome::from_winner(game.winner);

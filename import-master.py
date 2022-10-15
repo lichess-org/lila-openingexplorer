@@ -37,7 +37,7 @@ def main(pgn):
         res = session.put("http://localhost:9002/import/masters", json=obj)
 
         if res.status_code != 200:
-            print(res.text)
+            print(res.text, ": ", json.dumps(obj))
         else:
             print(obj["id"])
 
