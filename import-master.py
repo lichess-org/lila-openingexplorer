@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import base64
 import chess
 import chess.pgn
@@ -37,7 +39,7 @@ def main(pgn):
         res = session.put("http://localhost:9002/import/masters", json=obj)
 
         if res.status_code != 200:
-            print(res.text, ": ", json.dumps(obj))
+            print(res.text)
         else:
             print(obj["id"])
 
@@ -61,4 +63,3 @@ def deterministic_id(obj):
 
 if __name__ == "__main__":
     main(open(sys.argv[1], errors="ignore"))
-
