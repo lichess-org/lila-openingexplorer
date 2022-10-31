@@ -322,6 +322,8 @@ fn main() -> Result<(), io::Error> {
 
         let uncompressed: Box<dyn io::Read> = if arg.extension() == Some(OsStr::new("bz2")) {
             Box::new(bzip2::read::MultiBzDecoder::new(file))
+        } else if arg.extension() == Some(OsStr::new("zst")) {
+            Box::new(zstd::Decoder::new(file)?)
         } else {
             Box::new(file)
         };
