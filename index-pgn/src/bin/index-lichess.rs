@@ -268,9 +268,9 @@ fn java_hash_code(s: &str) -> i32 {
 
 #[derive(Parser)]
 struct Args {
-    #[clap(long, default_value = "http://localhost:9002")]
+    #[arg(long, default_value = "http://localhost:9002")]
     endpoint: String,
-    #[clap(long, default_value = "200")]
+    #[arg(long, default_value = "200")]
     batch_size: usize,
     pgns: Vec<PathBuf>,
 }
