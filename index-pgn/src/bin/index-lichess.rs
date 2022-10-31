@@ -1,4 +1,4 @@
-use std::{cmp::min, ffi::OsStr, fs::File, io, mem, path::PathBuf, thread, time::Duration};
+use std::{ffi::OsStr, fs::File, io, mem, path::PathBuf, thread, time::Duration};
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
@@ -127,7 +127,6 @@ impl Visitor for Importer<'_> {
     type Result = ();
 
     fn begin_game(&mut self) {
-        self.skip = false;
         self.current = Game::default();
     }
 
@@ -181,64 +180,6 @@ impl Visitor for Importer<'_> {
         }
     }
 
-    fn end_headers(&mut self) -> Skip {
-        let rating =
-            (self.current.white.rating.unwrap_or(0) + self.current.black.rating.unwrap_or(0)) / 2;
-
-        let standard = self
-            .current
-            .variant
-            .as_ref()
-            .map_or(true, |name| name == "Standard");
-
-        let probability = if standard {
-            match self.current.speed.unwrap_or(Speed::Correspondence) {
-                Speed::Correspondence | Speed::Classical => 100,
-
-                _ if rating >= 2500 => 100,
-
-                Speed::Rapid if rating >= 2200 => 100,
-                Speed::Rapid if rating >= 2000 => 83,
-                Speed::Rapid if rating >= 1800 => 46,
-                Speed::Rapid if rating >= 1600 => 39,
-
-                Speed::Blitz if rating >= 2200 => 38,
-                Speed::Blitz if rating >= 2000 => 18,
-                Speed::Blitz if rating >= 1600 => 13,
-
-                Speed::Bullet if rating >= 2200 => 48,
-                Speed::Bullet if rating >= 2000 => 27,
-                Speed::Bullet if rating >= 1800 => 19,
-                Speed::Bullet if rating >= 1600 => 18,
-
-                Speed::UltraBullet => 100,
-
-                _ => 2,
-            }
-        } else {
-            // variant games
-            if rating >= 1600 {
-                100
-            } else {
-                50
-            }
-        };
-
-        let accept = min(
-            self.current.white.rating.unwrap_or(0),
-            self.current.black.rating.unwrap_or(0),
-        ) >= 1501
-            && self
-                .current
-                .id
-                .as_ref()
-                .map_or(false, |id| probability > (java_hash_code(id) % 100))
-            && !self.skip;
-
-        self.skip = !accept;
-        Skip(self.skip)
-    }
-
     fn san(&mut self, san: SanPlus) {
         self.current.moves.push(san);
     }
@@ -248,22 +189,12 @@ impl Visitor for Importer<'_> {
     }
 
     fn end_game(&mut self) {
-        if !self.skip {
-            self.batch.push(mem::take(&mut self.current));
+        self.batch.push(mem::take(&mut self.current));
 
-            if self.batch.len() >= self.batch_size {
-                self.send();
-            }
+        if self.batch.len() >= self.batch_size {
+            self.send();
         }
     }
-}
-
-fn java_hash_code(s: &str) -> i32 {
-    let mut hash = 0i32;
-    for ch in s.chars() {
-        hash = hash.wrapping_mul(31).wrapping_add(ch as i32);
-    }
-    hash
 }
 
 #[derive(Parser)]
@@ -337,17 +268,4 @@ fn main() -> Result<(), io::Error> {
     drop(tx);
     bg.join().expect("bg join");
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::java_hash_code;
-
-    #[test]
-    fn test_java_hash_code() {
-        assert_eq!(java_hash_code("DXZdUVdv"), 1714524881);
-        assert_eq!(java_hash_code("4mn73Yni"), 1587086275);
-        assert_eq!(java_hash_code("VFa7wmDN"), 90055046);
-        assert_eq!(java_hash_code("rvSvQdIe"), 950841078);
-    }
 }
