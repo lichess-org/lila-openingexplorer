@@ -199,9 +199,9 @@ impl Visitor for Importer<'_> {
 
 #[derive(Parser)]
 struct Args {
-    #[clap(long, default_value = "http://localhost:9002")]
+    #[arg(long, default_value = "http://localhost:9002")]
     endpoint: String,
-    #[clap(long, default_value = "200")]
+    #[arg(long, default_value = "200")]
     batch_size: usize,
     pgns: Vec<PathBuf>,
 }
@@ -253,6 +253,8 @@ fn main() -> Result<(), io::Error> {
 
         let uncompressed: Box<dyn io::Read> = if arg.extension() == Some(OsStr::new("bz2")) {
             Box::new(bzip2::read::MultiBzDecoder::new(file))
+        } else if arg.extension() == Some(OsStr::new("zst")) {
+            Box::new(zstd::Decoder::new(file)?)
         } else {
             Box::new(file)
         };
