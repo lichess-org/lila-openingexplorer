@@ -326,6 +326,7 @@ impl LichessDatabase<'_> {
         key: &KeyPrefix,
         since: Option<Month>,
         until: Option<Month>,
+        debug: u32,
     ) -> Result<LichessEntry, rocksdb::Error> {
         let mut entry = LichessEntry::default();
 
@@ -343,9 +344,20 @@ impl LichessDatabase<'_> {
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
         iter.seek_to_first();
 
+        if debug > 0 {
+            println!("---")
+        }
+
         while let Some(mut value) = iter.value() {
+            if debug > 0 {
+                println!("{}", base64::encode(value));
+            }
             entry.extend_from_reader(&mut value);
             iter.next();
+        }
+
+        if debug > 0 {
+            println!("---")
         }
 
         iter.status().map(|_| entry)

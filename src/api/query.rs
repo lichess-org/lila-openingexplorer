@@ -41,6 +41,8 @@ pub struct LichessQuery {
     pub limits: Limits,
     #[serde(flatten)]
     pub filter: LichessQueryFilter,
+    #[serde(default)]
+    pub debug: u32,
 }
 
 #[derive(Deserialize, Clone, Debug)]

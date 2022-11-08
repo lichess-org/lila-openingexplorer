@@ -461,7 +461,7 @@ async fn lichess(
         let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash());
         let lichess_db = db.lichess();
         let filtered = lichess_db
-            .read_lichess(&key, query.filter.since, query.filter.until)
+            .read_lichess(&key, query.filter.since, query.filter.until, query.debug)
             .expect("get lichess")
             .prepare(&query.filter, &query.limits);
 

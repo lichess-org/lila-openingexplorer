@@ -15,6 +15,7 @@ edition = "2021"
 [dependencies]
 async-channel = "1"
 axum = "0.6.0-rc.2"
+base64 = "0.13.1"
 bytes = "1"
 clap = { version = "4", features = ["derive", "env", "deprecated"] }
 csv = "1"
