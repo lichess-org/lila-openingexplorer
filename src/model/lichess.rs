@@ -72,7 +72,7 @@ impl FromStr for RatingGroup {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct ByRatingGroup<T> {
     group_low: T,
     group_1600: T,
@@ -231,7 +231,7 @@ pub struct LichessGroup {
     pub games: Vec<(u64, GameId)>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct LichessEntry {
     sub_entries: FxHashMap<RawUci, BySpeed<ByRatingGroup<LichessGroup>>>,
     min_game_idx: Option<u64>,

@@ -10,7 +10,7 @@ use thiserror::Error;
 #[error("invalid game id")]
 pub struct InvalidGameId;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct GameId(u64);
 
 impl GameId {
@@ -70,6 +70,12 @@ impl fmt::Display for GameId {
             n /= 62;
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for GameId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "GameId({self})")
     }
 }
 
