@@ -1,9 +1,9 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, fmt};
 
 use bytes::{Buf, BufMut};
 use shakmaty::{uci::Uci, Role, Square};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RawUci(u16);
 
 impl RawUci {
@@ -13,6 +13,12 @@ impl RawUci {
 
     pub fn write<B: BufMut>(&self, buf: &mut B) {
         buf.put_u16_le(self.0);
+    }
+}
+
+impl fmt::Debug for RawUci {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "RawUci({})", Uci::from(*self))
     }
 }
 
