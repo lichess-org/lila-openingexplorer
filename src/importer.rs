@@ -11,7 +11,7 @@ use shakmaty::{
     zobrist::Zobrist,
     ByColor, CastlingMode, Chess, Color, Outcome, Position,
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
     api::{Error, LilaVariant},
@@ -56,8 +56,9 @@ impl MastersImporter {
             });
         }
 
-        let _guard = self.mutex.lock();
+        let _guard: MutexGuard<()> = self.mutex.lock().await;
         let masters_db = self.db.masters();
+
         if masters_db
             .has_game(body.id)
             .expect("check for masters game")
@@ -139,8 +140,7 @@ impl LichessImporter {
     }
 
     pub async fn import(&self, game: LichessGameImport) -> Result<(), Error> {
-        let _guard = self.mutex.lock();
-
+        let _guard: MutexGuard<()> = self.mutex.lock().await;
         let lichess_db = self.db.lichess();
 
         if lichess_db
