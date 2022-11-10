@@ -7,7 +7,7 @@ use crate::model::{GameId, LaxDate};
 #[derive(Error, Debug, Clone)]
 pub enum Error {
     #[error("bad request: {0}")]
-    PositionError(#[from] PositionError<VariantPosition>),
+    PositionError(Box<PositionError<VariantPosition>>),
     #[error("bad request: {0}")]
     IllegalUciError(#[from] IllegalUciError),
     #[error("bad request: {0}")]
@@ -18,6 +18,12 @@ pub enum Error {
     RejectedRating { id: GameId, rating: u16 },
     #[error("rejected import of {id} due to date {date}")]
     RejectedDate { id: GameId, date: LaxDate },
+}
+
+impl From<PositionError<VariantPosition>> for Error {
+    fn from(error: PositionError<VariantPosition>) -> Error {
+        Error::PositionError(Box::new(error))
+    }
 }
 
 impl axum::response::IntoResponse for Error {
