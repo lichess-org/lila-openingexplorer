@@ -354,7 +354,7 @@ async fn masters_import(
     State(importer): State<MastersImporter>,
     Json(body): Json<MastersGameWithId>,
 ) -> Result<(), Error> {
-    importer.import(body).await
+    importer.import(body)
 }
 
 #[serde_as]
@@ -440,10 +440,7 @@ async fn lichess_import(
     State(importer): State<LichessImporter>,
     Json(body): Json<Vec<LichessGameImport>>,
 ) -> Result<(), Error> {
-    for game in body {
-        importer.import(game).await?;
-    }
-    Ok(())
+    importer.import_many(body)
 }
 
 async fn lichess(

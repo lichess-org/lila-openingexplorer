@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
@@ -11,7 +11,6 @@ use shakmaty::{
     zobrist::Zobrist,
     ByColor, CastlingMode, Chess, Color, Outcome, Position,
 };
-use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
     api::{Error, LilaVariant},
@@ -39,7 +38,7 @@ impl MastersImporter {
         }
     }
 
-    pub async fn import(&self, body: MastersGameWithId) -> Result<(), Error> {
+    pub fn import(&self, body: MastersGameWithId) -> Result<(), Error> {
         let avg_rating = body.game.players.white.rating / 2 + body.game.players.black.rating / 2;
         if avg_rating < 2200 {
             return Err(Error::RejectedRating {
@@ -56,7 +55,7 @@ impl MastersImporter {
             });
         }
 
-        let _guard: MutexGuard<()> = self.mutex.lock().await;
+        let _guard = self.mutex.lock().expect("lock masters db");
         let masters_db = self.db.masters();
 
         if masters_db
@@ -139,8 +138,15 @@ impl LichessImporter {
         }
     }
 
-    pub async fn import(&self, game: LichessGameImport) -> Result<(), Error> {
-        let _guard: MutexGuard<()> = self.mutex.lock().await;
+    pub fn import_many(&self, games: Vec<LichessGameImport>) -> Result<(), Error> {
+        let _guard = self.mutex.lock().expect("lock lichess db");
+        for game in games {
+            self.import(game)?;
+        }
+        Ok(())
+    }
+
+    fn import(&self, game: LichessGameImport) -> Result<(), Error> {
         let lichess_db = self.db.lichess();
 
         if lichess_db
