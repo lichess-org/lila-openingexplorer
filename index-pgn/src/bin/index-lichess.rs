@@ -127,6 +127,7 @@ impl Visitor for Importer<'_> {
     type Result = ();
 
     fn begin_game(&mut self) {
+        self.skip = false;
         self.current = Game::default();
     }
 
@@ -180,6 +181,11 @@ impl Visitor for Importer<'_> {
         }
     }
 
+    fn end_headers(&mut self) -> Skip {
+        self.skip |= self.current.white.rating.is_none() || self.current.black.rating.is_none();
+        Skip(self.skip)
+    }
+
     fn san(&mut self, san: SanPlus) {
         self.current.moves.push(san);
     }
@@ -189,7 +195,9 @@ impl Visitor for Importer<'_> {
     }
 
     fn end_game(&mut self) {
-        self.batch.push(mem::take(&mut self.current));
+        if !self.skip {
+            self.batch.push(mem::take(&mut self.current));
+        }
 
         if self.batch.len() >= self.batch_size {
             self.send();
