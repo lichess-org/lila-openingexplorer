@@ -181,18 +181,6 @@ impl LichessImporter {
 
         let lichess_db = self.db.lichess();
         let mut batch = lichess_db.batch();
-        batch.merge_game(
-            game.id,
-            LichessGame {
-                mode: Mode::Rated,
-                indexed_player: Default::default(),
-                indexed_lichess: true,
-                outcome,
-                players: game.players.clone(),
-                month,
-                speed: game.speed,
-            },
-        );
         for (key, (uci, turn)) in without_loops {
             batch.merge_lichess(
                 key,
@@ -206,6 +194,18 @@ impl LichessImporter {
                 ),
             );
         }
+        batch.merge_game(
+            game.id,
+            LichessGame {
+                mode: Mode::Rated,
+                indexed_player: Default::default(),
+                indexed_lichess: true,
+                outcome,
+                players: game.players,
+                month,
+                speed: game.speed,
+            },
+        );
 
         let _guard = self.mutex.lock().expect("lock lichess db");
         if lichess_db
