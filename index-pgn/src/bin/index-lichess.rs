@@ -209,7 +209,7 @@ impl Visitor for Importer<'_> {
 struct Args {
     #[arg(long, default_value = "http://localhost:9002")]
     endpoint: String,
-    #[arg(long, default_value = "200")]
+    #[arg(long, default_value = "2000")]
     batch_size: usize,
     pgns: Vec<PathBuf>,
 }

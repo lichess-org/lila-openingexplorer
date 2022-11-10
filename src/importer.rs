@@ -137,7 +137,6 @@ impl LichessImporter {
     }
 
     pub fn import_many(&self, games: Vec<LichessGameImport>) -> Result<(), Error> {
-        let _guard = self.mutex.lock().expect("lock lichess db");
         for game in games {
             self.import(game)?;
         }
@@ -145,17 +144,6 @@ impl LichessImporter {
     }
 
     fn import(&self, game: LichessGameImport) -> Result<(), Error> {
-        let lichess_db = self.db.lichess();
-
-        if lichess_db
-            .game(game.id)
-            .expect("get game info")
-            .map_or(false, |info| info.indexed_lichess)
-        {
-            log::debug!("lichess game {} already imported", game.id);
-            return Ok(());
-        }
-
         let month = match game.date.month() {
             Some(month) => month,
             None => {
@@ -189,19 +177,8 @@ impl LichessImporter {
             pos.play_unchecked(&m);
         }
 
+        let lichess_db = self.db.lichess();
         let mut batch = lichess_db.batch();
-        batch.merge_game(
-            game.id,
-            LichessGame {
-                mode: Mode::Rated,
-                indexed_player: Default::default(),
-                indexed_lichess: true,
-                outcome,
-                players: game.players.clone(),
-                month,
-                speed: game.speed,
-            },
-        );
         for (key, (uci, turn)) in without_loops {
             batch.merge_lichess(
                 key,
@@ -215,8 +192,29 @@ impl LichessImporter {
                 ),
             );
         }
+        batch.merge_game(
+            game.id,
+            LichessGame {
+                mode: Mode::Rated,
+                indexed_player: Default::default(),
+                indexed_lichess: true,
+                outcome,
+                players: game.players,
+                month,
+                speed: game.speed,
+            },
+        );
 
-        batch.commit().expect("commit lichess game");
+        let _guard = self.mutex.lock().expect("lock lichess db");
+        if lichess_db
+            .game(game.id)
+            .expect("get game info")
+            .map_or(false, |info| info.indexed_lichess)
+        {
+            log::debug!("lichess game {} already imported", game.id);
+        } else {
+            batch.commit().expect("commit lichess game");
+        }
         Ok(())
     }
 }
