@@ -34,7 +34,8 @@ impl Column<'_> {
         // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning.
         let mut table_opts = BlockBasedOptions::default();
         table_opts.set_block_cache(self.cache);
-        table_opts.set_block_size(16 * 1024);
+        table_opts.set_block_size(64 * 1024); // Spinning disks
+        table_opts.set_index_block_restart_interval(16); // Save index space
         table_opts.set_cache_index_and_filter_blocks(true);
         table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
         table_opts.set_hybrid_ribbon_filter(8.0, 1);
