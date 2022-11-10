@@ -14,7 +14,7 @@ pub struct KeyBuilder {
 impl KeyBuilder {
     pub fn player(user: &UserId, color: Color) -> KeyBuilder {
         let mut hash = Sha1::new();
-        hash.update(&[color.char() as u8]);
+        hash.update([color.char() as u8]);
         hash.update(user.as_lowercase_str());
         let buf = hash.finalize();
         KeyBuilder {
