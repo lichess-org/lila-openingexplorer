@@ -146,8 +146,6 @@ impl LichessImporter {
     }
 
     fn import(&self, game: LichessGameImport) -> Result<(), Error> {
-        let lichess_db = self.db.lichess();
-
         let month = match game.date.month() {
             Some(month) => month,
             None => {
@@ -181,6 +179,7 @@ impl LichessImporter {
             pos.play_unchecked(&m);
         }
 
+        let lichess_db = self.db.lichess();
         let mut batch = lichess_db.batch();
         batch.merge_game(
             game.id,
