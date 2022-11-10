@@ -139,7 +139,6 @@ impl LichessImporter {
     }
 
     pub fn import_many(&self, games: Vec<LichessGameImport>) -> Result<(), Error> {
-        let _guard = self.mutex.lock().expect("lock lichess db");
         for game in games {
             self.import(game)?;
         }
@@ -148,15 +147,6 @@ impl LichessImporter {
 
     fn import(&self, game: LichessGameImport) -> Result<(), Error> {
         let lichess_db = self.db.lichess();
-
-        if lichess_db
-            .game(game.id)
-            .expect("get game info")
-            .map_or(false, |info| info.indexed_lichess)
-        {
-            log::debug!("lichess game {} already imported", game.id);
-            return Ok(());
-        }
 
         let month = match game.date.month() {
             Some(month) => month,
@@ -218,7 +208,16 @@ impl LichessImporter {
             );
         }
 
-        batch.commit().expect("commit lichess game");
+        let _guard = self.mutex.lock().expect("lock lichess db");
+        if lichess_db
+            .game(game.id)
+            .expect("get game info")
+            .map_or(false, |info| info.indexed_lichess)
+        {
+            log::debug!("lichess game {} already imported", game.id);
+        } else {
+            batch.commit().expect("commit lichess game");
+        }
         Ok(())
     }
 }
