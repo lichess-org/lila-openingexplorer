@@ -67,6 +67,7 @@ struct Opt {
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 
+#[derive(Clone)]
 struct AppState {
     openings: &'static Openings,
     db: Arc<Database>,
