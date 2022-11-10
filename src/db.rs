@@ -23,6 +23,7 @@ type MergeFn = fn(key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands)
 struct Column<'a> {
     name: &'a str,
     prefix: Option<usize>,
+    compressible: bool,
     merge: Option<(&'a str, MergeFn)>,
     cache: &'a Cache,
 }
@@ -42,10 +43,15 @@ impl Column<'_> {
 
         let mut cf_opts = Options::default();
         cf_opts.set_block_based_table_factory(&table_opts);
-        cf_opts.set_compression_type(DBCompressionType::Lz4);
-        cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
         cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
         cf_opts.set_optimize_filters_for_hits(true); // 90% filter size reduction
+
+        if self.compressible {
+            cf_opts.set_compression_type(DBCompressionType::Lz4);
+            cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+        } else {
+            cf_opts.set_compression_type(DBCompressionType::None);
+        }
 
         cf_opts.set_prefix_extractor(match self.prefix {
             Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
@@ -87,6 +93,7 @@ impl Database {
                 Column {
                     name: "masters",
                     prefix: Some(KeyPrefix::SIZE),
+                    compressible: false,
                     merge: Some(("masters_merge", masters_merge)),
                     cache: &cache,
                 }
@@ -94,6 +101,7 @@ impl Database {
                 Column {
                     name: "masters_game",
                     prefix: None,
+                    compressible: true,
                     merge: None,
                     cache: &cache,
                 }
@@ -102,6 +110,7 @@ impl Database {
                 Column {
                     name: "lichess",
                     prefix: Some(KeyPrefix::SIZE),
+                    compressible: false,
                     merge: Some(("lichess_merge", lichess_merge)),
                     cache: &cache,
                 }
@@ -109,6 +118,7 @@ impl Database {
                 Column {
                     name: "lichess_game",
                     prefix: None,
+                    compressible: true,
                     merge: Some(("lichess_game_merge", lichess_game_merge)),
                     cache: &cache,
                 }
@@ -117,6 +127,7 @@ impl Database {
                 Column {
                     name: "player",
                     prefix: Some(KeyPrefix::SIZE),
+                    compressible: false,
                     merge: Some(("player_merge", player_merge)),
                     cache: &cache,
                 }
@@ -124,6 +135,7 @@ impl Database {
                 Column {
                     name: "player_status",
                     prefix: None,
+                    compressible: true,
                     merge: None,
                     cache: &cache,
                 }

@@ -284,7 +284,7 @@ impl PlayerStatus {
         SystemTime::now()
             .duration_since(self.indexed_at)
             .map_or(false, |cooldown| cooldown > Duration::from_secs(60))
-            .then(|| IndexRun::Index {
+            .then_some(IndexRun::Index {
                 after: self.latest_created_at,
             })
     }

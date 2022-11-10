@@ -38,9 +38,9 @@ impl LichessGame {
                 } => 1,
                 Outcome::Draw => 2,
             } << 3)
-                | (if self.mode.is_rated() { 1 } else { 0 } << 5)
-                | (if self.indexed_player.white { 1 } else { 0 } << 6)
-                | (if self.indexed_player.black { 1 } else { 0 } << 7),
+                | (u8::from(self.mode.is_rated()) << 5)
+                | (u8::from(self.indexed_player.white) << 6)
+                | (u8::from(self.indexed_player.black) << 7),
         );
         self.players.white.write(buf);
         self.players.black.write(buf);
