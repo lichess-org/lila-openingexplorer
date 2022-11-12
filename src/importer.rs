@@ -16,7 +16,7 @@ use shakmaty::{
 };
 
 use crate::{
-    api::{Error, LilaVariant},
+    api::Error,
     db::Database,
     model::{
         GameId, GamePlayer, KeyBuilder, LaxDate, LichessEntry, LichessGame, MastersEntry,
@@ -118,7 +118,9 @@ impl MastersImporter {
 #[serde_as]
 #[derive(Deserialize)]
 pub struct LichessGameImport {
-    variant: Option<LilaVariant>,
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default)]
+    variant: Variant,
     speed: Speed,
     #[serde_as(as = "Option<DisplayFromStr>")]
     fen: Option<Fen>,
@@ -167,13 +169,12 @@ impl LichessImporter {
             }
         };
         let outcome = Outcome::from_winner(game.winner);
-        let variant = Variant::from(game.variant.unwrap_or_default());
 
         let mut pos = match game.fen {
             Some(fen) => {
-                VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)?
+                VariantPosition::from_setup(game.variant, fen.into_setup(), CastlingMode::Chess960)?
             }
-            None => VariantPosition::new(variant),
+            None => VariantPosition::new(game.variant),
         };
 
         let mut without_loops: IntMap<Zobrist128, (Uci, Color)> =
@@ -192,7 +193,7 @@ impl LichessImporter {
         for (key, (uci, turn)) in without_loops {
             batch.merge_lichess(
                 KeyBuilder::lichess()
-                    .with_zobrist(variant, key)
+                    .with_zobrist(game.variant, key)
                     .with_month(month),
                 LichessEntry::new_single(
                     uci,

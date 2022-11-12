@@ -330,11 +330,13 @@ impl IndexerActor {
         // Prepare basic information and setup initial position.
         let month = Month::from_time_saturating(game.last_move_at);
         let outcome = Outcome::from_winner(game.winner);
-        let variant = game.variant.into();
         let mut pos = match game.initial_fen {
             Some(fen) => {
-                match VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)
-                {
+                match VariantPosition::from_setup(
+                    game.variant,
+                    fen.into_setup(),
+                    CastlingMode::Chess960,
+                ) {
                     Ok(pos) => pos,
                     Err(err) => {
                         log::warn!("indexer {:02}: not indexing {}: {}", self.idx, game.id, err);
@@ -342,7 +344,7 @@ impl IndexerActor {
                     }
                 }
             }
-            None => VariantPosition::new(variant),
+            None => VariantPosition::new(game.variant),
         };
         let opponent_rating = match game.players.get(!color).rating {
             Some(rating) => rating,
@@ -410,7 +412,7 @@ impl IndexerActor {
         for (zobrist, uci) in without_loops {
             batch.merge_player(
                 hash.get(color)
-                    .with_zobrist(variant, zobrist)
+                    .with_zobrist(game.variant, zobrist)
                     .with_month(month),
                 PlayerEntry::new_single(
                     uci.clone(),

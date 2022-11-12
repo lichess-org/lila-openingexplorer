@@ -294,13 +294,9 @@ async fn player(
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let indexing = indexer.index_player(&player).await;
-    let PlayPosition {
-        variant,
-        pos,
-        opening,
-    } = query.play.position(openings)?;
+    let PlayPosition { pos, opening } = query.play.position(openings)?;
     let key = KeyBuilder::player(&player, query.color)
-        .with_zobrist(variant, pos.zobrist_hash(EnPassantMode::Legal));
+        .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
         color: query.color,
@@ -381,13 +377,9 @@ async fn masters(
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache.get_with(query.clone(), || {
-        let PlayPosition {
-            variant,
-            pos,
-            opening,
-        } = query.play.position(openings)?;
-        let key =
-            KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash(EnPassantMode::Legal));
+        let PlayPosition { pos, opening } = query.play.position(openings)?;
+        let key = KeyBuilder::masters()
+            .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
         let masters_db = db.masters();
         let entry = masters_db
             .read(key, query.since, query.until)
@@ -454,13 +446,9 @@ async fn lichess(
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache.get_with(query.clone(), || {
-        let PlayPosition {
-            variant,
-            pos,
-            opening,
-        } = query.play.position(openings)?;
-        let key =
-            KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash(EnPassantMode::Legal));
+        let PlayPosition { pos, opening } = query.play.position(openings)?;
+        let key = KeyBuilder::lichess()
+            .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
         let lichess_db = db.lichess();
         let filtered = lichess_db
             .read_lichess(&key, query.filter.since, query.filter.until)
@@ -482,12 +470,9 @@ async fn lichess_history(
     State(db): State<Arc<Database>>,
     Query(query): Query<LichessHistoryQuery>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
-    let PlayPosition {
-        variant,
-        pos,
-        opening,
-    } = query.play.position(openings)?;
-    let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash(EnPassantMode::Legal));
+    let PlayPosition { pos, opening } = query.play.position(openings)?;
+    let key =
+        KeyBuilder::lichess().with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
     let lichess_db = db.lichess();
     Ok(Json(ExplorerHistoryResponse {
         history: lichess_db

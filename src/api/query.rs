@@ -10,7 +10,7 @@ use shakmaty::{
 };
 
 use crate::{
-    api::{Error, LilaVariant},
+    api::Error,
     model::{Mode, Month, RatingGroup, Speed, UserName, Year},
     opening::{Opening, Openings},
 };
@@ -125,8 +125,9 @@ pub struct PlayerQueryFilter {
 #[serde_as]
 #[derive(Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Play {
+    #[serde_as(as = "DisplayFromStr")]
     #[serde(default)]
-    pub variant: LilaVariant,
+    pub variant: Variant,
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     pub fen: Option<Fen>,
@@ -136,29 +137,23 @@ pub struct Play {
 }
 
 pub struct PlayPosition<'a> {
-    pub variant: Variant,
     pub pos: VariantPosition,
     pub opening: Option<&'a Opening>,
 }
 
 impl Play {
     pub fn position(self, openings: &Openings) -> Result<PlayPosition<'_>, Error> {
-        let variant = Variant::from(self.variant);
         let mut pos = match self.fen {
             Some(fen) => {
-                VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)
+                VariantPosition::from_setup(self.variant, fen.into_setup(), CastlingMode::Chess960)
                     .or_else(PositionError::ignore_invalid_castling_rights)
                     .or_else(PositionError::ignore_invalid_ep_square)
                     .or_else(PositionError::ignore_impossible_material)?
             }
-            None => VariantPosition::new(variant),
+            None => VariantPosition::new(self.variant),
         };
         let opening = openings.classify_and_play(&mut pos, self.play)?;
-        Ok(PlayPosition {
-            variant,
-            pos,
-            opening,
-        })
+        Ok(PlayPosition { pos, opening })
     }
 }
 
