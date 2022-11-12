@@ -113,7 +113,7 @@ mod tests {
         fn test_key_order(a: Month, b: Month) -> bool {
             let user_id = UserId::from("blindfoldpig".parse::<UserName>().unwrap());
             let prefix = KeyBuilder::player(&user_id, Color::White)
-                .with_zobrist(Variant::Chess, ZobristKey::from(0xd1d06239bd7d2ae8ad6fa208133e1f9a));
+                .with_zobrist(Variant::Chess, Zobrist128(0xd1d06239bd7d2ae8ad6fa208133e1f9a));
 
             (a <= b) == (prefix.with_month(a).into_bytes() <= prefix.with_month(b).into_bytes())
         }
