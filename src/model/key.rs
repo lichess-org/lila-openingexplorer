@@ -9,7 +9,8 @@ use shakmaty::{variant::Variant, Color};
 
 use crate::model::{InvalidDate, Month, UserId, Year};
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[allow(clippy::derive_hash_xor_eq)]
+#[derive(Debug, Eq, Copy, Clone)]
 pub struct ZobristKey(u128);
 
 impl From<u128> for ZobristKey {
@@ -24,11 +25,18 @@ impl From<ZobristKey> for u128 {
     }
 }
 
+impl PartialEq for ZobristKey {
+    fn eq(&self, other: &ZobristKey) -> bool {
+        self.0 == other.0
+    }
+}
+
 impl Hash for ZobristKey {
     fn hash<H>(&self, state: &mut H)
     where
         H: Hasher,
     {
+        // Reduce to 64 bit for use with nohash_hasher.
         state.write_u64(self.0 as u64)
     }
 }

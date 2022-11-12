@@ -107,7 +107,7 @@ impl GamePlayer {
 
     fn read<B: Buf>(buf: &mut B) -> GamePlayer {
         let len = usize::try_from(read_uint(buf)).expect("player name len");
-        let mut name = vec![0; len as usize];
+        let mut name = vec![0; len];
         buf.copy_to_slice(&mut name);
         GamePlayer {
             name: String::from_utf8(name).expect("name utf-8"),
