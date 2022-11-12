@@ -21,6 +21,9 @@ const MAX_TOP_GAMES: usize = 4; // <= MAX_LICHESS_GAMES
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RatingGroup {
     GroupLow,
+    Group1000,
+    Group1200,
+    Group1400,
     Group1600,
     Group1800,
     Group2000,
@@ -31,8 +34,11 @@ pub enum RatingGroup {
 }
 
 impl RatingGroup {
-    pub const ALL: [RatingGroup; 8] = [
+    pub const ALL: [RatingGroup; 11] = [
         RatingGroup::GroupLow,
+        RatingGroup::Group1000,
+        RatingGroup::Group1200,
+        RatingGroup::Group1400,
         RatingGroup::Group1600,
         RatingGroup::Group1800,
         RatingGroup::Group2000,
@@ -43,8 +49,14 @@ impl RatingGroup {
     ];
 
     fn select_avg(avg: u16) -> RatingGroup {
-        if avg < 1600 {
+        if avg < 1000 {
             RatingGroup::GroupLow
+        } else if avg < 1200 {
+            RatingGroup::Group1000
+        } else if avg < 1400 {
+            RatingGroup::Group1200
+        } else if avg < 1600 {
+            RatingGroup::Group1400
         } else if avg < 1800 {
             RatingGroup::Group1600
         } else if avg < 2000 {
@@ -76,6 +88,9 @@ impl FromStr for RatingGroup {
 #[derive(Default, Debug)]
 struct ByRatingGroup<T> {
     group_low: T,
+    group_1000: T,
+    group_1200: T,
+    group_1400: T,
     group_1600: T,
     group_1800: T,
     group_2000: T,
@@ -89,6 +104,9 @@ impl<T> ByRatingGroup<T> {
     fn by_rating_group_mut(&mut self, rating_group: RatingGroup) -> &mut T {
         match rating_group {
             RatingGroup::GroupLow => &mut self.group_low,
+            RatingGroup::Group1000 => &mut self.group_1000,
+            RatingGroup::Group1200 => &mut self.group_1200,
+            RatingGroup::Group1400 => &mut self.group_1400,
             RatingGroup::Group1600 => &mut self.group_1600,
             RatingGroup::Group1800 => &mut self.group_1800,
             RatingGroup::Group2000 => &mut self.group_2000,
@@ -102,6 +120,9 @@ impl<T> ByRatingGroup<T> {
     fn as_ref(&self) -> ByRatingGroup<&T> {
         ByRatingGroup {
             group_low: &self.group_low,
+            group_1000: &self.group_1000,
+            group_1200: &self.group_1200,
+            group_1400: &self.group_1400,
             group_1600: &self.group_1600,
             group_1800: &self.group_1800,
             group_2000: &self.group_2000,
@@ -115,6 +136,9 @@ impl<T> ByRatingGroup<T> {
     fn zip_rating_group(self) -> ByRatingGroup<(RatingGroup, T)> {
         ByRatingGroup {
             group_low: (RatingGroup::GroupLow, self.group_low),
+            group_1000: (RatingGroup::Group1000, self.group_1000),
+            group_1200: (RatingGroup::Group1200, self.group_1200),
+            group_1400: (RatingGroup::Group1400, self.group_1400),
             group_1600: (RatingGroup::Group1600, self.group_1600),
             group_1800: (RatingGroup::Group1800, self.group_1800),
             group_2000: (RatingGroup::Group2000, self.group_2000),
@@ -128,11 +152,14 @@ impl<T> ByRatingGroup<T> {
 
 impl<T> IntoIterator for ByRatingGroup<T> {
     type Item = T;
-    type IntoIter = array::IntoIter<T, 8>;
+    type IntoIter = array::IntoIter<T, 11>;
 
     fn into_iter(self) -> Self::IntoIter {
         [
             self.group_low,
+            self.group_1000,
+            self.group_1200,
+            self.group_1400,
             self.group_1600,
             self.group_1800,
             self.group_2000,
@@ -167,25 +194,28 @@ impl LichessHeader {
             6 => Speed::Correspondence,
             _ => panic!("invalid speed"),
         };
-        let rating_group = match (n >> 3) & 7 {
+        let rating_group = match (n >> 3) & 15 {
             0 => RatingGroup::GroupLow,
-            1 => RatingGroup::Group1600,
-            2 => RatingGroup::Group1800,
-            3 => RatingGroup::Group2000,
-            4 => RatingGroup::Group2200,
-            5 => RatingGroup::Group2500,
-            6 => RatingGroup::Group2800,
-            7 => RatingGroup::Group3200,
-            _ => unreachable!(),
+            1 => RatingGroup::Group1000,
+            2 => RatingGroup::Group1200,
+            3 => RatingGroup::Group1400,
+            4 => RatingGroup::Group1600,
+            5 => RatingGroup::Group1800,
+            6 => RatingGroup::Group2000,
+            7 => RatingGroup::Group2200,
+            8 => RatingGroup::Group2500,
+            9 => RatingGroup::Group2800,
+            10 => RatingGroup::Group3200,
+            _ => panic!("invalid rating group"),
         };
-        let at_least_num_games = usize::from(n >> 6);
+        let single_game = (n >> 7) != 0;
         LichessHeader::Group {
             speed,
             rating_group,
-            num_games: if at_least_num_games >= 3 {
-                read_uint(buf) as usize
+            num_games: if single_game {
+                1
             } else {
-                at_least_num_games
+                read_uint(buf) as usize
             },
         }
     }
@@ -198,6 +228,7 @@ impl LichessHeader {
                 rating_group,
                 num_games,
             } => {
+                let single_game = num_games == 1;
                 buf.put_u8(
                     (match speed {
                         Speed::UltraBullet => 1,
@@ -208,17 +239,20 @@ impl LichessHeader {
                         Speed::Correspondence => 6,
                     }) | (match rating_group {
                         RatingGroup::GroupLow => 0,
-                        RatingGroup::Group1600 => 1,
-                        RatingGroup::Group1800 => 2,
-                        RatingGroup::Group2000 => 3,
-                        RatingGroup::Group2200 => 4,
-                        RatingGroup::Group2500 => 5,
-                        RatingGroup::Group2800 => 6,
-                        RatingGroup::Group3200 => 7,
+                        RatingGroup::Group1000 => 1,
+                        RatingGroup::Group1200 => 2,
+                        RatingGroup::Group1400 => 3,
+                        RatingGroup::Group1600 => 4,
+                        RatingGroup::Group1800 => 5,
+                        RatingGroup::Group2000 => 6,
+                        RatingGroup::Group2200 => 7,
+                        RatingGroup::Group2500 => 8,
+                        RatingGroup::Group2800 => 9,
+                        RatingGroup::Group3200 => 10,
                     } << 3)
-                        | ((min(3, num_games) as u8) << 6),
+                        | (u8::from(single_game) << 7),
                 );
-                if num_games >= 3 {
+                if !single_game {
                     write_uint(buf, num_games as u64);
                 }
             }
