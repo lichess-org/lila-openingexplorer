@@ -22,6 +22,8 @@ use crate::{
     util::ByColorDef,
 };
 
+const MAX_PLIES: usize = 50;
+
 #[derive(Clone)]
 pub struct MastersImporter {
     db: Arc<Database>,
@@ -166,7 +168,7 @@ impl LichessImporter {
 
         let mut without_loops: FxHashMap<Key, (Uci, Color)> =
             FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
-        for san in game.moves {
+        for san in game.moves.into_iter().take(MAX_PLIES) {
             let m = san.to_move(&pos)?;
             without_loops.insert(
                 KeyBuilder::lichess()

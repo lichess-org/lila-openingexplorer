@@ -30,6 +30,8 @@ mod lila;
 
 use lila::{Game, Lila};
 
+const MAX_PLIES: usize = 50;
+
 #[derive(Parser, Clone)]
 pub struct IndexerOpt {
     /// Base url for the indexer.
@@ -357,6 +359,10 @@ impl IndexerActor {
             FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
 
         for (ply, san) in game.moves.into_iter().enumerate() {
+            if ply >= MAX_PLIES {
+                break;
+            }
+
             let m = match san.to_move(&pos) {
                 Ok(m) => m,
                 Err(err) => {
