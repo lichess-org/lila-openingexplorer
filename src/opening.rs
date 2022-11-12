@@ -1,4 +1,6 @@
-use rustc_hash::FxHashMap;
+use std::collections::HashMap;
+
+use nohash_hasher::BuildNoHashHasher;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
@@ -9,7 +11,7 @@ use shakmaty::{
     CastlingMode, Chess, Position,
 };
 
-use crate::api::Error;
+use crate::{api::Error, model::ZobristKey};
 
 #[derive(Serialize, Debug)]
 pub struct Opening {
@@ -27,12 +29,12 @@ struct OpeningRecord {
 }
 
 pub struct Openings {
-    data: FxHashMap<u128, Opening>,
+    data: HashMap<ZobristKey, Opening, BuildNoHashHasher<ZobristKey>>,
 }
 
 impl Openings {
     pub fn build_table() -> Openings {
-        let mut data = FxHashMap::default();
+        let mut data = HashMap::default();
 
         for tsv in TSV_DATA {
             let mut tsv = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(tsv);
@@ -40,11 +42,13 @@ impl Openings {
                 let record: OpeningRecord = record.expect("valid opening tsv");
                 assert!(
                     data.insert(
-                        record
-                            .epd
-                            .into_position::<Chess>(CastlingMode::Chess960)
-                            .expect("legal opening position")
-                            .zobrist_hash(),
+                        ZobristKey::from(
+                            record
+                                .epd
+                                .into_position::<Chess>(CastlingMode::Chess960)
+                                .expect("legal opening position")
+                                .zobrist_hash::<u128>()
+                        ),
                         Opening {
                             eco: record.eco,
                             name: record.name,
@@ -79,7 +83,7 @@ impl Openings {
 
     fn classify(&self, pos: &Zobrist<VariantPosition, u128>) -> Option<&Opening> {
         if opening_sensible(pos.as_inner().variant()) {
-            self.data.get(&pos.zobrist_hash())
+            self.data.get(&ZobristKey::from(pos.zobrist_hash()))
         } else {
             None
         }

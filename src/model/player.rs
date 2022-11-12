@@ -1,11 +1,12 @@
 use std::{
     cmp::{max, min, Reverse},
+    collections::HashMap,
     fmt,
     time::{Duration, SystemTime},
 };
 
 use bytes::{Buf, BufMut};
-use rustc_hash::FxHashMap;
+use nohash_hasher::BuildNoHashHasher;
 use shakmaty::{uci::Uci, Color, Outcome};
 
 use crate::{
@@ -72,7 +73,7 @@ impl Header {
 
 #[derive(Default, Debug)]
 pub struct PlayerEntry {
-    sub_entries: FxHashMap<RawUci, BySpeed<ByMode<LichessGroup>>>,
+    sub_entries: HashMap<RawUci, BySpeed<ByMode<LichessGroup>>, BuildNoHashHasher<RawUci>>,
     min_game_idx: Option<u64>,
     max_game_idx: Option<u64>,
 }

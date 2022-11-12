@@ -8,7 +8,7 @@ use async_channel::TrySendError;
 use axum::http::StatusCode;
 use clap::Parser;
 use futures_util::StreamExt;
-use rustc_hash::FxHashMap;
+use nohash_hasher::BuildNoHashHasher;
 use shakmaty::{
     uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Outcome, Position,
 };
@@ -22,7 +22,7 @@ use crate::{
     db::Database,
     model::{
         GamePlayer, IndexRun, KeyBuilder, LichessGame, Mode, Month, PlayerEntry, PlayerStatus,
-        UserId,
+        UserId, ZobristKey,
     },
 };
 
@@ -355,8 +355,8 @@ impl IndexerActor {
         };
 
         // Build an intermediate table to remove loops (due to repetitions).
-        let mut without_loops: FxHashMap<u128, Uci> =
-            FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
+        let mut without_loops: HashMap<ZobristKey, Uci, BuildNoHashHasher<ZobristKey>> =
+            HashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
 
         for (ply, san) in game.moves.into_iter().enumerate() {
             if ply >= MAX_PLIES {
@@ -379,7 +379,7 @@ impl IndexerActor {
             };
 
             let uci = m.to_uci(CastlingMode::Chess960);
-            without_loops.insert(pos.zobrist_hash(), uci);
+            without_loops.insert(ZobristKey::from(pos.zobrist_hash()), uci);
 
             pos.play_unchecked(&m);
         }

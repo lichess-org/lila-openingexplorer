@@ -1,10 +1,47 @@
-use std::array::TryFromSliceError;
+use std::{
+    array::TryFromSliceError,
+    hash::{Hash, Hasher},
+};
 
 use bytes::{Buf, BufMut};
 use sha1::{Digest, Sha1};
 use shakmaty::{variant::Variant, Color};
 
 use crate::model::{InvalidDate, Month, UserId, Year};
+
+#[allow(clippy::derive_hash_xor_eq)]
+#[derive(Debug, Eq, Copy, Clone)]
+pub struct ZobristKey(u128);
+
+impl From<u128> for ZobristKey {
+    fn from(value: u128) -> ZobristKey {
+        ZobristKey(value)
+    }
+}
+
+impl From<ZobristKey> for u128 {
+    fn from(ZobristKey(value): ZobristKey) -> u128 {
+        value
+    }
+}
+
+impl PartialEq for ZobristKey {
+    fn eq(&self, other: &ZobristKey) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Hash for ZobristKey {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        // Reduce to 64 bit for use with nohash_hasher.
+        state.write_u64(self.0 as u64)
+    }
+}
+
+impl nohash_hasher::IsEnabled for ZobristKey {}
 
 #[derive(Debug)]
 pub struct KeyBuilder {
@@ -30,7 +67,7 @@ impl KeyBuilder {
         KeyBuilder { base: 0 }
     }
 
-    pub fn with_zobrist(&self, variant: Variant, zobrist: u128) -> KeyPrefix {
+    pub fn with_zobrist(&self, variant: Variant, zobrist: ZobristKey) -> KeyPrefix {
         // Zobrist hashes are the opposite of cryptographically secure. An
         // attacker could efficiently construct a position such that a record
         // will appear in the opening explorer of another player. This is not
@@ -39,7 +76,7 @@ impl KeyBuilder {
         // and then also stop using SHA1 in with_user_pov().
         KeyPrefix {
             prefix: (self.base
-                ^ zobrist
+                ^ u128::from(zobrist)
                 ^ (match variant {
                     Variant::Chess => 0,
                     Variant::Antichess => 0x44782fce075483666c81899cb65921c9,
@@ -113,7 +150,7 @@ mod tests {
         fn test_key_order(a: Month, b: Month) -> bool {
             let user_id = UserId::from("blindfoldpig".parse::<UserName>().unwrap());
             let prefix = KeyBuilder::player(&user_id, Color::White)
-                .with_zobrist(Variant::Chess, 0xd1d06239bd7d2ae8ad6fa208133e1f9a);
+                .with_zobrist(Variant::Chess, ZobristKey::from(0xd1d06239bd7d2ae8ad6fa208133e1f9a));
 
             (a <= b) == (prefix.with_month(a).into_bytes() <= prefix.with_month(b).into_bytes())
         }
