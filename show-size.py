@@ -10,16 +10,14 @@ def stat(cf, prop):
 def bytes(num):
     for unit in ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"]:
         if abs(num) < 1024:
-            break
+            return "%3.1f %s" % (num, unit)
         num /= 1024
-    return "%3.1f %s" % (num, unit)
 
 def num(num):
-    for unit in ["", "K", "M"]:
+    for unit in ["", "K", "M", "G", "T", "P", "E", "Z", "Y"]:
         if abs(num) < 1000:
-            break
+            return "%3.1f%s" % (num, unit)
         num /= 1000
-    return "%3.1f%s" % (num, unit)
 
 num_lichess_games = stat("lichess_game", "estimate-num-keys")
 #size_lichess_games = stat("lichess_game", "estimate-live-data-size")
@@ -45,4 +43,5 @@ print(f"Total size: {bytes(size)}")
 print(f"Total size per game: {bytes(size / num_lichess_games)}")
 print(f"Total size per position: {bytes(size / num_lichess)}")
 print("---")
+print(f"Projected positions at {num(target)} games: {num(num_lichess / num_lichess_games * target)}")
 print(f"Projected size at {num(target)} games: {bytes(size / num_lichess_games * target)}")
