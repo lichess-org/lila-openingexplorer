@@ -14,7 +14,7 @@ mod user;
 
 pub use date::{InvalidDate, LaxDate, Month, Year};
 pub use game_id::{GameId, InvalidGameId};
-pub use key::{Key, KeyBuilder, KeyPrefix};
+pub use key::{Key, KeyBuilder, KeyPrefix, ZobristKey};
 pub use lichess::{LichessEntry, LichessGroup, PreparedMove, PreparedResponse, RatingGroup};
 pub use lichess_game::{GamePlayer, LichessGame};
 pub use masters::{MastersEntry, MastersGame, MastersGameWithId};

@@ -1,11 +1,12 @@
 use std::{
     array,
     cmp::{max, min, Reverse},
+    collections::HashMap,
     str::FromStr,
 };
 
 use bytes::{Buf, BufMut};
-use rustc_hash::FxHashMap;
+use nohash_hasher::BuildNoHashHasher;
 use shakmaty::{uci::Uci, Outcome};
 
 use crate::{
@@ -233,7 +234,7 @@ pub struct LichessGroup {
 
 #[derive(Default, Debug)]
 pub struct LichessEntry {
-    sub_entries: FxHashMap<RawUci, BySpeed<ByRatingGroup<LichessGroup>>>,
+    sub_entries: HashMap<RawUci, BySpeed<ByRatingGroup<LichessGroup>>, BuildNoHashHasher<RawUci>>,
     min_game_idx: Option<u64>,
     max_game_idx: Option<u64>,
 }

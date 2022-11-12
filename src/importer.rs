@@ -1,6 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
-use rustc_hash::FxHashMap;
+use nohash_hasher::BuildNoHashHasher;
 use serde::Deserialize;
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 use shakmaty::{
@@ -16,8 +19,8 @@ use crate::{
     api::{Error, LilaVariant},
     db::Database,
     model::{
-        GameId, GamePlayer, Key, KeyBuilder, LaxDate, LichessEntry, LichessGame, MastersEntry,
-        MastersGameWithId, Mode, Speed, Year,
+        GameId, GamePlayer, KeyBuilder, LaxDate, LichessEntry, LichessGame, MastersEntry,
+        MastersGameWithId, Mode, Speed, Year, ZobristKey,
     },
     util::ByColorDef,
 };
@@ -65,22 +68,27 @@ impl MastersImporter {
             return Err(Error::DuplicateGame { id: body.id });
         }
 
-        let mut without_loops: FxHashMap<Key, (Uci, Color)> =
-            FxHashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
+        let mut without_loops: HashMap<ZobristKey, (Uci, Color), BuildNoHashHasher<ZobristKey>> =
+            HashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
         let mut pos: Zobrist<Chess, u128> = Zobrist::default();
         let mut final_key = None;
         for uci in &body.game.moves {
-            let key = KeyBuilder::masters()
-                .with_zobrist(Variant::Chess, pos.zobrist_hash())
-                .with_year(year);
-            final_key = Some(key.clone());
+            let key = ZobristKey::from(pos.zobrist_hash());
+            final_key = Some(key);
             let m = uci.to_move(&pos)?;
             without_loops.insert(key, (Uci::from_chess960(&m), pos.turn()));
             pos.play_unchecked(&m);
         }
 
         if let Some(final_key) = final_key {
-            if masters_db.has(final_key).expect("check for masters entry") {
+            if masters_db
+                .has(
+                    KeyBuilder::masters()
+                        .with_zobrist(Variant::Chess, final_key)
+                        .with_year(year),
+                )
+                .expect("check for masters entry")
+            {
                 return Err(Error::DuplicateGame { id: body.id });
             }
         }
@@ -89,7 +97,9 @@ impl MastersImporter {
         batch.put_game(body.id, &body.game);
         for (key, (uci, turn)) in without_loops {
             batch.merge(
-                key,
+                KeyBuilder::masters()
+                    .with_zobrist(Variant::Chess, key)
+                    .with_year(year),
                 MastersEntry::new_single(
                     uci,
                     body.id,
@@ -166,14 +176,12 @@ impl LichessImporter {
             None => VariantPosition::new(variant),
         });
 
-        let mut without_loops: FxHashMap<Key, (Uci, Color)> =
-            FxHashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
+        let mut without_loops: HashMap<ZobristKey, (Uci, Color), BuildNoHashHasher<ZobristKey>> =
+            HashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
         for san in game.moves.into_iter().take(MAX_PLIES) {
             let m = san.to_move(&pos)?;
             without_loops.insert(
-                KeyBuilder::lichess()
-                    .with_zobrist(variant, pos.zobrist_hash())
-                    .with_month(month),
+                ZobristKey::from(pos.zobrist_hash()),
                 (Uci::from_chess960(&m), pos.turn()),
             );
             pos.play_unchecked(&m);
@@ -183,7 +191,9 @@ impl LichessImporter {
         let mut batch = lichess_db.batch();
         for (key, (uci, turn)) in without_loops {
             batch.merge_lichess(
-                key,
+                KeyBuilder::lichess()
+                    .with_zobrist(variant, key)
+                    .with_month(month),
                 LichessEntry::new_single(
                     uci,
                     game.speed,

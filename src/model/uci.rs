@@ -22,6 +22,8 @@ impl fmt::Debug for RawUci {
     }
 }
 
+impl nohash_hasher::IsEnabled for RawUci {}
+
 impl From<RawUci> for Uci {
     fn from(raw: RawUci) -> Uci {
         let from = Square::new(u32::from(raw.0 & 63));
