@@ -1,47 +1,10 @@
-use std::{
-    array::TryFromSliceError,
-    hash::{Hash, Hasher},
-};
+use std::array::TryFromSliceError;
 
 use bytes::{Buf, BufMut};
 use sha1::{Digest, Sha1};
-use shakmaty::{variant::Variant, Color};
+use shakmaty::{variant::Variant, zobrist::Zobrist128, Color};
 
 use crate::model::{InvalidDate, Month, UserId, Year};
-
-#[allow(clippy::derive_hash_xor_eq)]
-#[derive(Debug, Eq, Copy, Clone)]
-pub struct ZobristKey(u128);
-
-impl From<u128> for ZobristKey {
-    fn from(value: u128) -> ZobristKey {
-        ZobristKey(value)
-    }
-}
-
-impl From<ZobristKey> for u128 {
-    fn from(ZobristKey(value): ZobristKey) -> u128 {
-        value
-    }
-}
-
-impl PartialEq for ZobristKey {
-    fn eq(&self, other: &ZobristKey) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Hash for ZobristKey {
-    fn hash<H>(&self, state: &mut H)
-    where
-        H: Hasher,
-    {
-        // Reduce to 64 bit for use with nohash_hasher.
-        state.write_u64(self.0 as u64)
-    }
-}
-
-impl nohash_hasher::IsEnabled for ZobristKey {}
 
 #[derive(Debug)]
 pub struct KeyBuilder {
@@ -67,7 +30,7 @@ impl KeyBuilder {
         KeyBuilder { base: 0 }
     }
 
-    pub fn with_zobrist(&self, variant: Variant, zobrist: ZobristKey) -> KeyPrefix {
+    pub fn with_zobrist(&self, variant: Variant, zobrist: Zobrist128) -> KeyPrefix {
         // Zobrist hashes are the opposite of cryptographically secure. An
         // attacker could efficiently construct a position such that a record
         // will appear in the opening explorer of another player. This is not

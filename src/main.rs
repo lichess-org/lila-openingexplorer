@@ -25,7 +25,8 @@ use shakmaty::{
     san::{San, SanPlus},
     uci::Uci,
     variant::VariantPosition,
-    Color,
+    zobrist::ZobristHash,
+    Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
 use tokio::sync::watch;
@@ -39,10 +40,7 @@ use crate::{
     db::{Database, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub},
-    model::{
-        GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId,
-        ZobristKey,
-    },
+    model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
     util::DedupStreamExt as _,
 };
@@ -302,7 +300,7 @@ async fn player(
         opening,
     } = query.play.position(openings)?;
     let key = KeyBuilder::player(&player, query.color)
-        .with_zobrist(variant, ZobristKey::from(pos.zobrist_hash()));
+        .with_zobrist(variant, pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
         color: query.color,
@@ -312,7 +310,7 @@ async fn player(
         indexing,
         opening,
         key,
-        pos: pos.into_inner(),
+        pos,
         first: true,
         done: false,
     };
@@ -388,7 +386,8 @@ async fn masters(
             pos,
             opening,
         } = query.play.position(openings)?;
-        let key = KeyBuilder::masters().with_zobrist(variant, ZobristKey::from(pos.zobrist_hash()));
+        let key =
+            KeyBuilder::masters().with_zobrist(variant, pos.zobrist_hash(EnPassantMode::Legal));
         let masters_db = db.masters();
         let entry = masters_db
             .read(key, query.since, query.until)
@@ -460,7 +459,8 @@ async fn lichess(
             pos,
             opening,
         } = query.play.position(openings)?;
-        let key = KeyBuilder::lichess().with_zobrist(variant, ZobristKey::from(pos.zobrist_hash()));
+        let key =
+            KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash(EnPassantMode::Legal));
         let lichess_db = db.lichess();
         let filtered = lichess_db
             .read_lichess(&key, query.filter.since, query.filter.until)
@@ -469,7 +469,7 @@ async fn lichess(
 
         Ok(Json(ExplorerResponse {
             total: filtered.total,
-            moves: finalize_lichess_moves(filtered.moves, pos.as_inner(), &lichess_db),
+            moves: finalize_lichess_moves(filtered.moves, &pos, &lichess_db),
             recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
             top_games: Some(finalize_lichess_games(filtered.top_games, &lichess_db)),
             opening,
@@ -487,7 +487,7 @@ async fn lichess_history(
         pos,
         opening,
     } = query.play.position(openings)?;
-    let key = KeyBuilder::lichess().with_zobrist(variant, ZobristKey::from(pos.zobrist_hash()));
+    let key = KeyBuilder::lichess().with_zobrist(variant, pos.zobrist_hash(EnPassantMode::Legal));
     let lichess_db = db.lichess();
     Ok(Json(ExplorerHistoryResponse {
         history: lichess_db

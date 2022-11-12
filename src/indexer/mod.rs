@@ -8,9 +8,12 @@ use async_channel::TrySendError;
 use axum::http::StatusCode;
 use clap::Parser;
 use futures_util::StreamExt;
-use nohash_hasher::BuildNoHashHasher;
+use nohash_hasher::IntMap;
 use shakmaty::{
-    uci::Uci, variant::VariantPosition, zobrist::Zobrist, ByColor, CastlingMode, Outcome, Position,
+    uci::Uci,
+    variant::VariantPosition,
+    zobrist::{Zobrist128, ZobristHash},
+    ByColor, CastlingMode, Outcome, Position,
 };
 use tokio::{
     sync::{watch, RwLock},
@@ -22,7 +25,7 @@ use crate::{
     db::Database,
     model::{
         GamePlayer, IndexRun, KeyBuilder, LichessGame, Mode, Month, PlayerEntry, PlayerStatus,
-        UserId, ZobristKey,
+        UserId,
     },
 };
 
@@ -328,11 +331,18 @@ impl IndexerActor {
         let month = Month::from_time_saturating(game.last_move_at);
         let outcome = Outcome::from_winner(game.winner);
         let variant = game.variant.into();
-        let pos = match game.initial_fen {
+        let mut pos = match game.initial_fen {
             Some(fen) => {
-                VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)
+                match VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)
+                {
+                    Ok(pos) => pos,
+                    Err(err) => {
+                        log::warn!("indexer {:02}: not indexing {}: {}", self.idx, game.id, err);
+                        return;
+                    }
+                }
             }
-            None => Ok(VariantPosition::new(variant)),
+            None => VariantPosition::new(variant),
         };
         let opponent_rating = match game.players.get(!color).rating {
             Some(rating) => rating,
@@ -346,16 +356,8 @@ impl IndexerActor {
             }
         };
 
-        let mut pos: Zobrist<_, u128> = match pos {
-            Ok(pos) => Zobrist::new(pos),
-            Err(err) => {
-                log::warn!("indexer {:02}: not indexing {}: {}", self.idx, game.id, err);
-                return;
-            }
-        };
-
         // Build an intermediate table to remove loops (due to repetitions).
-        let mut without_loops: HashMap<ZobristKey, Uci, BuildNoHashHasher<ZobristKey>> =
+        let mut without_loops: IntMap<Zobrist128, Uci> =
             HashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
 
         for (ply, san) in game.moves.into_iter().enumerate() {
@@ -379,7 +381,7 @@ impl IndexerActor {
             };
 
             let uci = m.to_uci(CastlingMode::Chess960);
-            without_loops.insert(ZobristKey::from(pos.zobrist_hash()), uci);
+            without_loops.insert(pos.zobrist_hash(shakmaty::EnPassantMode::Legal), uci);
 
             pos.play_unchecked(&m);
         }

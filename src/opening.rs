@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
-use nohash_hasher::BuildNoHashHasher;
+use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
     fen::Epd,
     uci::Uci,
     variant::{Variant, VariantPosition},
-    zobrist::{Zobrist, ZobristHash},
-    CastlingMode, Chess, Position,
+    zobrist::{Zobrist64, ZobristHash},
+    CastlingMode, Chess, EnPassantMode, Position,
 };
 
-use crate::{api::Error, model::ZobristKey};
+use crate::api::Error;
 
 #[derive(Serialize, Debug)]
 pub struct Opening {
@@ -29,7 +29,7 @@ struct OpeningRecord {
 }
 
 pub struct Openings {
-    data: HashMap<ZobristKey, Opening, BuildNoHashHasher<ZobristKey>>,
+    data: IntMap<Zobrist64, Opening>,
 }
 
 impl Openings {
@@ -42,13 +42,11 @@ impl Openings {
                 let record: OpeningRecord = record.expect("valid opening tsv");
                 assert!(
                     data.insert(
-                        ZobristKey::from(
-                            record
-                                .epd
-                                .into_position::<Chess>(CastlingMode::Chess960)
-                                .expect("legal opening position")
-                                .zobrist_hash::<u128>()
-                        ),
+                        record
+                            .epd
+                            .into_position::<Chess>(CastlingMode::Chess960)
+                            .expect("legal opening position")
+                            .zobrist_hash(EnPassantMode::Legal),
                         Opening {
                             eco: record.eco,
                             name: record.name,
@@ -66,7 +64,7 @@ impl Openings {
 
     pub fn classify_and_play(
         &self,
-        root: &mut Zobrist<VariantPosition, u128>,
+        root: &mut VariantPosition,
         play: Vec<Uci>,
     ) -> Result<Option<&Opening>, Error> {
         let mut opening = self.classify(root);
@@ -81,9 +79,9 @@ impl Openings {
         Ok(opening)
     }
 
-    fn classify(&self, pos: &Zobrist<VariantPosition, u128>) -> Option<&Opening> {
-        if opening_sensible(pos.as_inner().variant()) {
-            self.data.get(&ZobristKey::from(pos.zobrist_hash()))
+    fn classify(&self, pos: &VariantPosition) -> Option<&Opening> {
+        if opening_sensible(pos.variant()) {
+            self.data.get(&pos.zobrist_hash(EnPassantMode::Legal))
         } else {
             None
         }

@@ -6,7 +6,6 @@ use shakmaty::{
     fen::Fen,
     uci::Uci,
     variant::{Variant, VariantPosition},
-    zobrist::Zobrist,
     CastlingMode, Color, PositionError,
 };
 
@@ -138,14 +137,14 @@ pub struct Play {
 
 pub struct PlayPosition<'a> {
     pub variant: Variant,
-    pub pos: Zobrist<VariantPosition, u128>,
+    pub pos: VariantPosition,
     pub opening: Option<&'a Opening>,
 }
 
 impl Play {
     pub fn position(self, openings: &Openings) -> Result<PlayPosition<'_>, Error> {
         let variant = Variant::from(self.variant);
-        let mut pos = Zobrist::new(match self.fen {
+        let mut pos = match self.fen {
             Some(fen) => {
                 VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)
                     .or_else(PositionError::ignore_invalid_castling_rights)
@@ -153,7 +152,7 @@ impl Play {
                     .or_else(PositionError::ignore_impossible_material)?
             }
             None => VariantPosition::new(variant),
-        });
+        };
         let opening = openings.classify_and_play(&mut pos, self.play)?;
         Ok(PlayPosition {
             variant,
