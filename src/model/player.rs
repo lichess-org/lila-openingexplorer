@@ -8,6 +8,7 @@ use std::{
 use bytes::{Buf, BufMut};
 use nohash_hasher::BuildNoHashHasher;
 use shakmaty::{uci::Uci, Color, Outcome};
+use thin_vec::thin_vec;
 
 use crate::{
     api::{Limits, PlayerQueryFilter},
@@ -92,7 +93,7 @@ impl PlayerEntry {
         let mut sub_entry: BySpeed<ByMode<LichessGroup>> = Default::default();
         *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = LichessGroup {
             stats: Stats::new_single(outcome, opponent_rating),
-            games: vec![(0, game_id)],
+            games: thin_vec![(0, game_id)],
         };
         PlayerEntry {
             sub_entries: [(RawUci::from(uci), sub_entry)].into_iter().collect(),

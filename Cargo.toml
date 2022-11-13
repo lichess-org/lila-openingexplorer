@@ -33,6 +33,7 @@ serde_with = { version = "2", features = ["time_0_3"] }
 sha-1 = "0.10"
 shakmaty = { version = "0.22", features = ["variant", "nohash-hasher"], git = "https://github.com/niklasf/shakmaty" }
 sync_wrapper = "0.1"
+thin-vec = "0.2"
 thiserror = "1"
 tikv-jemallocator = "0.5" # matching rocksdb
 time = "0.3"

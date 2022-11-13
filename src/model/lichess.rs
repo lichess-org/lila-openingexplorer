@@ -8,6 +8,7 @@ use std::{
 use bytes::{Buf, BufMut};
 use nohash_hasher::BuildNoHashHasher;
 use shakmaty::{uci::Uci, Outcome};
+use thin_vec::{thin_vec, ThinVec};
 
 use crate::{
     api::{LichessQueryFilter, Limits},
@@ -229,7 +230,7 @@ impl LichessHeader {
 #[derive(Default, Debug)]
 pub struct LichessGroup {
     pub stats: Stats,
-    pub games: Vec<(u64, GameId)>,
+    pub games: ThinVec<(u64, GameId)>,
 }
 
 #[derive(Default, Debug)]
@@ -256,7 +257,7 @@ impl LichessEntry {
             .by_speed_mut(speed)
             .by_rating_group_mut(rating_group) = LichessGroup {
             stats: Stats::new_single(outcome, mover_rating),
-            games: vec![(0, game_id)],
+            games: thin_vec![(0, game_id)],
         };
         LichessEntry {
             sub_entries: [(RawUci::from(uci), sub_entry)].into_iter().collect(),
