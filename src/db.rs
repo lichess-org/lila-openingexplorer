@@ -75,10 +75,10 @@ impl Database {
         db_opts.create_missing_column_families(true);
         db_opts.set_max_background_jobs(4);
         db_opts.set_bytes_per_sync(1024 * 1024);
+        db_opts.set_compaction_readahead_size(2 * 1024 * 1024); // Spinning disks
 
-        // Target memory usage is 16 GiB. Leave the majority for operating
-        // system page cache.
-        let cache = Cache::new_lru_cache(4 * 1024 * 1024 * 1024)?;
+        // Leave the majority for operating system page cache.
+        let cache = Cache::new_lru_cache(16 * 1024 * 1024 * 1024)?;
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
