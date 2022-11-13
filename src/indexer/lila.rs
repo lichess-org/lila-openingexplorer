@@ -5,14 +5,13 @@ use serde::Deserialize;
 use serde_with::{
     formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator, TimestampMilliSeconds,
 };
-use shakmaty::{fen::Fen, san::San, ByColor, Color};
+use shakmaty::{fen::Fen, san::San, variant::Variant, ByColor, Color};
 use time::PrimitiveDateTime;
 use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::io::StreamReader;
 
 use crate::{
-    api::LilaVariant,
     indexer::IndexerOpt,
     model::{GameId, Speed, UserId, UserName},
     util::ByColorDef,
@@ -84,7 +83,8 @@ pub struct Game {
     #[serde_as(as = "TimestampMilliSeconds")]
     pub last_move_at: PrimitiveDateTime,
     pub status: Status,
-    pub variant: LilaVariant,
+    #[serde_as(as = "DisplayFromStr")]
+    pub variant: Variant,
     #[serde(with = "ByColorDef")]
     pub players: ByColor<Player>,
     pub speed: Speed,

@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use nohash_hasher::BuildNoHashHasher;
+use nohash_hasher::IntMap;
 use serde::Deserialize;
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 use shakmaty::{
@@ -11,16 +11,16 @@ use shakmaty::{
     san::San,
     uci::Uci,
     variant::{Variant, VariantPosition},
-    zobrist::Zobrist,
-    ByColor, CastlingMode, Chess, Color, Outcome, Position,
+    zobrist::{Zobrist128, ZobristHash},
+    ByColor, CastlingMode, Chess, Color, EnPassantMode, Outcome, Position,
 };
 
 use crate::{
-    api::{Error, LilaVariant},
+    api::Error,
     db::Database,
     model::{
         GameId, GamePlayer, KeyBuilder, LaxDate, LichessEntry, LichessGame, MastersEntry,
-        MastersGameWithId, Mode, Speed, Year, ZobristKey,
+        MastersGameWithId, Mode, Speed, Year,
     },
     util::ByColorDef,
 };
@@ -68,12 +68,12 @@ impl MastersImporter {
             return Err(Error::DuplicateGame { id: body.id });
         }
 
-        let mut without_loops: HashMap<ZobristKey, (Uci, Color), BuildNoHashHasher<ZobristKey>> =
+        let mut without_loops: IntMap<Zobrist128, (Uci, Color)> =
             HashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
-        let mut pos: Zobrist<Chess, u128> = Zobrist::default();
+        let mut pos = Chess::default();
         let mut final_key = None;
         for uci in &body.game.moves {
-            let key = ZobristKey::from(pos.zobrist_hash());
+            let key = pos.zobrist_hash(EnPassantMode::Legal);
             final_key = Some(key);
             let m = uci.to_move(&pos)?;
             without_loops.insert(key, (Uci::from_chess960(&m), pos.turn()));
@@ -118,7 +118,9 @@ impl MastersImporter {
 #[serde_as]
 #[derive(Deserialize)]
 pub struct LichessGameImport {
-    variant: Option<LilaVariant>,
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default)]
+    variant: Variant,
     speed: Speed,
     #[serde_as(as = "Option<DisplayFromStr>")]
     fen: Option<Fen>,
@@ -167,21 +169,20 @@ impl LichessImporter {
             }
         };
         let outcome = Outcome::from_winner(game.winner);
-        let variant = Variant::from(game.variant.unwrap_or_default());
 
-        let mut pos: Zobrist<_, u128> = Zobrist::new(match game.fen {
+        let mut pos = match game.fen {
             Some(fen) => {
-                VariantPosition::from_setup(variant, fen.into_setup(), CastlingMode::Chess960)?
+                VariantPosition::from_setup(game.variant, fen.into_setup(), CastlingMode::Chess960)?
             }
-            None => VariantPosition::new(variant),
-        });
+            None => VariantPosition::new(game.variant),
+        };
 
-        let mut without_loops: HashMap<ZobristKey, (Uci, Color), BuildNoHashHasher<ZobristKey>> =
+        let mut without_loops: IntMap<Zobrist128, (Uci, Color)> =
             HashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
         for san in game.moves.into_iter().take(MAX_PLIES) {
             let m = san.to_move(&pos)?;
             without_loops.insert(
-                ZobristKey::from(pos.zobrist_hash()),
+                pos.zobrist_hash(EnPassantMode::Legal),
                 (Uci::from_chess960(&m), pos.turn()),
             );
             pos.play_unchecked(&m);
@@ -192,7 +193,7 @@ impl LichessImporter {
         for (key, (uci, turn)) in without_loops {
             batch.merge_lichess(
                 KeyBuilder::lichess()
-                    .with_zobrist(variant, key)
+                    .with_zobrist(game.variant, key)
                     .with_month(month),
                 LichessEntry::new_single(
                     uci,

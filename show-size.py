@@ -14,22 +14,20 @@ def bytes(num):
         num /= 1024
 
 def num(num):
-    for unit in ["", "K", "M", "G", "T", "P", "E", "Z", "Y"]:
+    for unit in ["", " thousand", " million", " billion", " trillion"]:
         if abs(num) < 1000:
             return "%3.1f%s" % (num, unit)
         num /= 1000
 
 num_lichess_games = stat("lichess_game", "estimate-num-keys")
-#size_lichess_games = stat("lichess_game", "estimate-live-data-size")
 size_lichess_games = stat("lichess_game", "live-sst-files-size")
 
 num_lichess = stat("lichess", "estimate-num-keys")
-#size_lichess = stat("lichess", "estimate-live-data-size")
 size_lichess = stat("lichess", "live-sst-files-size")
 
 size = size_lichess + size_lichess_games
 
-target = 4_000_000_000
+target = 3_821_355_240
 
 print(f"Games: {num(num_lichess_games)}")
 print(f"Size: {bytes(size_lichess_games)}")
@@ -41,7 +39,8 @@ print(f"Per game: {bytes(size_lichess / num_lichess_games)}")
 print("---")
 print(f"Total size: {bytes(size)}")
 print(f"Total size per game: {bytes(size / num_lichess_games)}")
-print(f"Total size per position: {bytes(size / num_lichess)}")
+print(f"Total size per position: {bytes(size / num_lichess)} = 12 B + 2 B + {bytes(size / num_lichess - 12 - 2)}")
 print("---")
+print(f"Progress: {num_lichess_games / target * 100:0.1f}%")
 print(f"Projected positions at {num(target)} games: {num(num_lichess / num_lichess_games * target)}")
 print(f"Projected size at {num(target)} games: {bytes(size / num_lichess_games * target)}")
