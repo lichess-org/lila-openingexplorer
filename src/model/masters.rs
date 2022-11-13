@@ -1,6 +1,5 @@
 use std::{
     cmp::{min, Reverse},
-    collections::HashMap,
     io,
     io::{Cursor, Write},
 };
@@ -10,7 +9,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use bytes::{Buf, BufMut};
-use nohash_hasher::BuildNoHashHasher;
+use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
@@ -109,7 +108,7 @@ pub struct MastersGroup {
 
 #[derive(Default, Debug)]
 pub struct MastersEntry {
-    groups: HashMap<RawUci, MastersGroup, BuildNoHashHasher<RawUci>>,
+    groups: IntMap<RawUci, MastersGroup>,
 }
 
 impl MastersEntry {

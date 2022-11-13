@@ -1,12 +1,11 @@
 use std::{
     cmp::{max, min, Reverse},
-    collections::HashMap,
     fmt,
     time::{Duration, SystemTime},
 };
 
 use bytes::{Buf, BufMut};
-use nohash_hasher::BuildNoHashHasher;
+use nohash_hasher::IntMap;
 use shakmaty::{uci::Uci, Color, Outcome};
 use thin_vec::thin_vec;
 
@@ -74,7 +73,7 @@ impl Header {
 
 #[derive(Default, Debug)]
 pub struct PlayerEntry {
-    sub_entries: HashMap<RawUci, BySpeed<ByMode<LichessGroup>>, BuildNoHashHasher<RawUci>>,
+    sub_entries: IntMap<RawUci, BySpeed<ByMode<LichessGroup>>>,
     min_game_idx: Option<u64>,
     max_game_idx: Option<u64>,
 }

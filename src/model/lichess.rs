@@ -1,12 +1,11 @@
 use std::{
     array,
     cmp::{max, min, Reverse},
-    collections::HashMap,
     str::FromStr,
 };
 
 use bytes::{Buf, BufMut};
-use nohash_hasher::BuildNoHashHasher;
+use nohash_hasher::IntMap;
 use shakmaty::{uci::Uci, Outcome};
 use thin_vec::{thin_vec, ThinVec};
 
@@ -235,7 +234,7 @@ pub struct LichessGroup {
 
 #[derive(Default, Debug)]
 pub struct LichessEntry {
-    sub_entries: HashMap<RawUci, BySpeed<ByRatingGroup<LichessGroup>>, BuildNoHashHasher<RawUci>>,
+    sub_entries: IntMap<RawUci, BySpeed<ByRatingGroup<LichessGroup>>>,
     min_game_idx: Option<u64>,
     max_game_idx: Option<u64>,
 }
