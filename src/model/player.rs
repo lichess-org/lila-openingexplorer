@@ -1,13 +1,13 @@
 use std::{
     cmp::{max, min, Reverse},
-    collections::HashMap,
     fmt,
     time::{Duration, SystemTime},
 };
 
 use bytes::{Buf, BufMut};
-use nohash_hasher::BuildNoHashHasher;
+use nohash_hasher::IntMap;
 use shakmaty::{uci::Uci, Color, Outcome};
+use thin_vec::thin_vec;
 
 use crate::{
     api::{Limits, PlayerQueryFilter},
@@ -73,7 +73,7 @@ impl Header {
 
 #[derive(Default, Debug)]
 pub struct PlayerEntry {
-    sub_entries: HashMap<RawUci, BySpeed<ByMode<LichessGroup>>, BuildNoHashHasher<RawUci>>,
+    sub_entries: IntMap<RawUci, BySpeed<ByMode<LichessGroup>>>,
     min_game_idx: Option<u64>,
     max_game_idx: Option<u64>,
 }
@@ -92,7 +92,7 @@ impl PlayerEntry {
         let mut sub_entry: BySpeed<ByMode<LichessGroup>> = Default::default();
         *sub_entry.by_speed_mut(speed).by_mode_mut(mode) = LichessGroup {
             stats: Stats::new_single(outcome, opponent_rating),
-            games: vec![(0, game_id)],
+            games: thin_vec![(0, game_id)],
         };
         PlayerEntry {
             sub_entries: [(RawUci::from(uci), sub_entry)].into_iter().collect(),

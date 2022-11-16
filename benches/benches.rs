@@ -1,7 +1,7 @@
 use iai::black_box;
 use lila_openingexplorer::{
     api::{LichessQueryFilter, Limits},
-    model::{LichessEntry, Month, PreparedResponse},
+    model::{LichessEntry, PreparedResponse},
 };
 
 fn bench_lichess_response() -> PreparedResponse {
@@ -16,8 +16,8 @@ fn bench_lichess_response() -> PreparedResponse {
         &LichessQueryFilter {
             speeds: None,
             ratings: None,
-            since: Month::default(),
-            until: Month::max_value(),
+            since: None,
+            until: None,
         },
         &Limits {
             top_games: usize::max_value(),

@@ -1,6 +1,5 @@
 use std::{
     cmp::{min, Reverse},
-    collections::HashMap,
     io,
     io::{Cursor, Write},
 };
@@ -10,10 +9,11 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use bytes::{Buf, BufMut};
-use nohash_hasher::BuildNoHashHasher;
+use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
+use thin_vec::{thin_vec, ThinVec};
 
 use crate::{
     api::Limits,
@@ -103,12 +103,12 @@ impl IntoResponse for MastersGame {
 #[derive(Debug, Default)]
 pub struct MastersGroup {
     stats: Stats,
-    games: Vec<(u16, GameId)>,
+    games: ThinVec<(u16, GameId)>,
 }
 
 #[derive(Default, Debug)]
 pub struct MastersEntry {
-    groups: HashMap<RawUci, MastersGroup, BuildNoHashHasher<RawUci>>,
+    groups: IntMap<RawUci, MastersGroup>,
 }
 
 impl MastersEntry {
@@ -126,7 +126,7 @@ impl MastersEntry {
                 RawUci::from(uci),
                 MastersGroup {
                     stats: Stats::new_single(outcome, mover_rating),
-                    games: vec![(mover_rating.saturating_add(opponent_rating), id)],
+                    games: thin_vec![(mover_rating.saturating_add(opponent_rating), id)],
                 },
             )]
             .into_iter()

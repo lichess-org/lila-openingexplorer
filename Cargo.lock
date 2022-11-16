@@ -1011,6 +1011,7 @@ dependencies = [
  "sha-1",
  "shakmaty",
  "sync_wrapper",
+ "thin-vec",
  "thiserror",
  "tikv-jemallocator",
  "time",
@@ -1716,7 +1717,7 @@ dependencies = [
 [[package]]
 name = "shakmaty"
 version = "0.22.0"
-source = "git+https://github.com/niklasf/shakmaty#6372dcfa719cd693e3b353c4896a377168818bd8"
+source = "git+https://github.com/niklasf/shakmaty#6fcaab2e3f5142f113fcfbf0ea58783d42d75afd"
 dependencies = [
  "arrayvec",
  "bitflags 2.0.0-rc.1",
@@ -1830,6 +1831,12 @@ checksum = "bab24d30b911b2376f3a13cc2cd443142f0c81dda04c118693e35b3835757755"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "thin-vec"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ceb05e71730d396f960f8f3901cdb41be2d339b303e9d7d3a07c5ff0536e671b"
 
 [[package]]
 name = "thiserror"

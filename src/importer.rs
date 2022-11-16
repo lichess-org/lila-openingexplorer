@@ -5,7 +5,9 @@ use std::{
 
 use nohash_hasher::IntMap;
 use serde::Deserialize;
-use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
+use serde_with::{
+    formats::SpaceSeparator, serde_as, DefaultOnNull, DisplayFromStr, StringWithSeparator,
+};
 use shakmaty::{
     fen::Fen,
     san::San,
@@ -118,8 +120,7 @@ impl MastersImporter {
 #[serde_as]
 #[derive(Deserialize)]
 pub struct LichessGameImport {
-    #[serde_as(as = "DisplayFromStr")]
-    #[serde(default)]
+    #[serde_as(as = "DefaultOnNull<DisplayFromStr>")]
     variant: Variant,
     speed: Speed,
     #[serde_as(as = "Option<DisplayFromStr>")]

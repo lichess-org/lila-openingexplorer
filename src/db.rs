@@ -1,5 +1,6 @@
-use std::path::Path;
+use std::path::PathBuf;
 
+use clap::Parser;
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
     MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
@@ -12,6 +13,20 @@ use crate::{
         PlayerEntry, PlayerStatus, Stats, UserId, Year,
     },
 };
+
+#[derive(Parser)]
+pub struct DbOpt {
+    /// Path to RocksDB database.
+    #[arg(long, default_value = "_db")]
+    db: PathBuf,
+    /// Tune compaction readahead for spinning disks.
+    #[arg(long)]
+    db_compaction_readahead: bool,
+    /// Size of RocksDB LRU cache. Leave the majority for operating system
+    /// page cache.
+    #[arg(long, default_value = "4294967296")]
+    db_cache: usize,
+}
 
 #[derive(Debug)]
 pub struct Database {
@@ -62,7 +77,7 @@ impl Column<'_> {
 }
 
 impl Database {
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Database, rocksdb::Error> {
+    pub fn open(opt: DbOpt) -> Result<Database, rocksdb::Error> {
         // Note on usage in async contexts: All database operations are
         // blocking (https://github.com/facebook/rocksdb/issues/3254).
         // Calls could be run in a thread-pool to avoid blocking other
@@ -75,14 +90,16 @@ impl Database {
         db_opts.create_missing_column_families(true);
         db_opts.set_max_background_jobs(4);
         db_opts.set_bytes_per_sync(1024 * 1024);
-        db_opts.set_compaction_readahead_size(2 * 1024 * 1024); // Spinning disks
 
-        // Leave the majority for operating system page cache.
-        let cache = Cache::new_lru_cache(16 * 1024 * 1024 * 1024)?;
+        if opt.db_compaction_readahead {
+            db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
+        }
+
+        let cache = Cache::new_lru_cache(opt.db_cache)?;
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
-            path,
+            opt.db,
             vec![
                 // Masters database
                 Column {

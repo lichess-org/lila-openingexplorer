@@ -8,7 +8,7 @@ pub mod model;
 pub mod opening;
 pub mod util;
 
-use std::{mem, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{mem, net::SocketAddr, sync::Arc, time::Duration};
 
 use axum::{
     extract::{FromRef, Path, Query, State},
@@ -37,7 +37,7 @@ use crate::{
         ExplorerResponse, LichessHistoryQuery, LichessQuery, Limits, MastersQuery, NdJson,
         PlayPosition, PlayerQuery, PlayerQueryFilter,
     },
-    db::{Database, LichessDatabase},
+    db::{Database, DbOpt, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
@@ -54,16 +54,16 @@ struct Opt {
     /// using a reverse proxy.
     #[arg(long, default_value = "127.0.0.1:9002")]
     bind: SocketAddr,
-    /// Path to RocksDB database
-    #[arg(long, default_value = "_db")]
-    db: PathBuf,
     /// Allow access from all origins.
     #[arg(long)]
     cors: bool,
+    /// Number of cached responses for masters and Lichess database each.
+    #[arg(long, default_value = "2000")]
+    cached_responses: u64,
+    #[command(flatten)]
+    db: DbOpt,
     #[command(flatten)]
     indexer: IndexerOpt,
-    #[arg(long, default_value = "2000")]
-    cache_size: u64,
 }
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
@@ -141,11 +141,11 @@ async fn main() {
     let app = Router::with_state(AppState {
         openings: Box::leak(Box::new(Openings::build_table())),
         lichess_cache: Cache::builder()
-            .max_capacity(opt.cache_size)
+            .max_capacity(opt.cached_responses)
             .time_to_live(Duration::from_secs(5 * 60))
             .build(),
         masters_cache: Cache::builder()
-            .max_capacity(opt.cache_size)
+            .max_capacity(opt.cached_responses)
             .time_to_live(Duration::from_secs(5 * 60))
             .build(),
         lichess_importer: LichessImporter::new(Arc::clone(&db)),
