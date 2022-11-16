@@ -49,7 +49,6 @@ impl Column<'_> {
         let mut table_opts = BlockBasedOptions::default();
         table_opts.set_block_cache(self.cache);
         table_opts.set_block_size(64 * 1024); // Spinning disks
-        table_opts.set_index_block_restart_interval(16); // Save index space
         table_opts.set_cache_index_and_filter_blocks(true);
         table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
         table_opts.set_hybrid_ribbon_filter(8.0, 1);
@@ -89,7 +88,8 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
         db_opts.set_max_background_jobs(4);
-        db_opts.set_bytes_per_sync(1024 * 1024);
+        db_opts.set_bytes_per_sync(2 * 1024 * 1024); // at least 1 MiB recommended
+        db_opts.set_wal_bytes_per_sync(2 * 1024 * 1024); // experiment
 
         if opt.db_compaction_readahead {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
