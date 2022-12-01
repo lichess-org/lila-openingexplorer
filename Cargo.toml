@@ -18,7 +18,7 @@ axum = "=0.6.0-rc.4"
 bytes = "1"
 clap = { version = "4", features = ["derive", "env", "deprecated"] }
 csv = "1"
-env_logger = "0.9"
+env_logger = "0.10"
 futures-util = "0.3"
 log = "0.4"
 moka = "0.9"
