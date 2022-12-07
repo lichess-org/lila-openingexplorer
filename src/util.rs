@@ -76,3 +76,7 @@ where
         })
     }
 }
+
+pub fn midpoint(a: u16, b: u16) -> u16 {
+    ((u32::from(a) + u32::from(b)) / 2) as u16
+}

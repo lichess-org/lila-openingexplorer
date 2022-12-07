@@ -12,7 +12,7 @@ use thin_vec::{thin_vec, ThinVec};
 use crate::{
     api::{LichessQueryFilter, Limits},
     model::{read_uint, write_uint, BySpeed, GameId, RawUci, Speed, Stats},
-    util::sort_by_key_and_truncate,
+    util::{midpoint, sort_by_key_and_truncate},
 };
 
 const MAX_LICHESS_GAMES: usize = 8;
@@ -61,7 +61,7 @@ impl RatingGroup {
     }
 
     fn select(mover_rating: u16, opponent_rating: u16) -> RatingGroup {
-        RatingGroup::select_avg(mover_rating / 2 + opponent_rating / 2)
+        RatingGroup::select_avg(midpoint(mover_rating, opponent_rating))
     }
 }
 
