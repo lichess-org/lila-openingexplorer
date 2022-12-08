@@ -1,8 +1,9 @@
 use iai::black_box;
 use lila_openingexplorer::{
     api::{LichessQueryFilter, Limits},
-    model::{LichessEntry, PreparedResponse},
+    model::{LichessEntry, PreparedResponse, Speed},
 };
+use shakmaty::{uci::Uci, Color, Outcome, Square};
 
 fn bench_lichess_response() -> PreparedResponse {
     let mut entry = LichessEntry::default();
@@ -33,6 +34,27 @@ fn bench_lichess_rewrite() -> Vec<u8> {
     entry.extend_from_reader(&mut reader);
 
     let mut buf = Vec::new();
+    entry.write(&mut buf);
+    buf
+}
+
+fn bench_lichess_write_single() -> Vec<u8> {
+    let entry = LichessEntry::new_single(
+        black_box(Uci::Normal {
+            from: Square::E2,
+            to: Square::E4,
+            promotion: None,
+        }),
+        black_box(Speed::Classical),
+        black_box("abcdefgh".parse().expect("game id")),
+        black_box(Outcome::Decisive {
+            winner: Color::White,
+        }),
+        black_box(1610),
+        black_box(1620),
+    );
+
+    let mut buf = Vec::with_capacity(LichessEntry::SIZE_HINT);
     entry.write(&mut buf);
     buf
 }
@@ -1318,4 +1340,8 @@ const LICHESS_ENTRY_2: &[u8] = &[
     152,
 ];
 
-iai::main!(bench_lichess_response, bench_lichess_rewrite);
+iai::main!(
+    bench_lichess_response,
+    bench_lichess_rewrite,
+    bench_lichess_write_single,
+);
