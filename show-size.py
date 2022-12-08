@@ -27,7 +27,7 @@ size_lichess = stat("lichess", "live-sst-files-size")
 
 size = size_lichess + size_lichess_games
 
-target = 3_821_355_240
+target = 3_910_674_537
 
 print(f"Games: {num(num_lichess_games)}")
 print(f"Size: {bytes(size_lichess_games)}")
