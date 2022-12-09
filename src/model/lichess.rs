@@ -12,7 +12,7 @@ use thin_vec::{thin_vec, ThinVec};
 use crate::{
     api::{LichessQueryFilter, Limits},
     model::{read_uint, write_uint, BySpeed, GameId, RawUci, Speed, Stats},
-    util::sort_by_key_and_truncate,
+    util::{midpoint, sort_by_key_and_truncate},
 };
 
 const MAX_LICHESS_GAMES: usize = 8;
@@ -73,7 +73,7 @@ impl RatingGroup {
     }
 
     fn select(mover_rating: u16, opponent_rating: u16) -> RatingGroup {
-        RatingGroup::select_avg(mover_rating / 2 + opponent_rating / 2)
+        RatingGroup::select_avg(midpoint(mover_rating, opponent_rating))
     }
 }
 
@@ -284,14 +284,14 @@ impl LichessEntry {
         mover_rating: u16,
         opponent_rating: u16,
     ) -> LichessEntry {
-        let rating_group = RatingGroup::select(mover_rating, opponent_rating);
         let mut sub_entry: BySpeed<ByRatingGroup<LichessGroup>> = Default::default();
         *sub_entry
             .by_speed_mut(speed)
-            .by_rating_group_mut(rating_group) = LichessGroup {
-            stats: Stats::new_single(outcome, mover_rating),
-            games: thin_vec![(0, game_id)],
-        };
+            .by_rating_group_mut(RatingGroup::select(mover_rating, opponent_rating)) =
+            LichessGroup {
+                stats: Stats::new_single(outcome, mover_rating),
+                games: thin_vec![(0, game_id)],
+            };
         LichessEntry {
             sub_entries: [(RawUci::from(uci), sub_entry)].into_iter().collect(),
             min_game_idx: Some(0),
@@ -343,18 +343,17 @@ impl LichessEntry {
             for (speed, by_rating_group) in sub_entry.as_ref().zip_speed() {
                 for (rating_group, group) in by_rating_group.as_ref().zip_rating_group() {
                     if !group.stats.is_empty() {
+                        let num_games = min(group.games.len(), MAX_LICHESS_GAMES);
                         LichessHeader::Group {
                             speed,
                             rating_group,
-                            num_games: min(group.games.len(), MAX_LICHESS_GAMES),
+                            num_games,
                         }
                         .write(buf);
 
                         group.stats.write(buf);
 
-                        for (game_idx, game) in
-                            &group.games[group.games.len().saturating_sub(MAX_LICHESS_GAMES)..]
-                        {
+                        for (game_idx, game) in &group.games[group.games.len() - num_games..] {
                             write_uint(buf, *game_idx - self.min_game_idx.unwrap_or(0));
                             game.write(buf);
                         }

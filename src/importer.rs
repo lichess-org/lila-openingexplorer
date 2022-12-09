@@ -24,7 +24,7 @@ use crate::{
         GameId, GamePlayer, KeyBuilder, LaxDate, LichessEntry, LichessGame, MastersEntry,
         MastersGameWithId, Mode, Speed, Year,
     },
-    util::ByColorDef,
+    util::{midpoint, ByColorDef},
 };
 
 const MAX_PLIES: usize = 50;
@@ -44,7 +44,10 @@ impl MastersImporter {
     }
 
     pub fn import(&self, body: MastersGameWithId) -> Result<(), Error> {
-        let avg_rating = body.game.players.white.rating / 2 + body.game.players.black.rating / 2;
+        let avg_rating = midpoint(
+            body.game.players.white.rating,
+            body.game.players.black.rating,
+        );
         if avg_rating < 2200 {
             return Err(Error::RejectedRating {
                 id: body.id,

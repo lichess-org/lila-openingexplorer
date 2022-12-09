@@ -2,13 +2,12 @@ use std::collections::HashMap;
 
 use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
-    fen::Epd,
+    san::San,
     uci::Uci,
     variant::{Variant, VariantPosition},
     zobrist::{Zobrist64, ZobristHash},
-    CastlingMode, Chess, EnPassantMode, Position,
+    Chess, EnPassantMode, Position,
 };
 
 use crate::api::Error;
@@ -19,13 +18,11 @@ pub struct Opening {
     name: String,
 }
 
-#[serde_as]
 #[derive(Deserialize)]
 struct OpeningRecord {
     eco: String,
     name: String,
-    #[serde_as(as = "DisplayFromStr")]
-    epd: Epd,
+    pgn: String,
 }
 
 pub struct Openings {
@@ -40,13 +37,17 @@ impl Openings {
             let mut tsv = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(tsv);
             for record in tsv.deserialize() {
                 let record: OpeningRecord = record.expect("valid opening tsv");
+
+                let mut pos = Chess::default();
+                for token in record.pgn.split(' ') {
+                    if let Ok(san) = token.parse::<San>() {
+                        pos.play_unchecked(&san.to_move(&pos).expect("legal move"));
+                    }
+                }
+
                 assert!(
                     data.insert(
-                        record
-                            .epd
-                            .into_position::<Chess>(CastlingMode::Chess960)
-                            .expect("legal opening position")
-                            .zobrist_hash(EnPassantMode::Legal),
+                        pos.zobrist_hash(EnPassantMode::Legal),
                         Opening {
                             eco: record.eco,
                             name: record.name,
@@ -89,11 +90,11 @@ impl Openings {
 }
 
 const TSV_DATA: [&[u8]; 5] = [
-    include_bytes!("../chess-openings/dist/a.tsv"),
-    include_bytes!("../chess-openings/dist/b.tsv"),
-    include_bytes!("../chess-openings/dist/c.tsv"),
-    include_bytes!("../chess-openings/dist/d.tsv"),
-    include_bytes!("../chess-openings/dist/e.tsv"),
+    include_bytes!("../chess-openings/a.tsv"),
+    include_bytes!("../chess-openings/b.tsv"),
+    include_bytes!("../chess-openings/c.tsv"),
+    include_bytes!("../chess-openings/d.tsv"),
+    include_bytes!("../chess-openings/e.tsv"),
 ];
 
 fn opening_sensible(variant: Variant) -> bool {

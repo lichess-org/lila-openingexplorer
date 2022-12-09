@@ -29,19 +29,11 @@ It's best to whitelist only `/masters`, `/lichess`, and `/player`.
 
 1. Download database dumps from https://database.lichess.org/.
 
-2. Decompress and index.
+2. Index (optionally works directly with compressed files):
 
    ```
    cd index-pgn
-   pbunzip2 *.pgn.bz2
-   cargo run --release -- *.pgn
-   ```
-
-   Or directly import compressed files, if you're short on space.
-
-   ```
-   cd index-pgn
-   cargo run --release -- *.pgn.bz2
+   cargo run --release -- *.pgn.zst
    ```
 
 Note that this does not import *all* games. Sampling rates are hardcoded in

@@ -138,35 +138,36 @@ async fn main() {
     let db = Arc::new(Database::open(opt.db).expect("db"));
     let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
 
-    let app = Router::with_state(AppState {
-        openings: Box::leak(Box::new(Openings::build_table())),
-        lichess_cache: Cache::builder()
-            .max_capacity(opt.cached_responses)
-            .time_to_live(Duration::from_secs(5 * 60))
-            .build(),
-        masters_cache: Cache::builder()
-            .max_capacity(opt.cached_responses)
-            .time_to_live(Duration::from_secs(5 * 60))
-            .build(),
-        lichess_importer: LichessImporter::new(Arc::clone(&db)),
-        masters_importer: MastersImporter::new(Arc::clone(&db)),
-        indexer,
-        db,
-    })
-    .route("/monitor/cf/:cf/:prop", get(cf_prop))
-    .route("/monitor/db/:prop", get(db_prop))
-    .route("/monitor/indexing", get(num_indexing))
-    .route("/compact", post(compact))
-    .route("/import/masters", put(masters_import))
-    .route("/import/lichess", put(lichess_import))
-    .route("/masters/pgn/:id", get(masters_pgn))
-    .route("/masters", get(masters))
-    .route("/lichess", get(lichess))
-    .route("/lichess/history", get(lichess_history))
-    .route("/player", get(player))
-    .route("/master/pgn/:id", get(masters_pgn)) // bc
-    .route("/master", get(masters)) // bc
-    .route("/personal", get(player)); // bc
+    let app = Router::new()
+        .route("/monitor/cf/:cf/:prop", get(cf_prop))
+        .route("/monitor/db/:prop", get(db_prop))
+        .route("/monitor/indexing", get(num_indexing))
+        .route("/compact", post(compact))
+        .route("/import/masters", put(masters_import))
+        .route("/import/lichess", put(lichess_import))
+        .route("/masters/pgn/:id", get(masters_pgn))
+        .route("/masters", get(masters))
+        .route("/lichess", get(lichess))
+        .route("/lichess/history", get(lichess_history))
+        .route("/player", get(player))
+        .route("/master/pgn/:id", get(masters_pgn)) // bc
+        .route("/master", get(masters)) // bc
+        .route("/personal", get(player)) // bc
+        .with_state(AppState {
+            openings: Box::leak(Box::new(Openings::build_table())),
+            lichess_cache: Cache::builder()
+                .max_capacity(opt.cached_responses)
+                .time_to_live(Duration::from_secs(5 * 60))
+                .build(),
+            masters_cache: Cache::builder()
+                .max_capacity(opt.cached_responses)
+                .time_to_live(Duration::from_secs(5 * 60))
+                .build(),
+            lichess_importer: LichessImporter::new(Arc::clone(&db)),
+            masters_importer: MastersImporter::new(Arc::clone(&db)),
+            indexer,
+            db,
+        });
 
     let app = if opt.cors {
         app.layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
