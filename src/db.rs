@@ -60,7 +60,6 @@ impl Column<'_> {
         cf_opts.set_compression_type(DBCompressionType::Lz4);
         cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
         cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
-        cf_opts.set_optimize_filters_for_hits(true); // 90% filter size reduction
 
         cf_opts.set_prefix_extractor(match self.prefix {
             Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
@@ -88,8 +87,8 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
         db_opts.set_max_background_jobs(4);
-        db_opts.set_bytes_per_sync(2 * 1024 * 1024); // at least 1 MiB recommended
-        db_opts.set_wal_bytes_per_sync(2 * 1024 * 1024); // experiment
+        db_opts.set_bytes_per_sync(1024 * 1024); // at least 1 MiB recommended
+        db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
 
         if opt.db_compaction_readahead {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
