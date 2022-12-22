@@ -5,7 +5,6 @@ use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
     MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
-use tokio::task;
 
 use crate::{
     api::{ExplorerHistorySegment, LichessQueryFilter},
@@ -77,6 +76,11 @@ impl Column<'_> {
 
 impl Database {
     pub fn open(opt: DbOpt) -> Result<Database, rocksdb::Error> {
+        // Note on usage in async contexts: All database operations are
+        // blocking (https://github.com/facebook/rocksdb/issues/3254).
+        // Calls should be run in a thread-pool to avoid blocking other
+        // requests.
+
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
@@ -90,59 +94,57 @@ impl Database {
 
         let cache = Cache::new_lru_cache(opt.db_cache)?;
 
-        let inner = task::block_in_place(|| {
-            DB::open_cf_descriptors(
-                &db_opts,
-                opt.db,
-                vec![
-                    // Masters database
-                    Column {
-                        name: "masters",
-                        prefix: Some(KeyPrefix::SIZE),
-                        merge: Some(("masters_merge", masters_merge)),
-                        cache: &cache,
-                    }
-                    .descriptor(),
-                    Column {
-                        name: "masters_game",
-                        prefix: None,
-                        merge: None,
-                        cache: &cache,
-                    }
-                    .descriptor(),
-                    // Lichess database
-                    Column {
-                        name: "lichess",
-                        prefix: Some(KeyPrefix::SIZE),
-                        merge: Some(("lichess_merge", lichess_merge)),
-                        cache: &cache,
-                    }
-                    .descriptor(),
-                    Column {
-                        name: "lichess_game",
-                        prefix: None,
-                        merge: Some(("lichess_game_merge", lichess_game_merge)),
-                        cache: &cache,
-                    }
-                    .descriptor(),
-                    // Player database (also shares lichess_game)
-                    Column {
-                        name: "player",
-                        prefix: Some(KeyPrefix::SIZE),
-                        merge: Some(("player_merge", player_merge)),
-                        cache: &cache,
-                    }
-                    .descriptor(),
-                    Column {
-                        name: "player_status",
-                        prefix: None,
-                        merge: None,
-                        cache: &cache,
-                    }
-                    .descriptor(),
-                ],
-            )
-        })?;
+        let inner = DB::open_cf_descriptors(
+            &db_opts,
+            opt.db,
+            vec![
+                // Masters database
+                Column {
+                    name: "masters",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some(("masters_merge", masters_merge)),
+                    cache: &cache,
+                }
+                .descriptor(),
+                Column {
+                    name: "masters_game",
+                    prefix: None,
+                    merge: None,
+                    cache: &cache,
+                }
+                .descriptor(),
+                // Lichess database
+                Column {
+                    name: "lichess",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some(("lichess_merge", lichess_merge)),
+                    cache: &cache,
+                }
+                .descriptor(),
+                Column {
+                    name: "lichess_game",
+                    prefix: None,
+                    merge: Some(("lichess_game_merge", lichess_game_merge)),
+                    cache: &cache,
+                }
+                .descriptor(),
+                // Player database (also shares lichess_game)
+                Column {
+                    name: "player",
+                    prefix: Some(KeyPrefix::SIZE),
+                    merge: Some(("player_merge", player_merge)),
+                    cache: &cache,
+                }
+                .descriptor(),
+                Column {
+                    name: "player_status",
+                    prefix: None,
+                    merge: None,
+                    cache: &cache,
+                }
+                .descriptor(),
+            ],
+        )?;
 
         log::info!("database opened");
 
@@ -191,58 +193,47 @@ pub struct MastersDatabase<'a> {
 
 impl MastersDatabase<'_> {
     pub fn compact(&self) {
-        task::block_in_place(|| {
-            compact_column(self.inner, self.cf_masters);
-            compact_column(self.inner, self.cf_masters_game);
-        })
+        compact_column(self.inner, self.cf_masters);
+        compact_column(self.inner, self.cf_masters_game);
     }
 
     pub fn has_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
-        task::block_in_place(|| {
-            self.inner
-                .get_pinned_cf(self.cf_masters_game, id.to_bytes())
-                .map(|maybe_entry| maybe_entry.is_some())
-        })
+        self.inner
+            .get_pinned_cf(self.cf_masters_game, id.to_bytes())
+            .map(|maybe_entry| maybe_entry.is_some())
     }
 
     pub fn game(&self, id: GameId) -> Result<Option<MastersGame>, rocksdb::Error> {
-        task::block_in_place(|| {
-            Ok(self
-                .inner
-                .get_pinned_cf(self.cf_masters_game, id.to_bytes())?
-                .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game")))
-        })
+        Ok(self
+            .inner
+            .get_pinned_cf(self.cf_masters_game, id.to_bytes())?
+            .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game")))
     }
 
     pub fn games<I: IntoIterator<Item = GameId>>(
         &self,
         ids: I,
     ) -> Result<Vec<Option<MastersGame>>, rocksdb::Error> {
-        task::block_in_place(|| {
-            self.inner
-                .batched_multi_get_cf(
-                    self.cf_masters_game,
-                    ids.into_iter().map(|id| id.to_bytes()),
-                    false,
-                )
-                .into_iter()
-                .map(|maybe_buf_or_err| {
-                    maybe_buf_or_err.map(|maybe_buf| {
-                        maybe_buf.map(|buf| {
-                            serde_json::from_slice(&buf).expect("deserialize masters game")
-                        })
-                    })
+        self.inner
+            .batched_multi_get_cf(
+                self.cf_masters_game,
+                ids.into_iter().map(|id| id.to_bytes()),
+                false,
+            )
+            .into_iter()
+            .map(|maybe_buf_or_err| {
+                maybe_buf_or_err.map(|maybe_buf| {
+                    maybe_buf
+                        .map(|buf| serde_json::from_slice(&buf).expect("deserialize masters game"))
                 })
-                .collect()
-        })
+            })
+            .collect()
     }
 
     pub fn has(&self, key: Key) -> Result<bool, rocksdb::Error> {
-        task::block_in_place(|| {
-            self.inner
-                .get_pinned_cf(self.cf_masters, key.into_bytes())
-                .map(|maybe_entry| maybe_entry.is_some())
-        })
+        self.inner
+            .get_pinned_cf(self.cf_masters, key.into_bytes())
+            .map(|maybe_entry| maybe_entry.is_some())
     }
 
     pub fn read(
@@ -251,24 +242,22 @@ impl MastersDatabase<'_> {
         since: Year,
         until: Year,
     ) -> Result<MastersEntry, rocksdb::Error> {
-        task::block_in_place(|| {
-            let mut entry = MastersEntry::default();
+        let mut entry = MastersEntry::default();
 
-            let mut opt = ReadOptions::default();
-            opt.set_prefix_same_as_start(true);
-            opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
-            opt.set_iterate_upper_bound(key.with_year(until.add_years_saturating(1)).into_bytes());
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
+        opt.set_iterate_upper_bound(key.with_year(until.add_years_saturating(1)).into_bytes());
 
-            let mut iter = self.inner.raw_iterator_cf_opt(self.cf_masters, opt);
-            iter.seek_to_first();
+        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_masters, opt);
+        iter.seek_to_first();
 
-            while let Some(mut value) = iter.value() {
-                entry.extend_from_reader(&mut value);
-                iter.next();
-            }
+        while let Some(mut value) = iter.value() {
+            entry.extend_from_reader(&mut value);
+            iter.next();
+        }
 
-            iter.status().map(|_| entry)
-        })
+        iter.status().map(|_| entry)
     }
 
     pub fn batch(&self) -> MastersBatch<'_> {
@@ -301,7 +290,7 @@ impl MastersBatch<'_> {
     }
 
     pub fn commit(self) -> Result<(), rocksdb::Error> {
-        task::block_in_place(|| self.db.inner.write(self.batch))
+        self.db.inner.write(self.batch)
     }
 }
 
@@ -316,41 +305,35 @@ pub struct LichessDatabase<'a> {
 
 impl LichessDatabase<'_> {
     pub fn compact(&self) {
-        task::block_in_place(|| {
-            compact_column(self.inner, self.cf_lichess);
-            compact_column(self.inner, self.cf_lichess_game);
-            compact_column(self.inner, self.cf_player);
-            compact_column(self.inner, self.cf_player_status);
-        })
+        compact_column(self.inner, self.cf_lichess);
+        compact_column(self.inner, self.cf_lichess_game);
+        compact_column(self.inner, self.cf_player);
+        compact_column(self.inner, self.cf_player_status);
     }
 
     pub fn game(&self, id: GameId) -> Result<Option<LichessGame>, rocksdb::Error> {
-        task::block_in_place(|| {
-            Ok(self
-                .inner
-                .get_pinned_cf(self.cf_lichess_game, id.to_bytes())?
-                .map(|buf| LichessGame::read(&mut buf.as_ref())))
-        })
+        Ok(self
+            .inner
+            .get_pinned_cf(self.cf_lichess_game, id.to_bytes())?
+            .map(|buf| LichessGame::read(&mut buf.as_ref())))
     }
 
     pub fn games<I: IntoIterator<Item = GameId>>(
         &self,
         ids: I,
     ) -> Result<Vec<Option<LichessGame>>, rocksdb::Error> {
-        task::block_in_place(|| {
-            self.inner
-                .batched_multi_get_cf(
-                    self.cf_lichess_game,
-                    ids.into_iter().map(|id| id.to_bytes()),
-                    false,
-                )
-                .into_iter()
-                .map(|maybe_buf_or_err| {
-                    maybe_buf_or_err
-                        .map(|maybe_buf| maybe_buf.map(|buf| LichessGame::read(&mut &buf[..])))
-                })
-                .collect()
-        })
+        self.inner
+            .batched_multi_get_cf(
+                self.cf_lichess_game,
+                ids.into_iter().map(|id| id.to_bytes()),
+                false,
+            )
+            .into_iter()
+            .map(|maybe_buf_or_err| {
+                maybe_buf_or_err
+                    .map(|maybe_buf| maybe_buf.map(|buf| LichessGame::read(&mut &buf[..])))
+            })
+            .collect()
     }
 
     pub fn read_lichess(
@@ -359,30 +342,28 @@ impl LichessDatabase<'_> {
         since: Option<Month>,
         until: Option<Month>,
     ) -> Result<LichessEntry, rocksdb::Error> {
-        task::block_in_place(|| {
-            let mut entry = LichessEntry::default();
+        let mut entry = LichessEntry::default();
 
-            let mut opt = ReadOptions::default();
-            opt.set_prefix_same_as_start(true);
-            opt.set_iterate_lower_bound(
-                key.with_month(since.unwrap_or_else(Month::min_value))
-                    .into_bytes(),
-            );
-            opt.set_iterate_upper_bound(
-                key.with_month(until.map_or(Month::max_value(), |m| m.add_months_saturating(1)))
-                    .into_bytes(),
-            );
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(
+            key.with_month(since.unwrap_or_else(Month::min_value))
+                .into_bytes(),
+        );
+        opt.set_iterate_upper_bound(
+            key.with_month(until.map_or(Month::max_value(), |m| m.add_months_saturating(1)))
+                .into_bytes(),
+        );
 
-            let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
-            iter.seek_to_first();
+        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
+        iter.seek_to_first();
 
-            while let Some(mut value) = iter.value() {
-                entry.extend_from_reader(&mut value);
-                iter.next();
-            }
+        while let Some(mut value) = iter.value() {
+            entry.extend_from_reader(&mut value);
+            iter.next();
+        }
 
-            iter.status().map(|_| entry)
-        })
+        iter.status().map(|_| entry)
     }
 
     pub fn read_lichess_history(
@@ -390,58 +371,56 @@ impl LichessDatabase<'_> {
         key: &KeyPrefix,
         filter: &LichessQueryFilter,
     ) -> Result<Vec<ExplorerHistorySegment>, rocksdb::Error> {
-        task::block_in_place(|| {
-            let mut history = Vec::new();
-            let mut last_month: Option<Month> = filter.since;
+        let mut history = Vec::new();
+        let mut last_month: Option<Month> = filter.since;
 
-            let mut opt = ReadOptions::default();
-            opt.set_prefix_same_as_start(true);
-            opt.set_iterate_lower_bound(
-                key.with_month(filter.since.unwrap_or_else(Month::min_value))
-                    .into_bytes(),
-            );
-            opt.set_iterate_upper_bound(
-                key.with_month(
-                    filter
-                        .until
-                        .map_or(Month::max_value(), |m| m.add_months_saturating(1)),
-                )
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(
+            key.with_month(filter.since.unwrap_or_else(Month::min_value))
                 .into_bytes(),
-            );
+        );
+        opt.set_iterate_upper_bound(
+            key.with_month(
+                filter
+                    .until
+                    .map_or(Month::max_value(), |m| m.add_months_saturating(1)),
+            )
+            .into_bytes(),
+        );
 
-            let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
-            iter.seek_to_first();
+        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
+        iter.seek_to_first();
 
-            while let Some((key, mut value)) = iter.item() {
-                // Fill gap.
-                let month = Key::try_from(key)
-                    .expect("lichess key size")
-                    .month()
-                    .expect("read lichess key suffix");
-                if let Some(mut last_month) = last_month {
-                    while last_month < month {
-                        history.push(ExplorerHistorySegment {
-                            month: last_month,
-                            stats: Stats::default(),
-                        });
-                        last_month = last_month.add_months_saturating(1);
-                    }
+        while let Some((key, mut value)) = iter.item() {
+            // Fill gap.
+            let month = Key::try_from(key)
+                .expect("lichess key size")
+                .month()
+                .expect("read lichess key suffix");
+            if let Some(mut last_month) = last_month {
+                while last_month < month {
+                    history.push(ExplorerHistorySegment {
+                        month: last_month,
+                        stats: Stats::default(),
+                    });
+                    last_month = last_month.add_months_saturating(1);
                 }
-                last_month = Some(month.add_months_saturating(1));
-
-                // Add entry.
-                let mut entry = LichessEntry::default();
-                entry.extend_from_reader(&mut value);
-                history.push(ExplorerHistorySegment {
-                    month,
-                    stats: entry.total(filter),
-                });
-
-                iter.next();
             }
+            last_month = Some(month.add_months_saturating(1));
 
-            iter.status().map(|_| history)
-        })
+            // Add entry.
+            let mut entry = LichessEntry::default();
+            entry.extend_from_reader(&mut value);
+            history.push(ExplorerHistorySegment {
+                month,
+                stats: entry.total(filter),
+            });
+
+            iter.next();
+        }
+
+        iter.status().map(|_| history)
     }
 
     pub fn read_player(
@@ -450,35 +429,29 @@ impl LichessDatabase<'_> {
         since: Month,
         until: Month,
     ) -> Result<PlayerEntry, rocksdb::Error> {
-        task::block_in_place(|| {
-            let mut entry = PlayerEntry::default();
+        let mut entry = PlayerEntry::default();
 
-            let mut opt = ReadOptions::default();
-            opt.set_prefix_same_as_start(true);
-            opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
-            opt.set_iterate_upper_bound(
-                key.with_month(until.add_months_saturating(1)).into_bytes(),
-            );
+        let mut opt = ReadOptions::default();
+        opt.set_prefix_same_as_start(true);
+        opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
+        opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
 
-            let mut iter = self.inner.raw_iterator_cf_opt(self.cf_player, opt);
-            iter.seek_to_first();
+        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_player, opt);
+        iter.seek_to_first();
 
-            while let Some(mut value) = iter.value() {
-                entry.extend_from_reader(&mut value);
-                iter.next();
-            }
+        while let Some(mut value) = iter.value() {
+            entry.extend_from_reader(&mut value);
+            iter.next();
+        }
 
-            iter.status().map(|_| entry)
-        })
+        iter.status().map(|_| entry)
     }
 
     pub fn player_status(&self, id: &UserId) -> Result<Option<PlayerStatus>, rocksdb::Error> {
-        task::block_in_place(|| {
-            Ok(self
-                .inner
-                .get_pinned_cf(self.cf_player_status, id.as_lowercase_str())?
-                .map(|buf| PlayerStatus::read(&mut buf.as_ref())))
-        })
+        Ok(self
+            .inner
+            .get_pinned_cf(self.cf_player_status, id.as_lowercase_str())?
+            .map(|buf| PlayerStatus::read(&mut buf.as_ref())))
     }
 
     pub fn put_player_status(
@@ -486,12 +459,10 @@ impl LichessDatabase<'_> {
         id: &UserId,
         status: &PlayerStatus,
     ) -> Result<(), rocksdb::Error> {
-        task::block_in_place(|| {
-            let mut buf = Vec::with_capacity(PlayerStatus::SIZE_HINT);
-            status.write(&mut buf);
-            self.inner
-                .put_cf(self.cf_player_status, id.as_lowercase_str(), buf)
-        })
+        let mut buf = Vec::with_capacity(PlayerStatus::SIZE_HINT);
+        status.write(&mut buf);
+        self.inner
+            .put_cf(self.cf_player_status, id.as_lowercase_str(), buf)
     }
 
     pub fn batch(&self) -> LichessBatch<'_> {
@@ -530,7 +501,7 @@ impl LichessBatch<'_> {
     }
 
     pub fn commit(self) -> Result<(), rocksdb::Error> {
-        task::block_in_place(|| self.inner.inner.write(self.batch))
+        self.inner.inner.write(self.batch)
     }
 }
 
