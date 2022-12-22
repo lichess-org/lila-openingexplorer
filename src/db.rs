@@ -87,6 +87,7 @@ impl Database {
         db_opts.set_max_background_jobs(4);
         db_opts.set_bytes_per_sync(1024 * 1024); // at least 1 MiB recommended
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
+        db_opts.set_skip_stats_update_on_db_open(true); // faster open
 
         if opt.db_compaction_readahead {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
