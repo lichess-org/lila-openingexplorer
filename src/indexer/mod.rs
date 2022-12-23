@@ -45,7 +45,7 @@ pub struct IndexerOpt {
     #[arg(long = "bearer", env = "EXPLORER_BEARER")]
     bearer: Option<String>,
     /// Number of parallel indexing tasks.
-    #[arg(long = "indexers", default_value = "5")]
+    #[arg(long = "indexers", default_value = "8")]
     indexers: usize,
 }
 
@@ -60,7 +60,7 @@ impl IndexerStub {
     pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, Vec<JoinHandle<()>>) {
         let indexing = Arc::new(RwLock::new(HashMap::new()));
 
-        let (tx, rx) = async_channel::bounded(opt.indexers * 4);
+        let (tx, rx) = async_channel::bounded(opt.indexers * 2);
         let mut join_handles = Vec::with_capacity(opt.indexers);
         for idx in 0..opt.indexers {
             join_handles.push(tokio::spawn(
