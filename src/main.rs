@@ -58,7 +58,7 @@ struct Opt {
     #[arg(long)]
     cors: bool,
     /// Number of cached responses for masters and Lichess database each.
-    #[arg(long, default_value = "10000")]
+    #[arg(long, default_value = "20000")]
     cached_responses: u64,
     #[command(flatten)]
     db: DbOpt,
