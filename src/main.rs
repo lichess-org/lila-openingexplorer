@@ -58,7 +58,7 @@ struct Opt {
     #[arg(long)]
     cors: bool,
     /// Number of cached responses for masters and Lichess database each.
-    #[arg(long, default_value = "2000")]
+    #[arg(long, default_value = "10000")]
     cached_responses: u64,
     #[command(flatten)]
     db: DbOpt,
@@ -157,11 +157,11 @@ async fn main() {
             openings: Box::leak(Box::new(Openings::build_table())),
             lichess_cache: Cache::builder()
                 .max_capacity(opt.cached_responses)
-                .time_to_live(Duration::from_secs(5 * 60))
+                .time_to_live(Duration::from_secs(60 * 60))
                 .build(),
             masters_cache: Cache::builder()
                 .max_capacity(opt.cached_responses)
-                .time_to_live(Duration::from_secs(5 * 60))
+                .time_to_live(Duration::from_secs(60 * 60))
                 .build(),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),
