@@ -17,6 +17,7 @@ use shakmaty::{
 };
 use tokio::{
     sync::{watch, RwLock},
+    task,
     task::JoinHandle,
     time::{sleep, timeout},
 };
@@ -215,29 +216,33 @@ impl IndexerActor {
                 }
             };
 
-            self.index_game(player, &hash, game, &mut status);
+            task::block_in_place(|| {
+                self.index_game(player, &hash, game, &mut status);
 
-            num_games += 1;
-            if num_games % 1024 == 0 {
-                self.db
-                    .lichess()
-                    .put_player_status(player, &status)
-                    .expect("put player status");
+                num_games += 1;
+                if num_games % 1024 == 0 {
+                    self.db
+                        .lichess()
+                        .put_player_status(player, &status)
+                        .expect("put player status");
 
-                log::info!(
-                    "indexer {:02}: indexed {} games for {} ...",
-                    self.idx,
-                    num_games,
-                    player.as_lowercase_str()
-                );
-            }
+                    log::info!(
+                        "indexer {:02}: indexed {} games for {} ...",
+                        self.idx,
+                        num_games,
+                        player.as_lowercase_str()
+                    );
+                }
+            })
         }
 
         status.finish_run(index_run);
-        self.db
-            .lichess()
-            .put_player_status(player, &status)
-            .expect("put player status");
+        task::block_in_place(|| {
+            self.db
+                .lichess()
+                .put_player_status(player, &status)
+                .expect("put player status");
+        });
 
         let elapsed = started_at.elapsed();
 
