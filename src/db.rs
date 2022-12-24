@@ -85,7 +85,7 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
         db_opts.set_max_background_jobs(4);
-        db_opts.set_ratelimiter(16 * 1024 * 1024, 100_000, 10);
+        db_opts.set_ratelimiter(10 * 1024 * 1024, 100_000, 10);
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
 
 
