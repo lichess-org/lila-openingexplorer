@@ -93,8 +93,7 @@ impl Database {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
         }
 
-        let masters_cache = Cache::new_lru_cache(opt.db_cache * 10 / 100)?;
-        let lichess_cache = Cache::new_lru_cache(opt.db_cache * 90 / 100)?;
+        let cache = Cache::new_lru_cache(opt.db_cache)?;
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
@@ -105,14 +104,14 @@ impl Database {
                     name: "masters",
                     prefix: Some(KeyPrefix::SIZE),
                     merge: Some(("masters_merge", masters_merge)),
-                    cache: &masters_cache,
+                    cache: &cache,
                 }
                 .descriptor(),
                 Column {
                     name: "masters_game",
                     prefix: None,
                     merge: None,
-                    cache: &masters_cache,
+                    cache: &cache,
                 }
                 .descriptor(),
                 // Lichess database
@@ -120,14 +119,14 @@ impl Database {
                     name: "lichess",
                     prefix: Some(KeyPrefix::SIZE),
                     merge: Some(("lichess_merge", lichess_merge)),
-                    cache: &lichess_cache,
+                    cache: &cache,
                 }
                 .descriptor(),
                 Column {
                     name: "lichess_game",
                     prefix: None,
                     merge: Some(("lichess_game_merge", lichess_game_merge)),
-                    cache: &lichess_cache,
+                    cache: &cache,
                 }
                 .descriptor(),
                 // Player database (also shares lichess_game)
@@ -135,14 +134,14 @@ impl Database {
                     name: "player",
                     prefix: Some(KeyPrefix::SIZE),
                     merge: Some(("player_merge", player_merge)),
-                    cache: &lichess_cache,
+                    cache: &cache,
                 }
                 .descriptor(),
                 Column {
                     name: "player_status",
                     prefix: None,
                     merge: None,
-                    cache: &lichess_cache,
+                    cache: &cache,
                 }
                 .descriptor(),
             ],
