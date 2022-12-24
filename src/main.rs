@@ -158,10 +158,12 @@ async fn main() {
             lichess_cache: Cache::builder()
                 .max_capacity(opt.cached_responses)
                 .time_to_live(Duration::from_secs(60 * 60))
+                .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
             masters_cache: Cache::builder()
                 .max_capacity(opt.cached_responses)
-                .time_to_live(Duration::from_secs(60 * 60))
+                .time_to_live(Duration::from_secs(60 * 60 * 2))
+                .time_to_idle(Duration::from_secs(60 * 20))
                 .build(),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),

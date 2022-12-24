@@ -88,7 +88,6 @@ impl Database {
         db_opts.set_ratelimiter(10 * 1024 * 1024, 100_000, 10);
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
 
-
         if opt.db_compaction_readahead {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
         }
