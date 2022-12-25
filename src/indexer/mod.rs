@@ -45,7 +45,7 @@ pub struct IndexerOpt {
     #[arg(long = "bearer", env = "EXPLORER_BEARER")]
     bearer: Option<String>,
     /// Number of parallel indexing tasks.
-    #[arg(long = "indexers", default_value = "12")]
+    #[arg(long = "indexers", default_value = "16")]
     indexers: usize,
 }
 
