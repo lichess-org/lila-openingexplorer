@@ -349,8 +349,8 @@ impl IndexRun {
 impl fmt::Display for IndexRun {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IndexRun::Index { after } => write!(f, "created_at > {}", after),
-            IndexRun::Revisit { since } => write!(f, "created_at >= {}", since),
+            IndexRun::Index { after } => write!(f, "created_at > {after}"),
+            IndexRun::Revisit { since } => write!(f, "created_at >= {since}"),
         }
     }
 }

@@ -54,11 +54,11 @@ impl fmt::Display for LaxDate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:04}.", self.year.0)?;
         match self.month {
-            Some(month) => write!(f, "{:02}.", month)?,
+            Some(month) => write!(f, "{month:02}.")?,
             None => f.write_str("??.")?,
         }
         match self.day {
-            Some(day) => write!(f, "{:02}", day),
+            Some(day) => write!(f, "{day:02}"),
             None => f.write_str("??"),
         }
     }

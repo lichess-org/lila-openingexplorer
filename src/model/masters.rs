@@ -78,7 +78,7 @@ impl MastersGame {
                 write!(writer, "{}.", i / 2 + 1)?;
             }
             let san = SanPlus::from_move_and_play_unchecked(&mut pos, &m);
-            write!(writer, " {}", san)?;
+            write!(writer, " {san}")?;
         }
 
         if !self.moves.is_empty() {
