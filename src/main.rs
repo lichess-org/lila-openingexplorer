@@ -142,6 +142,7 @@ async fn main() {
         .route("/monitor/cf/:cf/:prop", get(cf_prop))
         .route("/monitor/db/:prop", get(db_prop))
         .route("/monitor/indexing", get(num_indexing))
+        .route("/monitor", get(monitor))
         .route("/compact", post(compact))
         .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
@@ -230,6 +231,28 @@ async fn db_prop(
 
 async fn num_indexing(State(indexer): State<IndexerStub>) -> String {
     indexer.num_indexing().await.to_string()
+}
+
+async fn monitor(
+    State(lichess_cache): State<ExplorerCache<LichessQuery>>,
+    State(masters_cache): State<ExplorerCache<MastersQuery>>,
+    State(indexer): State<IndexerStub>,
+    State(db): State<Arc<Database>>,
+) -> String {
+    let indexing = indexer.num_indexing().await;
+    let lichess_cache = lichess_cache.entry_count();
+    let masters_cache = masters_cache.entry_count();
+    task::spawn_blocking(move || {
+        let masters_db = db.masters();
+        let masters = masters_db.estimate_num_masters_keys().expect("masters keys prop");
+        let masters_game = masters_db.estimate_num_masters_game_keys().expect("masters_game keys prop");
+        let lichess_db = db.lichess();
+        let lichess = lichess_db.estimate_num_lichess_keys().expect("lichess keys prop");
+        let lichess_game = lichess_db.estimate_num_lichess_game_keys().expect("lichess_game keys prop");
+        let player = lichess_db.estimate_num_player_keys().expect("player keys prop");
+        let player_status = lichess_db.estimate_num_player_status_keys().expect("player_status keys prop");
+        format!("opening_explorer indexing={indexing},lichess_cache={lichess_cache},masters_cache={masters_cache},masters={masters},masters_game={masters_game},lichess={lichess},lichess_game={lichess_game},player={player},player_status={player_status}")
+    }).await.expect("blocking monitor")
 }
 
 async fn compact(State(db): State<Arc<Database>>) {

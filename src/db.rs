@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use rocksdb::{
-    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
-    MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
+    properties::ESTIMATE_NUM_KEYS, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor,
+    DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::{
@@ -197,6 +197,18 @@ impl MastersDatabase<'_> {
         compact_column(self.inner, self.cf_masters_game);
     }
 
+    pub fn estimate_num_masters_keys(&self) -> Result<u64, rocksdb::Error> {
+        self.inner
+            .property_int_value_cf(self.cf_masters, ESTIMATE_NUM_KEYS)
+            .map(|maybe_num| maybe_num.expect("masters keys"))
+    }
+
+    pub fn estimate_num_masters_game_keys(&self) -> Result<u64, rocksdb::Error> {
+        self.inner
+            .property_int_value_cf(self.cf_masters_game, ESTIMATE_NUM_KEYS)
+            .map(|maybe_num| maybe_num.expect("masters_game keys"))
+    }
+
     pub fn has_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
         self.inner
             .get_pinned_cf(self.cf_masters_game, id.to_bytes())
@@ -309,6 +321,30 @@ impl LichessDatabase<'_> {
         compact_column(self.inner, self.cf_lichess_game);
         compact_column(self.inner, self.cf_player);
         compact_column(self.inner, self.cf_player_status);
+    }
+
+    pub fn estimate_num_lichess_keys(&self) -> Result<u64, rocksdb::Error> {
+        self.inner
+            .property_int_value_cf(self.cf_lichess, ESTIMATE_NUM_KEYS)
+            .map(|maybe_num| maybe_num.expect("lichess keys"))
+    }
+
+    pub fn estimate_num_lichess_game_keys(&self) -> Result<u64, rocksdb::Error> {
+        self.inner
+            .property_int_value_cf(self.cf_lichess_game, ESTIMATE_NUM_KEYS)
+            .map(|maybe_num| maybe_num.expect("lichess_game keys"))
+    }
+
+    pub fn estimate_num_player_keys(&self) -> Result<u64, rocksdb::Error> {
+        self.inner
+            .property_int_value_cf(self.cf_player, ESTIMATE_NUM_KEYS)
+            .map(|maybe_num| maybe_num.expect("player keys"))
+    }
+
+    pub fn estimate_num_player_status_keys(&self) -> Result<u64, rocksdb::Error> {
+        self.inner
+            .property_int_value_cf(self.cf_player_status, ESTIMATE_NUM_KEYS)
+            .map(|maybe_num| maybe_num.expect("player_status keys"))
     }
 
     pub fn game(&self, id: GameId) -> Result<Option<LichessGame>, rocksdb::Error> {
