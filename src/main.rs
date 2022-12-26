@@ -144,7 +144,6 @@ async fn main() {
     let app = Router::new()
         .route("/monitor/cf/:cf/:prop", get(cf_prop))
         .route("/monitor/db/:prop", get(db_prop))
-        .route("/monitor/indexing", get(num_indexing))
         .route("/monitor", get(monitor))
         .route("/compact", post(compact))
         .route("/import/masters", put(masters_import))
@@ -230,10 +229,6 @@ async fn db_prop(
     })
     .await
     .expect("blocking db prop")
-}
-
-async fn num_indexing(State(indexer): State<IndexerStub>) -> String {
-    indexer.num_indexing().await.to_string()
 }
 
 async fn monitor(
