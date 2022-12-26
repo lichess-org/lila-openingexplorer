@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Instant};
 
 use clap::Parser;
 use rocksdb::{
@@ -34,6 +34,9 @@ pub struct DbOpt {
     db_rate_limit: i64,
 }
 
+// Note on usage in async contexts: All database operations are blocking
+// (https://github.com/facebook/rocksdb/issues/3254). Calls should be run in a
+// thread-pool to avoid blocking other requests.
 #[derive(Debug)]
 pub struct Database {
     pub inner: DB,
@@ -82,10 +85,7 @@ impl Column<'_> {
 
 impl Database {
     pub fn open(opt: DbOpt) -> Result<Database, rocksdb::Error> {
-        // Note on usage in async contexts: All database operations are
-        // blocking (https://github.com/facebook/rocksdb/issues/3254).
-        // Calls should be run in a thread-pool to avoid blocking other
-        // requests.
+        let started_at = Instant::now();
 
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
@@ -152,7 +152,8 @@ impl Database {
             ],
         )?;
 
-        log::info!("database opened");
+        let elapsed = started_at.elapsed();
+        log::info!("database opened in {elapsed:.3?}");
 
         Ok(Database { inner })
     }
