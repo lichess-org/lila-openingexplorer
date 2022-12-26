@@ -57,9 +57,12 @@ struct Opt {
     /// Allow access from all origins.
     #[arg(long)]
     cors: bool,
-    /// Number of cached responses for masters and Lichess database each.
+    /// Maximum number of cached responses for /masters.
     #[arg(long, default_value = "20000")]
-    cached_responses: u64,
+    masters_cache: u64,
+    /// Maximum number of cached responses for /lichess.
+    #[arg(long, default_value = "20000")]
+    lichess_cache: u64,
     #[command(flatten)]
     db: DbOpt,
     #[command(flatten)]
@@ -157,12 +160,12 @@ async fn main() {
         .with_state(AppState {
             openings: Box::leak(Box::new(Openings::build_table())),
             lichess_cache: Cache::builder()
-                .max_capacity(opt.cached_responses)
+                .max_capacity(opt.lichess_cache)
                 .time_to_live(Duration::from_secs(60 * 60))
                 .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
             masters_cache: Cache::builder()
-                .max_capacity(opt.cached_responses)
+                .max_capacity(opt.masters_cache)
                 .time_to_live(Duration::from_secs(60 * 60 * 2))
                 .time_to_idle(Duration::from_secs(60 * 20))
                 .build(),
