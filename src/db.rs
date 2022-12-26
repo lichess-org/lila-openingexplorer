@@ -22,10 +22,16 @@ pub struct DbOpt {
     /// Tune compaction readahead for spinning disks.
     #[arg(long)]
     db_compaction_readahead: bool,
-    /// Size of RocksDB LRU cache. Leave the majority for operating system
-    /// page cache.
+    /// Size of RocksDB LRU cache in bytes. Use up to half of the systems RAM,
+    /// leaving the majority for operating system page cache.
     #[arg(long, default_value = "4294967296")]
     db_cache: usize,
+    /// Rate limit for writes to disk, caused by flushes and compactions. Reads
+    /// caused by compactions are on a similar order of magnitude. Set so the
+    /// disks can comfortably handle this sustained rate, and still be able to
+    /// respond to queries.
+    #[arg(long, default_value = "10485760")]
+    db_rate_limit: i64,
 }
 
 #[derive(Debug)]
@@ -85,7 +91,7 @@ impl Database {
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
         db_opts.set_max_background_jobs(4);
-        db_opts.set_ratelimiter(10 * 1024 * 1024, 100_000, 10);
+        db_opts.set_ratelimiter(opt.db_rate_limit, 100_000, 10);
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
 
         if opt.db_compaction_readahead {
