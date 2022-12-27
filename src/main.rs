@@ -58,7 +58,7 @@ struct Opt {
     #[arg(long)]
     cors: bool,
     /// Maximum number of cached responses for /masters.
-    #[arg(long, default_value = "25000")]
+    #[arg(long, default_value = "50000")]
     masters_cache: u64,
     /// Maximum number of cached responses for /lichess.
     #[arg(long, default_value = "25000")]
@@ -166,7 +166,7 @@ async fn main() {
             masters_cache: Cache::builder()
                 .max_capacity(opt.masters_cache)
                 .time_to_live(Duration::from_secs(60 * 60 * 2))
-                .time_to_idle(Duration::from_secs(60 * 20))
+                .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),
