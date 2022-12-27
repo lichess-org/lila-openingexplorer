@@ -252,7 +252,7 @@ async fn monitor(
         let player = lichess_db.estimate_num_player_keys().expect("player keys prop");
         let player_status = lichess_db.estimate_num_player_status_keys().expect("player_status keys prop");
 
-        format!("opening_explorer indexing={indexing},lichess_cache={lichess_cache},masters_cache={masters_cache},masters={masters},masters_game={masters_game},lichess={lichess},lichess_game={lichess_game},player={player},player_status={player_status}")
+        format!("opening_explorer indexing={indexing}u,lichess_cache={lichess_cache}u,masters_cache={masters_cache}u,masters={masters}u,masters_game={masters_game}u,lichess={lichess}u,lichess_game={lichess_game}u,player={player}u,player_status={player_status}u")
     }).await.expect("blocking monitor")
 }
 
