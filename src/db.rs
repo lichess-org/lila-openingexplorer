@@ -161,6 +161,7 @@ impl Database {
     pub fn compact(&self) {
         self.lichess().compact();
         self.masters().compact();
+        log::info!("finished manual compaction");
     }
 
     pub fn masters(&self) -> MastersDatabase<'_> {
@@ -200,7 +201,9 @@ pub struct MastersDatabase<'a> {
 
 impl MastersDatabase<'_> {
     pub fn compact(&self) {
+        log::info!("running manual compaction for masters ...");
         compact_column(self.inner, self.cf_masters);
+        log::info!("running manual compaction for masters_game ...");
         compact_column(self.inner, self.cf_masters_game);
     }
 
@@ -324,9 +327,13 @@ pub struct LichessDatabase<'a> {
 
 impl LichessDatabase<'_> {
     pub fn compact(&self) {
+        log::info!("running manual compaction for lichess ...");
         compact_column(self.inner, self.cf_lichess);
+        log::info!("running manual compaction for lichess_game ...");
         compact_column(self.inner, self.cf_lichess_game);
+        log::info!("running manual compaction for player ...");
         compact_column(self.inner, self.cf_player);
+        log::info!("running manual compaction for player_status ...");
         compact_column(self.inner, self.cf_player_status);
     }
 
