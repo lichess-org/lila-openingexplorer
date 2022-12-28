@@ -236,11 +236,13 @@ impl MastersDatabase<'_> {
         &self,
         ids: I,
     ) -> Result<Vec<Option<MastersGame>>, rocksdb::Error> {
+        let opt = ReadOptions::default();
         self.inner
-            .batched_multi_get_cf(
+            .batched_multi_get_cf_opt(
                 self.cf_masters_game,
                 ids.into_iter().map(|id| id.to_bytes()),
                 false,
+                &opt,
             )
             .into_iter()
             .map(|maybe_buf_or_err| {
@@ -373,11 +375,13 @@ impl LichessDatabase<'_> {
         &self,
         ids: I,
     ) -> Result<Vec<Option<LichessGame>>, rocksdb::Error> {
+        let opt = ReadOptions::default();
         self.inner
-            .batched_multi_get_cf(
+            .batched_multi_get_cf_opt(
                 self.cf_lichess_game,
                 ids.into_iter().map(|id| id.to_bytes()),
                 false,
+                &opt,
             )
             .into_iter()
             .map(|maybe_buf_or_err| {
