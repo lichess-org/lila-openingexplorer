@@ -242,7 +242,8 @@ impl MastersDatabase<'_> {
         &self,
         ids: I,
     ) -> Result<Vec<Option<MastersGame>>, rocksdb::Error> {
-        let opt = ReadOptions::default();
+        let mut opt = ReadOptions::default();
+        opt.set_ignore_range_deletions(true);
         self.inner
             .batched_multi_get_cf_opt(
                 self.cf_masters_game,
@@ -386,7 +387,8 @@ impl LichessDatabase<'_> {
         &self,
         ids: I,
     ) -> Result<Vec<Option<LichessGame>>, rocksdb::Error> {
-        let opt = ReadOptions::default();
+        let mut opt = ReadOptions::default();
+        opt.set_ignore_range_deletions(true);
         self.inner
             .batched_multi_get_cf_opt(
                 self.cf_lichess_game,
