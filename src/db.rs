@@ -199,6 +199,11 @@ pub struct MastersDatabase<'a> {
     cf_masters_game: &'a ColumnFamily,
 }
 
+pub struct MastersStats {
+    pub num_masters: u64,
+    pub num_masters_game: u64,
+}
+
 impl MastersDatabase<'_> {
     pub fn compact(&self) {
         log::info!("running manual compaction for masters ...");
@@ -207,16 +212,17 @@ impl MastersDatabase<'_> {
         compact_column(self.inner, self.cf_masters_game);
     }
 
-    pub fn estimate_num_masters_keys(&self) -> Result<u64, rocksdb::Error> {
-        self.inner
-            .property_int_value_cf(self.cf_masters, ESTIMATE_NUM_KEYS)
-            .map(|maybe_num| maybe_num.expect("masters keys"))
-    }
-
-    pub fn estimate_num_masters_game_keys(&self) -> Result<u64, rocksdb::Error> {
-        self.inner
-            .property_int_value_cf(self.cf_masters_game, ESTIMATE_NUM_KEYS)
-            .map(|maybe_num| maybe_num.expect("masters_game keys"))
+    pub fn estimate_stats(&self) -> Result<MastersStats, rocksdb::Error> {
+        Ok(MastersStats {
+            num_masters: self
+                .inner
+                .property_int_value_cf(self.cf_masters, ESTIMATE_NUM_KEYS)?
+                .unwrap_or(0),
+            num_masters_game: self
+                .inner
+                .property_int_value_cf(self.cf_masters_game, ESTIMATE_NUM_KEYS)?
+                .unwrap_or(0),
+        })
     }
 
     pub fn has_game(&self, id: GameId) -> Result<bool, rocksdb::Error> {
@@ -321,11 +327,19 @@ impl MastersBatch<'_> {
 
 pub struct LichessDatabase<'a> {
     inner: &'a DB,
+
     cf_lichess: &'a ColumnFamily,
     cf_lichess_game: &'a ColumnFamily,
 
     cf_player: &'a ColumnFamily,
     cf_player_status: &'a ColumnFamily,
+}
+
+pub struct LichessStats {
+    pub num_lichess: u64,
+    pub num_lichess_game: u64,
+    pub num_player: u64,
+    pub num_player_status: u64,
 }
 
 impl LichessDatabase<'_> {
@@ -340,28 +354,25 @@ impl LichessDatabase<'_> {
         compact_column(self.inner, self.cf_player_status);
     }
 
-    pub fn estimate_num_lichess_keys(&self) -> Result<u64, rocksdb::Error> {
-        self.inner
-            .property_int_value_cf(self.cf_lichess, ESTIMATE_NUM_KEYS)
-            .map(|maybe_num| maybe_num.expect("lichess keys"))
-    }
-
-    pub fn estimate_num_lichess_game_keys(&self) -> Result<u64, rocksdb::Error> {
-        self.inner
-            .property_int_value_cf(self.cf_lichess_game, ESTIMATE_NUM_KEYS)
-            .map(|maybe_num| maybe_num.expect("lichess_game keys"))
-    }
-
-    pub fn estimate_num_player_keys(&self) -> Result<u64, rocksdb::Error> {
-        self.inner
-            .property_int_value_cf(self.cf_player, ESTIMATE_NUM_KEYS)
-            .map(|maybe_num| maybe_num.expect("player keys"))
-    }
-
-    pub fn estimate_num_player_status_keys(&self) -> Result<u64, rocksdb::Error> {
-        self.inner
-            .property_int_value_cf(self.cf_player_status, ESTIMATE_NUM_KEYS)
-            .map(|maybe_num| maybe_num.expect("player_status keys"))
+    pub fn estimate_stats(&self) -> Result<LichessStats, rocksdb::Error> {
+        Ok(LichessStats {
+            num_lichess: self
+                .inner
+                .property_int_value_cf(self.cf_lichess, ESTIMATE_NUM_KEYS)?
+                .unwrap_or(0),
+            num_lichess_game: self
+                .inner
+                .property_int_value_cf(self.cf_lichess_game, ESTIMATE_NUM_KEYS)?
+                .unwrap_or(0),
+            num_player: self
+                .inner
+                .property_int_value_cf(self.cf_player, ESTIMATE_NUM_KEYS)?
+                .unwrap_or(0),
+            num_player_status: self
+                .inner
+                .property_int_value_cf(self.cf_player_status, ESTIMATE_NUM_KEYS)?
+                .unwrap_or(0),
+        })
     }
 
     pub fn game(&self, id: GameId) -> Result<Option<LichessGame>, rocksdb::Error> {

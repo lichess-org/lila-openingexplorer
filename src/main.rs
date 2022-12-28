@@ -37,7 +37,7 @@ use crate::{
         ExplorerResponse, LichessHistoryQuery, LichessQuery, Limits, MastersQuery, NdJson,
         PlayPosition, PlayerQuery, PlayerQueryFilter,
     },
-    db::{Database, DbOpt, LichessDatabase},
+    db::{Database, DbOpt, LichessDatabase, LichessStats, MastersStats},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
@@ -237,22 +237,24 @@ async fn monitor(
     State(indexer): State<IndexerStub>,
     State(db): State<Arc<Database>>,
 ) -> String {
-    let indexing = indexer.num_indexing().await;
-    let lichess_cache = lichess_cache.entry_count();
-    let masters_cache = masters_cache.entry_count();
+    let num_indexing = indexer.num_indexing().await;
+    let num_lichess_cache = lichess_cache.entry_count();
+    let num_masters_cache = masters_cache.entry_count();
 
     task::spawn_blocking(move || {
-        let masters_db = db.masters();
-        let masters = masters_db.estimate_num_masters_keys().expect("masters keys prop");
-        let masters_game = masters_db.estimate_num_masters_game_keys().expect("masters_game keys prop");
+        let MastersStats {
+            num_masters,
+            num_masters_game,
+        } = db.masters().estimate_stats().expect("masters stats");
 
-        let lichess_db = db.lichess();
-        let lichess = lichess_db.estimate_num_lichess_keys().expect("lichess keys prop");
-        let lichess_game = lichess_db.estimate_num_lichess_game_keys().expect("lichess_game keys prop");
-        let player = lichess_db.estimate_num_player_keys().expect("player keys prop");
-        let player_status = lichess_db.estimate_num_player_status_keys().expect("player_status keys prop");
+        let LichessStats {
+            num_lichess,
+            num_lichess_game,
+            num_player,
+            num_player_status,
+        } = db.lichess().estimate_stats().expect("lichess stats");
 
-        format!("opening_explorer indexing={indexing}u,lichess_cache={lichess_cache}u,masters_cache={masters_cache}u,masters={masters}u,masters_game={masters_game}u,lichess={lichess}u,lichess_game={lichess_game}u,player={player}u,player_status={player_status}u")
+        format!("opening_explorer indexing={num_indexing}u,lichess_cache={num_lichess_cache}u,masters_cache={num_masters_cache}u,masters={num_masters}u,masters_game={num_masters_game}u,lichess={num_lichess}u,lichess_game={num_lichess_game}u,player={num_player}u,player_status={num_player_status}u")
     }).await.expect("blocking monitor")
 }
 
