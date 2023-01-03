@@ -444,7 +444,7 @@ impl LichessEntry {
                 .collect();
             sort_by_key_and_truncate(
                 &mut top_games,
-                MAX_TOP_GAMES * 2,
+                MAX_TOP_GAMES * 4,
                 |(rating_group, _, idx, _, _)| (Reverse(*rating_group), Reverse(*idx)),
             );
             sort_by_key_and_truncate(&mut top_games, MAX_TOP_GAMES, |(_, _, idx, _, _)| {
