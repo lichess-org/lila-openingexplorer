@@ -162,6 +162,18 @@ impl LichessImporter {
     }
 
     fn import(&self, game: LichessGameImport) -> Result<(), Error> {
+        let _guard = self.mutex.lock().expect("lock lichess db");
+
+        let lichess_db = self.db.lichess();
+        if lichess_db
+            .game(game.id)
+            .expect("get game info")
+            .map_or(false, |info| info.indexed_lichess)
+        {
+            log::debug!("lichess game {} already imported", game.id);
+            return Ok(());
+        }
+
         let month = match game.date.month() {
             Some(month) => month,
             None => {
@@ -192,7 +204,6 @@ impl LichessImporter {
             pos.play_unchecked(&m);
         }
 
-        let lichess_db = self.db.lichess();
         let mut batch = lichess_db.batch();
         for (key, (uci, turn)) in without_loops {
             batch.merge_lichess(
@@ -222,16 +233,7 @@ impl LichessImporter {
             },
         );
 
-        let _guard = self.mutex.lock().expect("lock lichess db");
-        if lichess_db
-            .game(game.id)
-            .expect("get game info")
-            .map_or(false, |info| info.indexed_lichess)
-        {
-            log::debug!("lichess game {} already imported", game.id);
-        } else {
-            batch.commit().expect("commit lichess game");
-        }
+        batch.commit().expect("commit lichess game");
         Ok(())
     }
 }
