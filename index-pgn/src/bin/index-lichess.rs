@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, fs::File, io, mem, path::PathBuf, thread, time::Duration};
+use std::{ffi::OsStr, fs::File, io, mem, path::PathBuf, thread};
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
@@ -221,7 +221,7 @@ fn main() -> Result<(), io::Error> {
 
     let bg = thread::spawn(move || {
         let client = reqwest::blocking::Client::builder()
-            .timeout(Duration::from_secs(60))
+            .timeout(None)
             .build()
             .expect("client");
 
