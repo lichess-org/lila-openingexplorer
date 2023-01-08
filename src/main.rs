@@ -58,10 +58,10 @@ struct Opt {
     #[arg(long)]
     cors: bool,
     /// Maximum number of cached responses for /masters.
-    #[arg(long, default_value = "25000")]
+    #[arg(long, default_value = "28000")]
     masters_cache: u64,
     /// Maximum number of cached responses for /lichess.
-    #[arg(long, default_value = "25000")]
+    #[arg(long, default_value = "28000")]
     lichess_cache: u64,
     #[command(flatten)]
     db: DbOpt,
