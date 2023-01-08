@@ -29,7 +29,7 @@ pub enum RatingGroup {
     Group2000,
     Group2200,
     Group2500,
-    Group2800,
+    Group2800, // TODO: Tweak rating groups for better top game selection
     Group3200,
 }
 
@@ -444,7 +444,7 @@ impl LichessEntry {
                 .collect();
             sort_by_key_and_truncate(
                 &mut top_games,
-                MAX_TOP_GAMES * 4,
+                MAX_TOP_GAMES * 2,
                 |(rating_group, _, idx, _, _)| (Reverse(*rating_group), Reverse(*idx)),
             );
             sort_by_key_and_truncate(&mut top_games, MAX_TOP_GAMES, |(_, _, idx, _, _)| {
