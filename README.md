@@ -38,8 +38,78 @@ It's best to whitelist only `/masters`, `/lichess`, and `/player`.
    cargo run --release -- *.pgn.zst
    ```
 
-HTTP API
---------
+Monitoring
+----------
+
+### `/monitor`
+
+Example:
+
+```
+curl http://localhost:9002/monitor
+```
+
+```
+opening_explorer indexing=11u,lichess_cache=24982u,masters_cache=24988u,masters=160396858u,masters_game=2519908u,lichess=118926608160u,lichess_game=4225491015u,player=8474288392u,player_status=89981u
+```
+
+### `monitor/db/<prop>`
+
+### `/monitor/cf/<cf>/<prop>
+
+Example:
+
+```
+curl http://localhost:9002/monitor/cf/lichess/rocksdb.stats
+```
+
+```
+** Compaction Stats [lichess] **
+Level    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) CompMergeCPU(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop Rblob(GB) Wblob(GB)
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  L0      1/0   34.75 MB   0.2     64.3     0.0     64.3     157.5     93.2       0.0   1.6      1.4      3.5  46068.07           3002.68      2760   16.691   1763M    92M       0.0       0.0
+  L1      4/0   205.48 MB   0.8    172.6    93.2     79.4     165.5     86.1       0.0   1.8      3.7      3.5  48254.63           3779.43       207  233.114   4758M   164M       0.0       0.0
+  L2     52/0    2.49 GB   1.0    321.9    81.7    240.3     317.2     77.0       4.4   3.9      3.5      3.4  94232.38           6840.29      1345   70.061   8967M   121M       0.0       0.0
+  L3    591/0   24.95 GB   1.0    338.4    78.2    260.1     333.0     72.9       3.1   4.3      3.5      3.5  97870.15           7213.25      1532   63.884   9448M   146M       0.0       0.0
+  L4   3367/0   90.71 GB   0.4     81.3    48.6     32.7      79.9     47.2      27.5   1.6      3.7      3.6  22451.14           1770.16       904   24.835   2281M    35M       0.0       0.0
+  L6  47776/0    2.78 TB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
+ Sum  51791/0    2.90 TB   0.0    978.5   301.6    676.9    1053.2    376.3      35.0  10.9      3.2      3.5 308876.38          22605.81      6748   45.773     27G   560M       0.0       0.0
+ Int      0/0    0.00 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
+
+** Compaction Stats [lichess] **
+Priority    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) CompMergeCPU(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop Rblob(GB) Wblob(GB)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Low      0/0    0.00 KB   0.0    978.5   301.6    676.9     956.6    279.7       0.0   0.0      3.5      3.4 288675.78          20752.87      4203   68.683     27G   560M       0.0       0.0
+High      0/0    0.00 KB   0.0      0.0     0.0      0.0      96.6     96.6       0.0   0.0      0.0      4.9  20200.60           1852.94      2545    7.937       0      0       0.0       0.0
+
+Blob file count: 0, total size: 0.0 GB, garbage size: 0.0 GB, space amp: 0.0
+
+Uptime(secs): 610745.6 total, 3.5 interval
+Flush(GB): cumulative 96.595, interval 0.000
+AddFile(GB): cumulative 0.000, interval 0.000
+AddFile(Total Files): cumulative 0, interval 0
+AddFile(L0 Files): cumulative 0, interval 0
+AddFile(Keys): cumulative 0, interval 0
+Cumulative compaction: 1053.16 GB write, 1.77 MB/s write, 978.51 GB read, 1.64 MB/s read, 308876.4 seconds
+Interval compaction: 0.00 GB write, 0.00 MB/s write, 0.00 GB read, 0.00 MB/s read, 0.0 seconds
+Stalls(count): 1028 level0_slowdown, 1018 level0_slowdown_with_compaction, 0 level0_numfiles, 0 level0_numfiles_with_compaction, 0 stop for pending_compaction_bytes, 1809 slowdown for pending_compaction_bytes, 0 memtable_compaction, 0 memtable_slowdown, interval 0 total count
+Block cache LRUCache@0x7feb60a3f150#4001884 capacity: 40.00 GB usage: 39.97 GB table_size: 524288 occupancy: 6030149 collections: 1018 last_copies: 5 last_secs: 0.039008 secs_since: 408
+Block cache entry stats(count,size,portion): DataBlock(165238,10.35 GB,25.885%) FilterBlock(22233,29.11 GB,72.7832%) IndexBlock(22348,499.64 MB,1.21981%) Misc(1,0.00 KB,0%)
+
+** File Read Latency Histogram By Level [lichess] **
+
+** DB Stats **
+Uptime(secs): 610745.6 total, 3.5 interval
+Cumulative writes: 0 writes, 0 keys, 0 commit groups, 0.0 writes per commit group, ingest: 0.00 GB, 0.00 MB/s
+Cumulative WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 GB, 0.00 MB/s
+Cumulative stall: 00:00:0.000 H:M:S, 0.0 percent
+Interval writes: 0 writes, 0 keys, 0 commit groups, 0.0 writes per commit group, ingest: 0.00 MB, 0.00 MB/s
+Interval WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 GB, 0.00 MB/s
+Interval stall: 00:00:0.000 H:M:S, 0.0 percent
+```
+
+Public HTTP API
+---------------
 
 See https://lichess.org/api#tag/Opening-Explorer.
 
