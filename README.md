@@ -49,13 +49,15 @@ Example:
 curl http://localhost:9002/monitor
 ```
 
+Response in InfluxDB line protocol:
+
 ```
 opening_explorer indexing=11u,lichess_cache=24982u,masters_cache=24988u,masters=160396858u,masters_game=2519908u,lichess=118926608160u,lichess_game=4225491015u,player=8474288392u,player_status=89981u
 ```
 
-### `monitor/db/<prop>`
+### `/monitor/db/<prop>`
 
-### `/monitor/cf/<cf>/<prop>
+### `/monitor/cf/<cf>/<prop>`
 
 Example:
 
