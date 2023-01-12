@@ -19,7 +19,9 @@ Usage
 
 2. `git submodule update --init`
 
-3. `ulimit -n 131072 && EXPLORER_LOG=lila_openingexplorer=debug cargo run --release`
+3. Set some environment variables used at build time: `set -a source .env set +a`
+
+4. `ulimit -n 131072 && EXPLORER_LOG=lila_openingexplorer=debug cargo run --release`
 
 :warning: In a production environment, administrative endpoints must be
 protected using a reverse proxy.
