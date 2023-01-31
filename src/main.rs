@@ -61,17 +61,14 @@ struct Opt {
     #[arg(long)]
     cors: bool,
     /// Maximum number of cached responses for /masters.
-    #[arg(long, default_value = "28000")]
+    #[arg(long, default_value = "32000")]
     masters_cache: u64,
     /// Maximum number of cached responses for /lichess.
-    #[arg(long, default_value = "28000")]
+    #[arg(long, default_value = "32000")]
     lichess_cache: u64,
     /// Maximum number of cached responses for /lichess/history.
-    #[arg(long, default_value = "28000")]
+    #[arg(long, default_value = "20000")]
     lichess_history_cache: u64,
-    /// Maximum number of threads to use for blocking I/O.
-    #[arg(long, default_value = "256")]
-    io_threads: usize,
     #[command(flatten)]
     db: DbOpt,
     #[command(flatten)]
@@ -150,8 +147,7 @@ impl FromRef<AppState> for Arc<Semaphore> {
     }
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     env_logger::Builder::from_env(
         env_logger::Env::new()
             .filter("EXPLORER_LOG")
@@ -162,6 +158,15 @@ async fn main() {
     .format_target(false)
     .init();
 
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .max_blocking_threads(64)
+        .build()
+        .expect("tokio runtime")
+        .block_on(serve());
+}
+
+async fn serve() {
     let opt = Opt::parse();
 
     let db = Arc::new(Database::open(opt.db).expect("db"));
@@ -203,7 +208,7 @@ async fn main() {
             masters_importer: MastersImporter::new(Arc::clone(&db)),
             indexer,
             db,
-            io_semaphore: Arc::new(Semaphore::new(opt.io_threads)),
+            io_semaphore: Arc::new(Semaphore::new(60)),
         });
 
     let app = if opt.cors {
