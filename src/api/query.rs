@@ -1,4 +1,7 @@
-use std::cmp::min;
+use std::{
+    cmp::min,
+    hash::{Hash, Hasher},
+};
 
 use serde::Deserialize;
 use serde_with::{
@@ -8,7 +11,7 @@ use shakmaty::{
     fen::Fen,
     uci::Uci,
     variant::{Variant, VariantPosition},
-    CastlingMode, Color, PositionError,
+    CastlingMode, Color, EnPassantMode, Position, PositionError, Setup,
 };
 
 use crate::{
@@ -125,17 +128,34 @@ pub struct PlayerQueryFilter {
 }
 
 #[serde_as]
-#[derive(Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Deserialize, Clone, Debug, Eq)]
 pub struct Play {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default)]
-    pub variant: Variant,
+    variant: Variant,
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    pub fen: Option<Fen>,
+    fen: Option<Fen>,
     #[serde_as(as = "StringWithSeparator<CommaSeparator, Uci>")]
     #[serde(default)]
-    pub play: Vec<Uci>,
+    play: Vec<Uci>,
+}
+
+impl Hash for Play {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        self.variant.hash(state);
+        self.setup().hash(state);
+        self.play.hash(state);
+    }
+}
+
+impl PartialEq for Play {
+    fn eq(&self, other: &Play) -> bool {
+        self.variant == other.variant && self.setup() == other.setup() && self.play == other.play
+    }
 }
 
 pub struct PlayPosition<'a> {
@@ -144,6 +164,13 @@ pub struct PlayPosition<'a> {
 }
 
 impl Play {
+    fn setup(&self) -> Setup {
+        match self.fen {
+            Some(ref fen) => fen.as_setup().to_owned(),
+            None => VariantPosition::new(self.variant).into_setup(EnPassantMode::Always),
+        }
+    }
+
     pub fn position(self, openings: &Openings) -> Result<PlayPosition<'_>, Error> {
         let mut pos = match self.fen {
             Some(fen) => {
@@ -177,5 +204,25 @@ pub struct Limits {
 impl Limits {
     pub fn wants_games(&self) -> bool {
         self.top_games > 0 || self.recent_games > 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_play_equality() {
+        let a = Play {
+            variant: Variant::Chess,
+            fen: None,
+            play: Vec::new(),
+        };
+        let b = Play {
+            variant: Variant::Chess,
+            fen: Some(Fen::default()),
+            play: Vec::new(),
+        };
+        assert_eq!(a, b);
     }
 }
