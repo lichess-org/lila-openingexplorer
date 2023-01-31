@@ -605,7 +605,7 @@ async fn lichess_history(
     State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<LichessHistoryQuery>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
-    let _permit = semaphore.acquire().await.unwrap();
+    let _permit = semaphore.acquire().await.unwrap(); // Early, so cancelling cache population is unlikely
     lichess_history_cache
         .get_with(query.clone(), async move {
             task::spawn_blocking(move || {
