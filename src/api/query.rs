@@ -42,7 +42,7 @@ pub struct LichessQuery {
     pub filter: LichessQueryFilter,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct LichessHistoryQuery {
     #[serde(flatten)]
     pub play: Play,

@@ -66,6 +66,9 @@ struct Opt {
     /// Maximum number of cached responses for /lichess.
     #[arg(long, default_value = "28000")]
     lichess_cache: u64,
+    /// Maximum number of cached responses for /lichess/history.
+    #[arg(long, default_value = "28000")]
+    lichess_history_cache: u64,
     /// Maximum number of threads to use for blocking I/O.
     #[arg(long, default_value = "256")]
     io_threads: usize,
@@ -77,11 +80,15 @@ struct Opt {
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 
+type ExplorerHistoryCache =
+    Cache<LichessHistoryQuery, Result<Json<ExplorerHistoryResponse>, Error>>;
+
 #[derive(Clone)]
 struct AppState {
     openings: &'static Openings,
     db: Arc<Database>,
     lichess_cache: ExplorerCache<LichessQuery>,
+    lichess_history_cache: ExplorerHistoryCache,
     masters_cache: ExplorerCache<MastersQuery>,
     lichess_importer: LichessImporter,
     masters_importer: MastersImporter,
@@ -110,6 +117,12 @@ impl FromRef<AppState> for ExplorerCache<LichessQuery> {
 impl FromRef<AppState> for ExplorerCache<MastersQuery> {
     fn from_ref(state: &AppState) -> ExplorerCache<MastersQuery> {
         state.masters_cache.clone()
+    }
+}
+
+impl FromRef<AppState> for ExplorerHistoryCache {
+    fn from_ref(state: &AppState) -> ExplorerHistoryCache {
+        state.lichess_history_cache.clone()
     }
 }
 
@@ -172,6 +185,11 @@ async fn main() {
         .with_state(AppState {
             openings: Box::leak(Box::new(Openings::build_table())),
             lichess_cache: Cache::builder()
+                .max_capacity(opt.lichess_cache)
+                .time_to_live(Duration::from_secs(60 * 60))
+                .time_to_idle(Duration::from_secs(60 * 10))
+                .build(),
+            lichess_history_cache: Cache::builder()
                 .max_capacity(opt.lichess_cache)
                 .time_to_live(Duration::from_secs(60 * 60))
                 .time_to_idle(Duration::from_secs(60 * 10))
@@ -254,6 +272,7 @@ async fn db_prop(
 #[axum::debug_handler(state = AppState)]
 async fn monitor(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
+    State(lichess_history_cache): State<ExplorerHistoryCache>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(indexer): State<IndexerStub>,
     State(db): State<Arc<Database>>,
@@ -261,6 +280,7 @@ async fn monitor(
 ) -> String {
     let num_indexing = indexer.num_indexing().await;
     let num_lichess_cache = lichess_cache.entry_count();
+    let num_lichess_history_cache = lichess_history_cache.entry_count();
     let num_masters_cache = masters_cache.entry_count();
 
     let _permit = semaphore.acquire().await.unwrap();
@@ -277,7 +297,7 @@ async fn monitor(
             num_player_status,
         } = db.lichess().estimate_stats().expect("lichess stats");
 
-        format!("opening_explorer indexing={num_indexing}u,lichess_cache={num_lichess_cache}u,masters_cache={num_masters_cache}u,masters={num_masters}u,masters_game={num_masters_game}u,lichess={num_lichess}u,lichess_game={num_lichess_game}u,player={num_player}u,player_status={num_player_status}u")
+        format!("opening_explorer indexing={num_indexing}u,lichess_cache={num_lichess_cache}u,lichess_history_cache={num_lichess_history_cache}u,masters_cache={num_masters_cache}u,masters={num_masters}u,masters_game={num_masters_game}u,lichess={num_lichess}u,lichess_game={num_lichess_game}u,player={num_player}u,player_status={num_player_status}u")
     }).await.expect("blocking monitor")
 }
 
@@ -576,22 +596,27 @@ async fn lichess(
 async fn lichess_history(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
+    State(lichess_history_cache): State<ExplorerHistoryCache>,
     State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<LichessHistoryQuery>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
     let _permit = semaphore.acquire().await.unwrap();
-    task::spawn_blocking(move || {
-        let PlayPosition { pos, opening } = query.play.position(openings)?;
-        let key = KeyBuilder::lichess()
-            .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
-        let lichess_db = db.lichess();
-        Ok(Json(ExplorerHistoryResponse {
-            history: lichess_db
-                .read_lichess_history(&key, &query.filter)
-                .expect("get lichess history"),
-            opening,
-        }))
-    })
-    .await
-    .expect("blocking lichess history")
+    lichess_history_cache
+        .get_with(query.clone(), async move {
+            task::spawn_blocking(move || {
+                let PlayPosition { pos, opening } = query.play.position(openings)?;
+                let key = KeyBuilder::lichess()
+                    .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
+                let lichess_db = db.lichess();
+                Ok(Json(ExplorerHistoryResponse {
+                    history: lichess_db
+                        .read_lichess_history(&key, &query.filter)
+                        .expect("get lichess history"),
+                    opening,
+                }))
+            })
+            .await
+            .expect("blocking lichess history")
+        })
+        .await
 }
