@@ -29,7 +29,10 @@ use shakmaty::{
     Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
-use tokio::{sync::watch, task};
+use tokio::{
+    sync::{watch, Semaphore},
+    task,
+};
 
 use crate::{
     api::{
@@ -63,8 +66,7 @@ struct Opt {
     /// Maximum number of cached responses for /lichess.
     #[arg(long, default_value = "28000")]
     lichess_cache: u64,
-    /// Maximum number of threads to use for blocking I/O. If there is
-    /// additional demand, tasks are added to an unbounded queue.
+    /// Maximum number of threads to use for blocking I/O.
     #[arg(long, default_value = "256")]
     io_threads: usize,
     #[command(flatten)]
@@ -84,6 +86,7 @@ struct AppState {
     lichess_importer: LichessImporter,
     masters_importer: MastersImporter,
     indexer: IndexerStub,
+    io_semaphore: Arc<Semaphore>,
 }
 
 impl FromRef<AppState> for &'static Openings {
@@ -128,7 +131,14 @@ impl FromRef<AppState> for IndexerStub {
     }
 }
 
-fn main() {
+impl FromRef<AppState> for Arc<Semaphore> {
+    fn from_ref(state: &AppState) -> Arc<Semaphore> {
+        Arc::clone(&state.io_semaphore)
+    }
+}
+
+#[tokio::main]
+async fn main() {
     env_logger::Builder::from_env(
         env_logger::Env::new()
             .filter("EXPLORER_LOG")
@@ -141,15 +151,6 @@ fn main() {
 
     let opt = Opt::parse();
 
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .max_blocking_threads(opt.io_threads)
-        .build()
-        .expect("tokio runtime")
-        .block_on(serve(opt));
-}
-
-async fn serve(opt: Opt) {
     let db = Arc::new(Database::open(opt.db).expect("db"));
     let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
 
@@ -184,6 +185,7 @@ async fn serve(opt: Opt) {
             masters_importer: MastersImporter::new(Arc::clone(&db)),
             indexer,
             db,
+            io_semaphore: Arc::new(Semaphore::new(opt.io_threads)),
         });
 
     let app = if opt.cors {
@@ -211,10 +213,13 @@ struct ColumnFamilyProp {
     prop: String,
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn cf_prop(
     Path(path): Path<ColumnFamilyProp>,
     State(db): State<Arc<Database>>,
+    State(semaphore): State<Arc<Semaphore>>,
 ) -> Result<String, StatusCode> {
+    let _permit = semaphore.acquire().await.unwrap();
     task::spawn_blocking(move || {
         db.inner
             .cf_handle(&path.cf)
@@ -229,10 +234,13 @@ async fn cf_prop(
     .expect("blocking cf prop")
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn db_prop(
     Path(prop): Path<String>,
     State(db): State<Arc<Database>>,
+    State(semaphore): State<Arc<Semaphore>>,
 ) -> Result<String, StatusCode> {
+    let _permit = semaphore.acquire().await.unwrap();
     task::spawn_blocking(move || {
         db.inner
             .property_value(&prop)
@@ -243,16 +251,19 @@ async fn db_prop(
     .expect("blocking db prop")
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn monitor(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(indexer): State<IndexerStub>,
     State(db): State<Arc<Database>>,
+    State(semaphore): State<Arc<Semaphore>>,
 ) -> String {
     let num_indexing = indexer.num_indexing().await;
     let num_lichess_cache = lichess_cache.entry_count();
     let num_masters_cache = masters_cache.entry_count();
 
+    let _permit = semaphore.acquire().await.unwrap();
     task::spawn_blocking(move || {
         let MastersStats {
             num_masters,
@@ -270,7 +281,9 @@ async fn monitor(
     }).await.expect("blocking monitor")
 }
 
-async fn compact(State(db): State<Arc<Database>>) {
+#[axum::debug_handler(state = AppState)]
+async fn compact(State(db): State<Arc<Database>>, State(semaphore): State<Arc<Semaphore>>) {
+    let _permit = semaphore.acquire().await.unwrap();
     task::spawn_blocking(move || db.compact())
         .await
         .expect("blocking compact");
@@ -325,6 +338,7 @@ fn finalize_lichess_games(
 }
 
 struct PlayerStreamState {
+    semaphore: Arc<Semaphore>,
     indexing: Option<watch::Receiver<()>>,
     key: KeyPrefix,
     db: Arc<Database>,
@@ -337,10 +351,12 @@ struct PlayerStreamState {
     done: bool,
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn player(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
+    State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
@@ -350,6 +366,7 @@ async fn player(
         .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
+        semaphore,
         color: query.color,
         filter: query.filter,
         limits: query.limits,
@@ -380,6 +397,8 @@ async fn player(
                 None => true,
             };
 
+            let semaphore = Arc::clone(&state.semaphore);
+            let _permit = semaphore.acquire().await.unwrap();
             task::spawn_blocking(move || {
                 let lichess_db = state.db.lichess();
                 let filtered = lichess_db
@@ -402,10 +421,13 @@ async fn player(
     ).dedup_by_key(|res| res.total.total())))
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn masters_import(
     State(importer): State<MastersImporter>,
+    State(semaphore): State<Arc<Semaphore>>,
     Json(body): Json<MastersGameWithId>,
 ) -> Result<(), Error> {
+    let _permit = semaphore.acquire().await.unwrap();
     task::spawn_blocking(move || importer.import(body))
         .await
         .expect("blocking masters import")
@@ -415,10 +437,13 @@ async fn masters_import(
 #[derive(Deserialize)]
 struct MastersGameId(#[serde_as(as = "DisplayFromStr")] GameId);
 
+#[axum::debug_handler(state = AppState)]
 async fn masters_pgn(
     Path(MastersGameId(id)): Path<MastersGameId>,
     State(db): State<Arc<Database>>,
+    State(semaphore): State<Arc<Semaphore>>,
 ) -> Result<MastersGame, StatusCode> {
+    let _permit = semaphore.acquire().await.unwrap();
     task::spawn_blocking(
         move || match db.masters().game(id).expect("get masters game") {
             Some(game) => Ok(game),
@@ -429,14 +454,17 @@ async fn masters_pgn(
     .expect("blocking masters pgn")
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn masters(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
+    State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
+            let _permit = semaphore.acquire().await.unwrap();
             task::spawn_blocking(move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::masters()
@@ -497,23 +525,29 @@ async fn masters(
         .await
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn lichess_import(
     State(importer): State<LichessImporter>,
+    State(semaphore): State<Arc<Semaphore>>,
     Json(body): Json<Vec<LichessGameImport>>,
 ) -> Result<(), Error> {
+    let _permit = semaphore.acquire().await.unwrap();
     task::spawn_blocking(move || importer.import_many(body))
         .await
         .expect("blocking lichess import")
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn lichess(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
+    State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
+            let _permit = semaphore.acquire().await.unwrap();
             task::spawn_blocking(move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::lichess()
@@ -538,11 +572,14 @@ async fn lichess(
         .await
 }
 
+#[axum::debug_handler(state = AppState)]
 async fn lichess_history(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
+    State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<LichessHistoryQuery>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
+    let _permit = semaphore.acquire().await.unwrap();
     task::spawn_blocking(move || {
         let PlayPosition { pos, opening } = query.play.position(openings)?;
         let key = KeyBuilder::lichess()
