@@ -462,9 +462,9 @@ async fn masters(
     State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
+    let _permit = semaphore.acquire().await.unwrap(); // Early, so cancelling cache population is unlikely
     masters_cache
         .get_with(query.clone(), async move {
-            let _permit = semaphore.acquire().await.unwrap();
             task::spawn_blocking(move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::masters()
@@ -545,9 +545,9 @@ async fn lichess(
     State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
+    let _permit = semaphore.acquire().await.unwrap(); // Early, so cancelling cache population is unlikely
     lichess_cache
         .get_with(query.clone(), async move {
-            let _permit = semaphore.acquire().await.unwrap();
             task::spawn_blocking(move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::lichess()
