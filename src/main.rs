@@ -63,6 +63,10 @@ struct Opt {
     /// Maximum number of cached responses for /lichess.
     #[arg(long, default_value = "28000")]
     lichess_cache: u64,
+    /// Maximum number of threads to use for blocking I/O. If there is
+    /// additional demand, tasks are added to an unbounded queue.
+    #[arg(long, default_value = "256")]
+    io_threads: usize,
     #[command(flatten)]
     db: DbOpt,
     #[command(flatten)]
@@ -124,8 +128,7 @@ impl FromRef<AppState> for IndexerStub {
     }
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     env_logger::Builder::from_env(
         env_logger::Env::new()
             .filter("EXPLORER_LOG")
@@ -138,6 +141,15 @@ async fn main() {
 
     let opt = Opt::parse();
 
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .max_blocking_threads(opt.io_threads)
+        .build()
+        .expect("tokio runtime")
+        .block_on(serve(opt));
+}
+
+async fn serve(opt: Opt) {
     let db = Arc::new(Database::open(opt.db).expect("db"));
     let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
 
