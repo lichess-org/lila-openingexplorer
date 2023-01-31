@@ -186,17 +186,17 @@ async fn main() {
             openings: Box::leak(Box::new(Openings::build_table())),
             lichess_cache: Cache::builder()
                 .max_capacity(opt.lichess_cache)
-                .time_to_live(Duration::from_secs(60 * 60))
+                .time_to_live(Duration::from_secs(60 * 60 * 12))
                 .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
             lichess_history_cache: Cache::builder()
                 .max_capacity(opt.lichess_cache)
-                .time_to_live(Duration::from_secs(60 * 60))
-                .time_to_idle(Duration::from_secs(60 * 10))
+                .time_to_live(Duration::from_secs(60 * 60 * 24))
+                .time_to_idle(Duration::from_secs(60 * 60 * 2))
                 .build(),
             masters_cache: Cache::builder()
                 .max_capacity(opt.masters_cache)
-                .time_to_live(Duration::from_secs(60 * 60 * 2))
+                .time_to_live(Duration::from_secs(60 * 60 * 24))
                 .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
