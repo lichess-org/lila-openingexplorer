@@ -16,7 +16,7 @@ use shakmaty::{
     ByColor, CastlingMode, Outcome, Position,
 };
 use tokio::{
-    sync::{watch, RwLock},
+    sync::{watch, RwLock, Semaphore},
     task,
     task::JoinHandle,
     time::{sleep, timeout},
@@ -45,7 +45,7 @@ pub struct IndexerOpt {
     #[arg(long = "bearer", env = "EXPLORER_BEARER")]
     bearer: Option<String>,
     /// Number of parallel indexing tasks.
-    #[arg(long = "indexers", default_value = "16")]
+    #[arg(long = "indexers", default_value = "12")]
     indexers: usize,
 }
 
@@ -83,7 +83,11 @@ impl IndexerStub {
         guard.len()
     }
 
-    pub async fn index_player(&self, player: &UserId) -> Option<watch::Receiver<()>> {
+    pub async fn index_player(
+        &self,
+        player: &UserId,
+        semaphore: Arc<Semaphore>,
+    ) -> Option<watch::Receiver<()>> {
         // Optimization: First try subscribing to an existing indexing run,
         // without acquiring a write lock.
         {
@@ -97,6 +101,7 @@ impl IndexerStub {
         let mut status = {
             let db = Arc::clone(&self.db);
             let player = player.clone();
+            let _permit = semaphore.acquire().await.unwrap();
             task::spawn_blocking(move || {
                 db.lichess()
                     .player_status(&player)

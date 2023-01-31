@@ -380,7 +380,7 @@ async fn player(
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
-    let indexing = indexer.index_player(&player).await;
+    let indexing = indexer.index_player(&player, Arc::clone(&semaphore)).await;
     let PlayPosition { pos, opening } = query.play.position(openings)?;
     let key = KeyBuilder::player(&player, query.color)
         .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
