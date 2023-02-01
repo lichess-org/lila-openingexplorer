@@ -224,9 +224,7 @@ impl MastersEntry {
             |(sort_key, _, _)| Reverse(*sort_key),
         );
 
-        sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(12), |m| {
-            Reverse(m.stats.total())
-        });
+        sort_by_key_and_truncate(&mut moves, limits.moves, |m| Reverse(m.stats.total()));
 
         PreparedResponse {
             total,

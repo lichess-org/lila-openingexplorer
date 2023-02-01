@@ -429,9 +429,7 @@ impl LichessEntry {
             }
         }
 
-        sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(12), |row| {
-            Reverse(row.stats.total())
-        });
+        sort_by_key_and_truncate(&mut moves, limits.moves, |row| Reverse(row.stats.total()));
 
         // Split out top games from recent games.
         let mut top_games = if let Some(top_group) = filter.top_group() {

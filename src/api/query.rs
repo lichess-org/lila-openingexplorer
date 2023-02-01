@@ -107,7 +107,19 @@ pub struct PlayerQuery {
     #[serde(flatten)]
     pub filter: PlayerQueryFilter,
     #[serde(flatten)]
-    pub limits: Limits,
+    pub limits: PlayerLimits,
+}
+
+#[serde_as]
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerLimits {
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default = "usize::max_value")]
+    pub moves: usize,
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default = "usize::max_value")]
+    pub recent_games: usize,
 }
 
 #[serde_as]
@@ -196,12 +208,16 @@ pub struct Limits {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "usize::max_value")]
     pub recent_games: usize,
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    #[serde(default)]
-    pub moves: Option<usize>,
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default = "Limits::default_moves")]
+    pub moves: usize,
 }
 
 impl Limits {
+    fn default_moves() -> usize {
+        12
+    }
+
     pub fn wants_games(&self) -> bool {
         self.top_games > 0 || self.recent_games > 0
     }

@@ -10,7 +10,7 @@ use shakmaty::{uci::Uci, Color, Outcome};
 use thin_vec::thin_vec;
 
 use crate::{
-    api::{Limits, PlayerQueryFilter},
+    api::{PlayerLimits, PlayerQueryFilter},
     model::{
         read_uint, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode, PreparedMove,
         PreparedResponse, RawUci, Speed, Stats,
@@ -168,7 +168,7 @@ impl PlayerEntry {
         self,
         color: Color,
         filter: &PlayerQueryFilter,
-        limits: &Limits,
+        limits: &PlayerLimits,
     ) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
@@ -225,9 +225,7 @@ impl PlayerEntry {
             }
         }
 
-        sort_by_key_and_truncate(&mut moves, limits.moves.unwrap_or(usize::MAX), |row| {
-            Reverse(row.stats.total())
-        });
+        sort_by_key_and_truncate(&mut moves, limits.moves, |row| Reverse(row.stats.total()));
         sort_by_key_and_truncate(
             &mut recent_games,
             min(limits.recent_games, MAX_PLAYER_GAMES),

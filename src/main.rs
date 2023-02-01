@@ -37,8 +37,8 @@ use tokio::{
 use crate::{
     api::{
         Error, ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerMove,
-        ExplorerResponse, LichessHistoryQuery, LichessQuery, Limits, MastersQuery, NdJson,
-        PlayPosition, PlayerQuery, PlayerQueryFilter,
+        ExplorerResponse, LichessHistoryQuery, LichessQuery, MastersQuery, NdJson, PlayPosition,
+        PlayerLimits, PlayerQuery, PlayerQueryFilter,
     },
     db::{Database, DbOpt, LichessDatabase, LichessStats, MastersStats},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
@@ -369,7 +369,7 @@ struct PlayerStreamState {
     db: Arc<Database>,
     color: Color,
     filter: PlayerQueryFilter,
-    limits: Limits,
+    limits: PlayerLimits,
     pos: VariantPosition,
     opening: Option<&'static Opening>,
     first: bool,
