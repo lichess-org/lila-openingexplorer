@@ -1,5 +1,6 @@
 use std::{
     cmp::min,
+    collections::BTreeSet,
     hash::{Hash, Hasher},
 };
 
@@ -58,10 +59,10 @@ pub struct LichessHistoryQuery {
 pub struct LichessQueryFilter {
     #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, Speed>>")]
     #[serde(default)]
-    pub speeds: Option<Vec<Speed>>,
+    pub speeds: Option<BTreeSet<Speed>>,
     #[serde_as(as = "Option<StringWithSeparator<CommaSeparator, RatingGroup>>")]
     #[serde(default)]
-    pub ratings: Option<Vec<RatingGroup>>,
+    pub ratings: Option<BTreeSet<RatingGroup>>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     pub since: Option<Month>,
