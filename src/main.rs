@@ -157,7 +157,7 @@ fn main() {
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .max_blocking_threads(32)
+        .max_blocking_threads(16)
         .build()
         .expect("tokio runtime")
         .block_on(serve());
@@ -205,7 +205,7 @@ async fn serve() {
             masters_importer: MastersImporter::new(Arc::clone(&db)),
             indexer,
             db,
-            semaphore: Box::leak(Box::new(Semaphore::new(32))),
+            semaphore: Box::leak(Box::new(Semaphore::new(16))),
         });
 
     let app = if opt.cors {
