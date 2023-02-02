@@ -101,7 +101,7 @@ impl Column<'_> {
         table_opts.set_block_size(64 * 1024); // Spinning disks
         table_opts.set_cache_index_and_filter_blocks(true);
         table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
-        table_opts.set_hybrid_ribbon_filter(8.0, 1);
+        table_opts.set_hybrid_ribbon_filter(10.0, 1);
         table_opts.set_whole_key_filtering(self.prefix.is_none()); // Only prefix seeks for positions
         table_opts.set_format_version(5);
 
