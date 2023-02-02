@@ -9,6 +9,7 @@ use partial_sort::partial_sort;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use shakmaty::ByColor;
+use tokio::{sync::SemaphorePermit, task};
 
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "ByColor")]
@@ -79,4 +80,12 @@ where
 
 pub fn midpoint(a: u16, b: u16) -> u16 {
     ((u32::from(a) + u32::from(b)) / 2) as u16
+}
+
+pub async fn spawn_blocking<F, R>(_permit: SemaphorePermit<'_>, f: F) -> R
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    task::spawn_blocking(f).await.expect("blocking task")
 }

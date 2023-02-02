@@ -28,6 +28,7 @@ use crate::{
         GamePlayer, IndexRun, KeyBuilder, LichessGame, Mode, Month, PlayerEntry, PlayerStatus,
         UserId,
     },
+    util::spawn_blocking,
 };
 
 mod lila;
@@ -86,7 +87,7 @@ impl IndexerStub {
     pub async fn index_player(
         &self,
         player: &UserId,
-        semaphore: Arc<Semaphore>,
+        semaphore: &Semaphore,
     ) -> Option<watch::Receiver<()>> {
         // Optimization: First try subscribing to an existing indexing run,
         // without acquiring a write lock.
@@ -101,15 +102,13 @@ impl IndexerStub {
         let mut status = {
             let db = Arc::clone(&self.db);
             let player = player.clone();
-            let _permit = semaphore.acquire().await.unwrap();
-            task::spawn_blocking(move || {
+            spawn_blocking(semaphore.acquire().await.unwrap(), move || {
                 db.lichess()
                     .player_status(&player)
                     .expect("get player status")
                     .unwrap_or_default()
             })
             .await
-            .expect("blocking player status")
         };
 
         let index_run = match status
