@@ -192,7 +192,7 @@ async fn serve() {
                 .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
             lichess_history_cache: Cache::builder()
-                .max_capacity(opt.lichess_cache)
+                .max_capacity(opt.lichess_history_cache)
                 .time_to_live(Duration::from_secs(60 * 60 * 24))
                 .time_to_idle(Duration::from_secs(60 * 60 * 2))
                 .build(),
