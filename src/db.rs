@@ -2,8 +2,9 @@ use std::{path::PathBuf, time::Instant};
 
 use clap::Parser;
 use rocksdb::{
-    properties::ESTIMATE_NUM_KEYS, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor,
-    DBCompressionType, MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
+    properties::{ESTIMATE_NUM_KEYS, OPTIONS_STATISTICS},
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
+    MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::{
@@ -32,6 +33,46 @@ pub struct DbOpt {
     /// respond to queries.
     #[arg(long, default_value = "10485760")]
     db_rate_limit: i64,
+}
+
+#[derive(Default)]
+pub struct DbStats {
+    pub block_index_miss: u64,
+    pub block_index_hit: u64,
+    pub block_filter_miss: u64,
+    pub block_filter_hit: u64,
+    pub block_data_miss: u64,
+    pub block_data_hit: u64,
+}
+
+impl DbStats {
+    fn from_lines(s: &str) -> DbStats {
+        let mut stats = DbStats::default();
+
+        fn count(line: &str, prefix: &str) -> Option<u64> {
+            line.strip_prefix(prefix)
+                .and_then(|suffix| suffix.strip_prefix(" COUNT : "))
+                .and_then(|suffix| suffix.parse().ok())
+        }
+
+        for line in s.lines() {
+            if let Some(c) = count(line, "rocksdb.block.cache.index.miss") {
+                stats.block_index_miss = c;
+            } else if let Some(c) = count(line, "rocksdb.block.cache.index.hit") {
+                stats.block_index_hit = c;
+            } else if let Some(c) = count(line, "rocksdb.block.cache.filter.miss") {
+                stats.block_filter_miss = c;
+            } else if let Some(c) = count(line, "rocksdb.block.cache.filter.hit") {
+                stats.block_filter_hit = c;
+            } else if let Some(c) = count(line, "rocksdb.block.cache.data.miss") {
+                stats.block_data_miss = c;
+            } else if let Some(c) = count(line, "rocksdb.block.cache.data.hit") {
+                stats.block_data_hit = c;
+            }
+        }
+
+        stats
+    }
 }
 
 // Note on usage in async contexts: All database operations are blocking
@@ -93,6 +134,8 @@ impl Database {
         db_opts.set_max_background_jobs(4);
         db_opts.set_ratelimiter(opt.db_rate_limit, 100_000, 10);
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
+
+        db_opts.enable_statistics();
 
         if opt.db_compaction_readahead {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
@@ -156,6 +199,14 @@ impl Database {
         log::info!("database opened in {elapsed:.3?}");
 
         Ok(Database { inner })
+    }
+
+    pub fn stats(&self) -> Result<DbStats, rocksdb::Error> {
+        Ok(self
+            .inner
+            .property_value(OPTIONS_STATISTICS)?
+            .map(|s| DbStats::from_lines(&s))
+            .unwrap_or_default())
     }
 
     pub fn compact(&self) {

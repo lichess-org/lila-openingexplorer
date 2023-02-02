@@ -25,6 +25,7 @@ use axum::{
     Json, Router,
 };
 use clap::Parser;
+use db::DbStats;
 use futures_util::stream::Stream;
 use moka::future::Cache;
 use serde::Deserialize;
@@ -252,6 +253,15 @@ async fn monitor(
     let num_masters_miss = cache_stats.masters_miss.load(Ordering::Relaxed);
 
     spawn_blocking(semaphore, move || {
+        let DbStats {
+            block_index_miss,
+            block_index_hit,
+            block_filter_miss,
+            block_filter_hit,
+            block_data_miss,
+            block_data_hit,
+        } = db.stats().expect("db stats");
+
         let MastersStats {
             num_masters,
             num_masters_game,
@@ -264,8 +274,39 @@ async fn monitor(
             num_player_status,
         } = db.lichess().estimate_stats().expect("lichess stats");
 
-        format!("opening_explorer indexing={num_indexing}u,lichess_cache={num_lichess_cache}u,lichess_miss={num_lichess_miss}u,lichess_history_cache={num_lichess_history_cache}u,lichess_history_miss={num_lichess_history_miss}u,masters_cache={num_masters_cache}u,masters_miss={num_masters_miss}u,masters={num_masters}u,masters_game={num_masters_game}u,lichess={num_lichess}u,lichess_game={num_lichess_game}u,player={num_player}u,player_status={num_player_status}u")
-    }).await
+        format!(
+            "opening_explorer {}",
+            [
+                // Block cache
+                format!("block_index_miss={block_index_miss}u"),
+                format!("block_index_hit={block_index_hit}u"),
+                format!("block_filter_miss={block_filter_miss}u"),
+                format!("block_filter_hit={block_filter_hit}u"),
+                format!("block_data_miss={block_data_miss}u"),
+                format!("block_data_hit={block_data_hit}u"),
+                // Indexer
+                format!("indexing={num_indexing}u"),
+                // Lichess cache
+                format!("lichess_cache={num_lichess_cache}u"),
+                format!("lichess_miss={num_lichess_miss}u"),
+                // Lichess history cache
+                format!("lichess_history_cache={num_lichess_history_cache}u"),
+                format!("lichess_history_miss={num_lichess_history_miss}u"),
+                // Masters cache
+                format!("masters_cache={num_masters_cache}u"),
+                format!("masters_miss={num_masters_miss}u"),
+                // Column families
+                format!("masters={num_masters}u"),
+                format!("masters_game={num_masters_game}u"),
+                format!("lichess={num_lichess}u"),
+                format!("lichess_game={num_lichess_game}u"),
+                format!("player={num_player}u"),
+                format!("player_status={num_player_status}u"),
+            ]
+            .join(",")
+        )
+    })
+    .await
 }
 
 #[axum::debug_handler(state = AppState)]
