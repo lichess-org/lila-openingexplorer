@@ -8,7 +8,15 @@ pub mod model;
 pub mod opening;
 pub mod util;
 
-use std::{mem, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    mem,
+    net::SocketAddr,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use axum::{
     extract::{FromRef, Path, Query, State},
@@ -77,6 +85,13 @@ type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 type ExplorerHistoryCache =
     Cache<LichessHistoryQuery, Result<Json<ExplorerHistoryResponse>, Error>>;
 
+#[derive(Default)]
+struct CacheStats {
+    lichess_miss: AtomicU64,
+    lichess_history_miss: AtomicU64,
+    masters_miss: AtomicU64,
+}
+
 #[derive(FromRef, Clone)]
 struct AppState {
     openings: &'static Openings,
@@ -84,6 +99,7 @@ struct AppState {
     lichess_cache: ExplorerCache<LichessQuery>,
     lichess_history_cache: ExplorerHistoryCache,
     masters_cache: ExplorerCache<MastersQuery>,
+    cache_stats: &'static CacheStats,
     lichess_importer: LichessImporter,
     masters_importer: MastersImporter,
     indexer: IndexerStub,
@@ -147,6 +163,7 @@ async fn serve() {
                 .time_to_live(Duration::from_secs(60 * 60 * 24))
                 .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
+            cache_stats: Box::leak(Box::default()),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),
             indexer,
@@ -218,14 +235,21 @@ async fn monitor(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(lichess_history_cache): State<ExplorerHistoryCache>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
+    State(cache_stats): State<&'static CacheStats>,
     State(indexer): State<IndexerStub>,
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
 ) -> String {
     let num_indexing = indexer.num_indexing().await;
+
     let num_lichess_cache = lichess_cache.entry_count();
+    let num_lichess_miss = cache_stats.lichess_miss.load(Ordering::Relaxed);
+
     let num_lichess_history_cache = lichess_history_cache.entry_count();
+    let num_lichess_history_miss = cache_stats.lichess_history_miss.load(Ordering::Relaxed);
+
     let num_masters_cache = masters_cache.entry_count();
+    let num_masters_miss = cache_stats.masters_miss.load(Ordering::Relaxed);
 
     spawn_blocking(semaphore, move || {
         let MastersStats {
@@ -240,7 +264,7 @@ async fn monitor(
             num_player_status,
         } = db.lichess().estimate_stats().expect("lichess stats");
 
-        format!("opening_explorer indexing={num_indexing}u,lichess_cache={num_lichess_cache}u,lichess_history_cache={num_lichess_history_cache}u,masters_cache={num_masters_cache}u,masters={num_masters}u,masters_game={num_masters_game}u,lichess={num_lichess}u,lichess_game={num_lichess_game}u,player={num_player}u,player_status={num_player_status}u")
+        format!("opening_explorer indexing={num_indexing}u,lichess_cache={num_lichess_cache}u,lichess_miss={num_lichess_miss}u,lichess_history_cache={num_lichess_history_cache}u,lichess_history_miss={num_lichess_history_miss}u,masters_cache={num_masters_cache}u,masters_miss={num_masters_miss}u,masters={num_masters}u,masters_game={num_masters_game}u,lichess={num_lichess}u,lichess_game={num_lichess_game}u,player={num_player}u,player_status={num_player_status}u")
     }).await
 }
 
@@ -410,11 +434,13 @@ async fn masters(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
+    State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
+            cache_stats.masters_miss.fetch_add(1, Ordering::Relaxed);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::masters()
@@ -488,11 +514,13 @@ async fn lichess(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
+    State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
+            cache_stats.lichess_miss.fetch_add(1, Ordering::Relaxed);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::lichess()
@@ -521,11 +549,15 @@ async fn lichess_history(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(lichess_history_cache): State<ExplorerHistoryCache>,
+    State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
     Query(query): Query<LichessHistoryQuery>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
     lichess_history_cache
         .get_with(query.clone(), async move {
+            cache_stats
+                .lichess_history_miss
+                .fetch_add(1, Ordering::Relaxed);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::lichess()
