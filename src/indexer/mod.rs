@@ -102,7 +102,7 @@ impl IndexerStub {
         let mut status = {
             let db = Arc::clone(&self.db);
             let player = player.clone();
-            spawn_blocking(semaphore.acquire().await.unwrap(), move || {
+            spawn_blocking(semaphore, move || {
                 db.lichess()
                     .player_status(&player)
                     .expect("get player status")

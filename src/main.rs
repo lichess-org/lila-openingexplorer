@@ -239,7 +239,7 @@ async fn cf_prop(
     State(db): State<Arc<Database>>,
     State(semaphore): State<Arc<Semaphore>>,
 ) -> Result<String, StatusCode> {
-    spawn_blocking(semaphore.acquire().await.unwrap(), move || {
+    spawn_blocking(&semaphore, move || {
         db.inner
             .cf_handle(&path.cf)
             .and_then(|cf| {
@@ -258,7 +258,7 @@ async fn db_prop(
     State(db): State<Arc<Database>>,
     State(semaphore): State<Arc<Semaphore>>,
 ) -> Result<String, StatusCode> {
-    spawn_blocking(semaphore.acquire().await.unwrap(), move || {
+    spawn_blocking(&semaphore, move || {
         db.inner
             .property_value(&prop)
             .expect("property value")
@@ -281,7 +281,7 @@ async fn monitor(
     let num_lichess_history_cache = lichess_history_cache.entry_count();
     let num_masters_cache = masters_cache.entry_count();
 
-    spawn_blocking(semaphore.acquire().await.unwrap(), move || {
+    spawn_blocking(&semaphore, move || {
         let MastersStats {
             num_masters,
             num_masters_game,
@@ -300,7 +300,7 @@ async fn monitor(
 
 #[axum::debug_handler(state = AppState)]
 async fn compact(State(db): State<Arc<Database>>, State(semaphore): State<Arc<Semaphore>>) {
-    spawn_blocking(semaphore.acquire().await.unwrap(), move || db.compact()).await
+    spawn_blocking(&semaphore, move || db.compact()).await
 }
 
 fn finalize_lichess_moves(
@@ -412,7 +412,7 @@ async fn player(
             };
 
             let semaphore = Arc::clone(&state.semaphore);
-            spawn_blocking(semaphore.acquire().await.unwrap(), move || {
+            spawn_blocking(&semaphore, move || {
                 let lichess_db = state.db.lichess();
                 let filtered = lichess_db
                     .read_player(&state.key, state.filter.since, state.filter.until)
@@ -440,10 +440,7 @@ async fn masters_import(
     State(semaphore): State<Arc<Semaphore>>,
     Json(body): Json<MastersGameWithId>,
 ) -> Result<(), Error> {
-    spawn_blocking(semaphore.acquire().await.unwrap(), move || {
-        importer.import(body)
-    })
-    .await
+    spawn_blocking(&semaphore, move || importer.import(body)).await
 }
 
 #[serde_as]
@@ -456,7 +453,7 @@ async fn masters_pgn(
     State(db): State<Arc<Database>>,
     State(semaphore): State<Arc<Semaphore>>,
 ) -> Result<MastersGame, StatusCode> {
-    spawn_blocking(semaphore.acquire().await.unwrap(), move || {
+    spawn_blocking(&semaphore, move || {
         match db.masters().game(id).expect("get masters game") {
             Some(game) => Ok(game),
             None => Err(StatusCode::NOT_FOUND),
@@ -473,10 +470,9 @@ async fn masters(
     State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    let permit = semaphore.acquire().await.unwrap(); // Early, so cancelling cache population is unlikely
     masters_cache
         .get_with(query.clone(), async move {
-            spawn_blocking(permit, move || {
+            spawn_blocking(&semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::masters()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
@@ -541,10 +537,7 @@ async fn lichess_import(
     State(semaphore): State<Arc<Semaphore>>,
     Json(body): Json<Vec<LichessGameImport>>,
 ) -> Result<(), Error> {
-    spawn_blocking(semaphore.acquire().await.unwrap(), move || {
-        importer.import_many(body)
-    })
-    .await
+    spawn_blocking(&semaphore, move || importer.import_many(body)).await
 }
 
 #[axum::debug_handler(state = AppState)]
@@ -555,10 +548,9 @@ async fn lichess(
     State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    let permit = semaphore.acquire().await.unwrap(); // Early, so cancelling cache population is unlikely
     lichess_cache
         .get_with(query.clone(), async move {
-            spawn_blocking(permit, move || {
+            spawn_blocking(&semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
@@ -589,10 +581,9 @@ async fn lichess_history(
     State(semaphore): State<Arc<Semaphore>>,
     Query(query): Query<LichessHistoryQuery>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
-    let permit = semaphore.acquire().await.unwrap(); // Early, so cancelling cache population is unlikely
     lichess_history_cache
         .get_with(query.clone(), async move {
-            spawn_blocking(permit, move || {
+            spawn_blocking(&semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
