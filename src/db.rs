@@ -31,7 +31,7 @@ pub struct DbOpt {
     /// caused by compactions are on a similar order of magnitude. Set so the
     /// disks can comfortably handle this sustained rate, and still be able to
     /// respond to queries.
-    #[arg(long, default_value = "10485760")]
+    #[arg(long, default_value = "8388608")]
     db_rate_limit: i64,
 }
 
