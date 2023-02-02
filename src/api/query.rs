@@ -215,7 +215,7 @@ pub struct Limits {
 }
 
 impl Limits {
-    fn default_moves() -> usize {
+    pub fn default_moves() -> usize {
         12
     }
 

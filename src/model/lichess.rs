@@ -576,14 +576,14 @@ mod tests {
         let res = deserialized.prepare(
             &LichessQueryFilter {
                 speeds: None,
-                ratings: Some(vec![RatingGroup::Group2000]),
+                ratings: Some([RatingGroup::Group2000].into()),
                 since: None,
                 until: None,
             },
             &Limits {
                 recent_games: usize::MAX,
                 top_games: usize::MAX,
-                moves: None,
+                moves: Limits::default_moves(),
             },
         );
         assert_eq!(
