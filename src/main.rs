@@ -77,7 +77,7 @@ type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 type ExplorerHistoryCache =
     Cache<LichessHistoryQuery, Result<Json<ExplorerHistoryResponse>, Error>>;
 
-#[derive(Clone)]
+#[derive(FromRef, Clone)]
 struct AppState {
     openings: &'static Openings,
     db: Arc<Database>,
@@ -88,60 +88,6 @@ struct AppState {
     masters_importer: MastersImporter,
     indexer: IndexerStub,
     semaphore: &'static Semaphore,
-}
-
-impl FromRef<AppState> for &'static Openings {
-    fn from_ref(state: &AppState) -> &'static Openings {
-        state.openings
-    }
-}
-
-impl FromRef<AppState> for Arc<Database> {
-    fn from_ref(state: &AppState) -> Arc<Database> {
-        Arc::clone(&state.db)
-    }
-}
-
-impl FromRef<AppState> for ExplorerCache<LichessQuery> {
-    fn from_ref(state: &AppState) -> ExplorerCache<LichessQuery> {
-        state.lichess_cache.clone()
-    }
-}
-
-impl FromRef<AppState> for ExplorerCache<MastersQuery> {
-    fn from_ref(state: &AppState) -> ExplorerCache<MastersQuery> {
-        state.masters_cache.clone()
-    }
-}
-
-impl FromRef<AppState> for ExplorerHistoryCache {
-    fn from_ref(state: &AppState) -> ExplorerHistoryCache {
-        state.lichess_history_cache.clone()
-    }
-}
-
-impl FromRef<AppState> for LichessImporter {
-    fn from_ref(state: &AppState) -> LichessImporter {
-        state.lichess_importer.clone()
-    }
-}
-
-impl FromRef<AppState> for MastersImporter {
-    fn from_ref(state: &AppState) -> MastersImporter {
-        state.masters_importer.clone()
-    }
-}
-
-impl FromRef<AppState> for IndexerStub {
-    fn from_ref(state: &AppState) -> IndexerStub {
-        state.indexer.clone()
-    }
-}
-
-impl FromRef<AppState> for &'static Semaphore {
-    fn from_ref(state: &AppState) -> &'static Semaphore {
-        state.semaphore
-    }
 }
 
 fn main() {
