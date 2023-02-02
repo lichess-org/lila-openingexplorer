@@ -87,7 +87,7 @@ struct AppState {
     lichess_importer: LichessImporter,
     masters_importer: MastersImporter,
     indexer: IndexerStub,
-    semaphore: Arc<Semaphore>,
+    semaphore: &'static Semaphore,
 }
 
 impl FromRef<AppState> for &'static Openings {
@@ -138,9 +138,9 @@ impl FromRef<AppState> for IndexerStub {
     }
 }
 
-impl FromRef<AppState> for Arc<Semaphore> {
-    fn from_ref(state: &AppState) -> Arc<Semaphore> {
-        Arc::clone(&state.semaphore)
+impl FromRef<AppState> for &'static Semaphore {
+    fn from_ref(state: &AppState) -> &'static Semaphore {
+        state.semaphore
     }
 }
 
@@ -205,7 +205,7 @@ async fn serve() {
             masters_importer: MastersImporter::new(Arc::clone(&db)),
             indexer,
             db,
-            semaphore: Arc::new(Semaphore::new(32)),
+            semaphore: Box::leak(Box::new(Semaphore::new(32))),
         });
 
     let app = if opt.cors {
@@ -237,9 +237,9 @@ struct ColumnFamilyProp {
 async fn cf_prop(
     Path(path): Path<ColumnFamilyProp>,
     State(db): State<Arc<Database>>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
 ) -> Result<String, StatusCode> {
-    spawn_blocking(&semaphore, move || {
+    spawn_blocking(semaphore, move || {
         db.inner
             .cf_handle(&path.cf)
             .and_then(|cf| {
@@ -256,9 +256,9 @@ async fn cf_prop(
 async fn db_prop(
     Path(prop): Path<String>,
     State(db): State<Arc<Database>>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
 ) -> Result<String, StatusCode> {
-    spawn_blocking(&semaphore, move || {
+    spawn_blocking(semaphore, move || {
         db.inner
             .property_value(&prop)
             .expect("property value")
@@ -274,14 +274,14 @@ async fn monitor(
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(indexer): State<IndexerStub>,
     State(db): State<Arc<Database>>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
 ) -> String {
     let num_indexing = indexer.num_indexing().await;
     let num_lichess_cache = lichess_cache.entry_count();
     let num_lichess_history_cache = lichess_history_cache.entry_count();
     let num_masters_cache = masters_cache.entry_count();
 
-    spawn_blocking(&semaphore, move || {
+    spawn_blocking(semaphore, move || {
         let MastersStats {
             num_masters,
             num_masters_game,
@@ -299,8 +299,8 @@ async fn monitor(
 }
 
 #[axum::debug_handler(state = AppState)]
-async fn compact(State(db): State<Arc<Database>>, State(semaphore): State<Arc<Semaphore>>) {
-    spawn_blocking(&semaphore, move || db.compact()).await
+async fn compact(State(db): State<Arc<Database>>, State(semaphore): State<&'static Semaphore>) {
+    spawn_blocking(semaphore, move || db.compact()).await
 }
 
 fn finalize_lichess_moves(
@@ -352,7 +352,6 @@ fn finalize_lichess_games(
 }
 
 struct PlayerStreamState {
-    semaphore: Arc<Semaphore>,
     indexing: Option<watch::Receiver<()>>,
     key: KeyPrefix,
     db: Arc<Database>,
@@ -370,17 +369,16 @@ async fn player(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
-    let indexing = indexer.index_player(&player, &semaphore).await;
+    let indexing = indexer.index_player(&player, semaphore).await;
     let PlayPosition { pos, opening } = query.play.position(openings)?;
     let key = KeyBuilder::player(&player, query.color)
         .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
-        semaphore,
         color: query.color,
         filter: query.filter,
         limits: query.limits,
@@ -395,7 +393,7 @@ async fn player(
 
     Ok(NdJson(futures_util::stream::unfold(
         state,
-        |mut state| async move {
+        move |mut state| async move {
             if state.done {
                 return None;
             }
@@ -411,8 +409,7 @@ async fn player(
                 None => true,
             };
 
-            let semaphore = Arc::clone(&state.semaphore);
-            spawn_blocking(&semaphore, move || {
+            spawn_blocking(semaphore, move || {
                 let lichess_db = state.db.lichess();
                 let filtered = lichess_db
                     .read_player(&state.key, state.filter.since, state.filter.until)
@@ -437,10 +434,10 @@ async fn player(
 #[axum::debug_handler(state = AppState)]
 async fn masters_import(
     State(importer): State<MastersImporter>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
     Json(body): Json<MastersGameWithId>,
 ) -> Result<(), Error> {
-    spawn_blocking(&semaphore, move || importer.import(body)).await
+    spawn_blocking(semaphore, move || importer.import(body)).await
 }
 
 #[serde_as]
@@ -451,9 +448,9 @@ struct MastersGameId(#[serde_as(as = "DisplayFromStr")] GameId);
 async fn masters_pgn(
     Path(MastersGameId(id)): Path<MastersGameId>,
     State(db): State<Arc<Database>>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
 ) -> Result<MastersGame, StatusCode> {
-    spawn_blocking(&semaphore, move || {
+    spawn_blocking(semaphore, move || {
         match db.masters().game(id).expect("get masters game") {
             Some(game) => Ok(game),
             None => Err(StatusCode::NOT_FOUND),
@@ -467,12 +464,12 @@ async fn masters(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
     Query(query): Query<MastersQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
-            spawn_blocking(&semaphore, move || {
+            spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::masters()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
@@ -534,10 +531,10 @@ async fn masters(
 #[axum::debug_handler(state = AppState)]
 async fn lichess_import(
     State(importer): State<LichessImporter>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
     Json(body): Json<Vec<LichessGameImport>>,
 ) -> Result<(), Error> {
-    spawn_blocking(&semaphore, move || importer.import_many(body)).await
+    spawn_blocking(semaphore, move || importer.import_many(body)).await
 }
 
 #[axum::debug_handler(state = AppState)]
@@ -545,12 +542,12 @@ async fn lichess(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
     Query(query): Query<LichessQuery>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
-            spawn_blocking(&semaphore, move || {
+            spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
@@ -578,12 +575,12 @@ async fn lichess_history(
     State(openings): State<&'static Openings>,
     State(db): State<Arc<Database>>,
     State(lichess_history_cache): State<ExplorerHistoryCache>,
-    State(semaphore): State<Arc<Semaphore>>,
+    State(semaphore): State<&'static Semaphore>,
     Query(query): Query<LichessHistoryQuery>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
     lichess_history_cache
         .get_with(query.clone(), async move {
-            spawn_blocking(&semaphore, move || {
+            spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query.play.position(openings)?;
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
