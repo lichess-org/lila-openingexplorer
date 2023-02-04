@@ -282,7 +282,7 @@ impl PlayerStatus {
     pub fn maybe_index(&self) -> Option<IndexRun> {
         SystemTime::now()
             .duration_since(self.indexed_at)
-            .map_or(false, |cooldown| cooldown > Duration::from_secs(60))
+            .map_or(false, |cooldown| cooldown > Duration::from_secs(2 * 60))
             .then_some(IndexRun::Index {
                 after: self.latest_created_at,
             })
