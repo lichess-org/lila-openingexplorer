@@ -131,7 +131,7 @@ impl Database {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
-        db_opts.set_max_background_jobs(4);
+        db_opts.set_max_background_jobs(2);
         db_opts.set_ratelimiter(opt.db_rate_limit, 100_000, 10);
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
 
