@@ -42,11 +42,11 @@ Usage
 protected using a reverse proxy.
 It's best to whitelist only `/masters`, `/lichess`, and `/player`.
 
-### Index games
+### Import games
 
 1. Download database dumps from https://database.lichess.org/.
 
-2. Index (optionally works directly with compressed files):
+2. Import (optionally works directly with compressed files):
 
    ```
    cd index-pgn
@@ -67,7 +67,7 @@ It's best to whitelist only `/masters`, `/lichess`, and `/player`.
    * Compressed PGN import rate of around 100 KiB/s on the live system
 
    Importing is currently very inefficient, but good enough to index faster
-   than games are played :simple_smile:. Initially, the database was prepared
+   than games are played. Initially, the database was prepared
    offline, with speed dropping as the database grew, averaging 1 MiB/s
    compressed indexing speed (so effectively 7 MiB/s uncompressed PGN data).
 
