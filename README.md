@@ -17,11 +17,26 @@ Usage
 
 1. Install recent stable Rust ([rustup](https://rustup.rs/) recommended).
 
-2. `git submodule update --init`
+2. ```
+   git submodule update --init
+   ```
 
 3. Set some environment variables used at build time: `set -a && source .env && set +a`
 
-4. `ulimit -n 131072 && EXPLORER_LOG=lila_openingexplorer=debug cargo run --release`
+4. Build the server and view available options:
+
+   ```
+   cargo run --release -- --help
+   ```
+
+   Strongly consider adjusting `--db-compaction-readahead`, `--db-cache`, and
+   `--db-rate-limit` depending on your setup.
+
+5. Run the server with the chosen options:
+
+   ```
+   ulimit -n 131072 && EXPLORER_LOG=lila_openingexplorer=info cargo run --release -- --db-compaction-readahead
+   ```
 
 :warning: In a production environment, administrative endpoints must be
 protected using a reverse proxy.
@@ -37,6 +52,24 @@ It's best to whitelist only `/masters`, `/lichess`, and `/player`.
    cd index-pgn
    cargo run --release -- *.pgn.zst
    ```
+
+   The database size will be well below 3x the compressed PGN size.
+
+   If you can fit this on SSDs, read and compaction performance, especially
+   tail latencies, will benefit significantly. All else equal, RAIDs with
+   multiple small disks are preferable to RAIDs with few larger disks.
+   Block and page cache will take advantage of large amounts of available RAM.
+
+   As of February 2023, Lichess handles up to 10k requests/minute, using:
+
+   * 4 spinning disks in RAID10
+   * 128 GiB RAM, of which 40 GiB are used for the block cache
+   * Compressed PGN import rate of around 100 KiB/s on the live system
+
+   Importing is currently very inefficient, but good enough to index faster
+   than games are played :simple_smile:. Initially, the database was prepared
+   offline, with speed dropping as the database grew, averaging 1 MiB/s
+   compressed indexing speed (so effectively 7 MiB/s uncompressed PGN data).
 
 Monitoring
 ----------

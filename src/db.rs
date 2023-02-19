@@ -27,10 +27,10 @@ pub struct DbOpt {
     /// leaving the majority for operating system page cache.
     #[arg(long, default_value = "4294967296")]
     db_cache: usize,
-    /// Rate limit for writes to disk, caused by flushes and compactions. Reads
-    /// caused by compactions are on a similar order of magnitude. Set so the
-    /// disks can comfortably handle this sustained rate, and still be able to
-    /// respond to queries.
+    /// Rate limits for writes to disk in bytes per second. This is used to
+    /// limit the speed of indexing and importing (flushes and compactions),
+    /// so that enough bandwidth remains to respond to queries. Use a sustained
+    /// rate that your disks can comfortably handle.
     #[arg(long, default_value = "10485760")]
     db_rate_limit: i64,
 }
