@@ -49,7 +49,7 @@ It's best to whitelist only `/masters`, `/lichess`, and `/player`.
 2. Import (optionally works directly with compressed files):
 
    ```
-   cd index-pgn
+   cd import-pgn
    cargo run --release -- *.pgn.zst
    ```
 
