@@ -52,7 +52,7 @@ curl http://localhost:9002/monitor
 Response in InfluxDB line protocol:
 
 ```
-opening_explorer indexing=11u,lichess_cache=24982u,masters_cache=24988u,masters=160396858u,masters_game=2519908u,lichess=118926608160u,lichess_game=4225491015u,player=8474288392u,player_status=89981u
+opening_explorer block_index_miss=2271815u,block_index_hit=44204637u,block_filter_miss=2272244u,block_filter_hit=81741291u,block_data_miss=31540587u,block_data_hit=33327789u,indexing=5u,lichess_cache=31038u,lichess_miss=2993390u,lichess_history_cache=2112u,lichess_history_miss=19558u,masters_cache=38276u,masters_miss=3430066u,masters=158629555u,masters_game=2519908u,lichess=121970833029u,lichess_game=4331746117u,player=18693470276u,player_status=182129u
 ```
 
 ### `/monitor/db/<prop>`
