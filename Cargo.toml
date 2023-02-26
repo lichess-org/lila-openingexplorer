@@ -23,7 +23,7 @@ futures-util = "0.3"
 log = "0.4"
 moka = { version = "0.10", features = ["future"] }
 nohash-hasher = "0.2"
-partial_sort = "0.1"
+partial_sort = "0.2"
 pin-project-lite = "0.2"
 reqwest = { version = "0.11", features = ["stream"] }
 rocksdb = { version = "0.20", features = ["lz4", "zstd", "jemalloc"], default-features = false }
@@ -40,7 +40,7 @@ time = "0.3"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 tokio-util = { version = "0.7", features = ["io"] }
-tower-http = { version = "0.3", features = ["set-header"] }
+tower-http = { version = "0.4", features = ["set-header"] }
 
 [dev-dependencies]
 quickcheck = "1"
