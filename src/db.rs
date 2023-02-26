@@ -92,13 +92,15 @@ struct Column<'a> {
     cache: &'a Cache,
 }
 
+const BLOCK_SIZE: usize = 64 * 1024; // Relatively large, for spinning disks
+
 impl Column<'_> {
     fn descriptor(self) -> ColumnFamilyDescriptor {
         // Mostly using modern defaults from
         // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning.
         let mut table_opts = BlockBasedOptions::default();
         table_opts.set_block_cache(self.cache);
-        table_opts.set_block_size(64 * 1024); // Spinning disks
+        table_opts.set_block_size(BLOCK_SIZE);
         table_opts.set_cache_index_and_filter_blocks(true);
         table_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
         table_opts.set_hybrid_ribbon_filter(10.0, 1);
@@ -141,7 +143,7 @@ impl Database {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
         }
 
-        let cache = Cache::new_lru_cache(opt.db_cache)?;
+        let cache = Cache::new_hyper_clock_cache(opt.db_cache, BLOCK_SIZE);
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
