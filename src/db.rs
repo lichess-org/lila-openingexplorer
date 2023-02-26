@@ -15,6 +15,8 @@ use crate::{
     },
 };
 
+const ASYNC_IO: bool = false;
+
 #[derive(Parser)]
 pub struct DbOpt {
     /// Path to RocksDB database.
@@ -295,7 +297,7 @@ impl MastersDatabase<'_> {
     ) -> Result<Vec<Option<MastersGame>>, rocksdb::Error> {
         let mut opt = ReadOptions::default();
         opt.set_ignore_range_deletions(true);
-        opt.set_async_io(true);
+        opt.set_async_io(ASYNC_IO);
         self.inner
             .batched_multi_get_cf_opt(
                 self.cf_masters_game,
@@ -329,7 +331,7 @@ impl MastersDatabase<'_> {
 
         let mut opt = ReadOptions::default();
         opt.set_ignore_range_deletions(true);
-        opt.set_async_io(true);
+        opt.set_async_io(ASYNC_IO);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_year(until.add_years_saturating(1)).into_bytes());
@@ -442,7 +444,7 @@ impl LichessDatabase<'_> {
     ) -> Result<Vec<Option<LichessGame>>, rocksdb::Error> {
         let mut opt = ReadOptions::default();
         opt.set_ignore_range_deletions(true);
-        opt.set_async_io(true);
+        opt.set_async_io(ASYNC_IO);
         self.inner
             .batched_multi_get_cf_opt(
                 self.cf_lichess_game,
@@ -468,7 +470,7 @@ impl LichessDatabase<'_> {
 
         let mut opt = ReadOptions::default();
         opt.set_ignore_range_deletions(true);
-        opt.set_async_io(true);
+        opt.set_async_io(ASYNC_IO);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(
             key.with_month(since.unwrap_or_else(Month::min_value))
@@ -500,7 +502,7 @@ impl LichessDatabase<'_> {
 
         let mut opt = ReadOptions::default();
         opt.set_ignore_range_deletions(true);
-        opt.set_async_io(true);
+        opt.set_async_io(ASYNC_IO);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(
             key.with_month(filter.since.unwrap_or_else(Month::min_value))
@@ -559,7 +561,7 @@ impl LichessDatabase<'_> {
 
         let mut opt = ReadOptions::default();
         opt.set_ignore_range_deletions(true);
-        opt.set_async_io(true);
+        opt.set_async_io(ASYNC_IO);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
