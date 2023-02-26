@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-const ASYNC_IO: bool = false;
+const ASYNC_IO: bool = true;
 
 #[derive(Parser)]
 pub struct DbOpt {
