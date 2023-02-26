@@ -26,7 +26,7 @@ nohash-hasher = "0.2"
 partial_sort = "0.2"
 pin-project-lite = "0.2"
 reqwest = { version = "0.11", features = ["stream"] }
-rocksdb = { version = "0.20", features = ["lz4", "zstd", "jemalloc"], default-features = false }
+rocksdb = { version = "0.20", features = ["lz4", "zstd", "jemalloc"], git = "https://github.com/niklasf/rust-rocksdb.git", branch = "rocksdb-8.x", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_with = { version = "2", features = ["time_0_3"] }
