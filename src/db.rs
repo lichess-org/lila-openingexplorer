@@ -141,7 +141,16 @@ impl Database {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
         }
 
-        let cache = Cache::new_lru_cache(opt.db_cache)?;
+        // Status from prod:
+        // capacity: 40.00 GB
+        // usage: 39.97 GB
+        // table_size: 262144
+        // occupancy: 4776003
+        // collections: 272
+        // last_copies: 5
+        // last_secs: 0.024638
+        // secs_since: 430
+        let cache = Cache::new_hyper_clock_cache(opt.db_cache, 8993);
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
