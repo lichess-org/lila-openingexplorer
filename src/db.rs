@@ -43,12 +43,11 @@ pub struct DbStats {
     pub block_filter_hit: u64,
     pub block_data_miss: u64,
     pub block_data_hit: u64,
+    pub block_avg_entry_charge: usize,
 }
 
 impl DbStats {
-    fn from_lines(s: &str) -> DbStats {
-        let mut stats = DbStats::default();
-
+    fn read_options_statistics(&mut self, s: &str) {
         fn count(line: &str, prefix: &str) -> Option<u64> {
             line.strip_prefix(prefix)
                 .and_then(|suffix| suffix.strip_prefix(" COUNT : "))
@@ -57,30 +56,33 @@ impl DbStats {
 
         for line in s.lines() {
             if let Some(c) = count(line, "rocksdb.block.cache.index.miss") {
-                stats.block_index_miss = c;
+                self.block_index_miss = c;
             } else if let Some(c) = count(line, "rocksdb.block.cache.index.hit") {
-                stats.block_index_hit = c;
+                self.block_index_hit = c;
             } else if let Some(c) = count(line, "rocksdb.block.cache.filter.miss") {
-                stats.block_filter_miss = c;
+                self.block_filter_miss = c;
             } else if let Some(c) = count(line, "rocksdb.block.cache.filter.hit") {
-                stats.block_filter_hit = c;
+                self.block_filter_hit = c;
             } else if let Some(c) = count(line, "rocksdb.block.cache.data.miss") {
-                stats.block_data_miss = c;
+                self.block_data_miss = c;
             } else if let Some(c) = count(line, "rocksdb.block.cache.data.hit") {
-                stats.block_data_hit = c;
+                self.block_data_hit = c;
             }
         }
+    }
 
-        stats
+    fn query_cache_stats(&mut self, cache: &Cache) {
+        self.block_avg_entry_charge = (cache.get_usage() - 64 * cache.get_table_address_count())
+            .saturating_div(cache.get_occupancy_count());
     }
 }
 
 // Note on usage in async contexts: All database operations are blocking
 // (https://github.com/facebook/rocksdb/issues/3254). Calls should be run in a
 // thread-pool to avoid blocking other requests.
-#[derive(Debug)]
 pub struct Database {
     pub inner: DB,
+    cache: Cache,
 }
 
 type MergeFn = fn(key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) -> Option<Vec<u8>>;
@@ -150,7 +152,7 @@ impl Database {
         // last_copies: 5
         // last_secs: 0.024638
         // secs_since: 430
-        let cache = Cache::new_hyper_clock_cache(opt.db_cache, 8993);
+        let cache = Cache::new_hyper_clock_cache(opt.db_cache, 5870);
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
@@ -207,15 +209,16 @@ impl Database {
         let elapsed = started_at.elapsed();
         log::info!("database opened in {elapsed:.3?}");
 
-        Ok(Database { inner })
+        Ok(Database { inner, cache })
     }
 
     pub fn stats(&self) -> Result<DbStats, rocksdb::Error> {
-        Ok(self
-            .inner
-            .property_value(OPTIONS_STATISTICS)?
-            .map(|s| DbStats::from_lines(&s))
-            .unwrap_or_default())
+        let mut stats = DbStats::default();
+        if let Some(options_statistics) = self.inner.property_value(OPTIONS_STATISTICS)? {
+            stats.read_options_statistics(&options_statistics);
+        }
+        stats.query_cache_stats(&self.cache);
+        Ok(stats)
     }
 
     pub fn compact(&self) {
