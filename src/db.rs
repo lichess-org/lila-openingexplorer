@@ -23,10 +23,15 @@ pub struct DbOpt {
     /// Tune compaction readahead for spinning disks.
     #[arg(long)]
     db_compaction_readahead: bool,
-    /// Size of RocksDB LRU cache in bytes. Use up to half of the systems RAM,
-    /// leaving the majority for operating system page cache.
+    /// Size of RocksDB HyperClockCache in bytes. Use up to half of the systems
+    /// RAM, leaving the majority for operating system page cache.
     #[arg(long, default_value = "4294967296")]
     db_cache: usize,
+    /// Tune HyperClockCache by estimating average entry charge in bytes.
+    /// If cache composition varies, err towards the lower end. Luckily,
+    /// this coincides with the cache composition at peak time.
+    #[arg(long, default_value = "3123")]
+    db_cache_entry_charge: usize,
     /// Rate limits for writes to disk in bytes per second. This is used to
     /// limit the speed of indexing and importing (flushes and compactions),
     /// so that enough bandwidth remains to respond to queries. Use a sustained
@@ -143,16 +148,7 @@ impl Database {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
         }
 
-        // Status from prod:
-        // capacity: 40.00 GB
-        // usage: 39.97 GB
-        // table_size: 262144
-        // occupancy: 4776003
-        // collections: 272
-        // last_copies: 5
-        // last_secs: 0.024638
-        // secs_since: 430
-        let cache = Cache::new_hyper_clock_cache(opt.db_cache, 5870);
+        let cache = Cache::new_hyper_clock_cache(opt.db_cache, opt.db_cache_entry_charge);
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
