@@ -16,3 +16,4 @@ clap = { version = "4", features = ["derive", "deprecated"] }
 crossbeam = "0.8"
 indicatif = "0.17"
 zstd = "0.12"
+time = "0.3"

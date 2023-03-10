@@ -1,10 +1,11 @@
-use std::{ffi::OsStr, fs::File, io, mem, path::PathBuf, thread};
+use std::{ffi::OsStr, fs::File, io, mem, path::PathBuf, thread, time::Duration};
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use pgn_reader::{BufferedReader, Color, Outcome, RawHeader, SanPlus, Skip, Visitor};
 use serde::Serialize;
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
+use time::OffsetDateTime;
 
 #[derive(Debug, Serialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -211,6 +212,8 @@ struct Args {
     endpoint: String,
     #[arg(long, default_value = "200")]
     batch_size: usize,
+    #[arg(long)]
+    avoid_utc_hour: Vec<u8>,
     pgns: Vec<PathBuf>,
 }
 
@@ -226,6 +229,14 @@ fn main() -> Result<(), io::Error> {
             .expect("client");
 
         while let Ok(batch) = rx.recv() {
+            while args
+                .avoid_utc_hour
+                .contains(OffsetDateTime::now_utc().hour())
+            {
+                println!("paused around this time ...");
+                thread::sleep(Duration::from_secs(10 * 60));
+            }
+
             let res = client
                 .put(format!("{}/import/lichess", args.endpoint))
                 .json(&batch.games)
