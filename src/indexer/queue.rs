@@ -4,7 +4,7 @@ use std::{
         VecDeque,
     },
     hash::Hash,
-    sync::{Arc, Mutex},
+    sync::Mutex,
 };
 
 use tokio::sync::{watch, Notify};
@@ -40,7 +40,7 @@ impl<T: Eq + Hash + Clone> Queue<T> {
         result
     }
 
-    pub async fn acquire(self: Arc<Self>) -> QueueItem<T> {
+    pub async fn acquire(&self) -> QueueItem<T> {
         let task = loop {
             if let Some(task) = self.state.lock().unwrap().acquire() {
                 break task;
@@ -145,18 +145,18 @@ impl Ticket {
     }
 }
 
-pub struct QueueItem<T: Eq + Hash + Clone> {
+pub struct QueueItem<'a, T: Eq + Hash + Clone> {
     task: T,
-    queue: Arc<Queue<T>>,
+    queue: &'a Queue<T>,
 }
 
-impl<T: Eq + Hash + Clone> QueueItem<T> {
+impl<T: Eq + Hash + Clone> QueueItem<'_, T> {
     pub fn task(&self) -> &T {
         &self.task
     }
 }
 
-impl<T: Eq + Hash + Clone> Drop for QueueItem<T> {
+impl<T: Eq + Hash + Clone> Drop for QueueItem<'_, T> {
     fn drop(&mut self) {
         self.queue.state.lock().unwrap().complete(&self.task);
     }
