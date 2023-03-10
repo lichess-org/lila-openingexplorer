@@ -38,7 +38,7 @@ use shakmaty::{
     Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
-use tokio::sync::{watch, Semaphore};
+use tokio::sync::Semaphore;
 
 use crate::{
     api::{
@@ -48,7 +48,7 @@ use crate::{
     },
     db::{Database, DbOpt, LichessDatabase, LichessStats, MastersStats},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
-    indexer::{IndexerOpt, IndexerStub},
+    indexer::{IndexerOpt, IndexerStub, QueueFull, Ticket},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
     util::{spawn_blocking, DedupStreamExt as _},
@@ -241,7 +241,7 @@ async fn monitor(
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
 ) -> String {
-    let num_indexing = indexer.num_indexing().await;
+    let num_indexing = indexer.num_indexing();
 
     let num_lichess_cache = lichess_cache.entry_count();
     let num_lichess_miss = cache_stats.lichess_miss.load(Ordering::Relaxed);
@@ -365,7 +365,8 @@ fn finalize_lichess_games(
 }
 
 struct PlayerStreamState {
-    indexing: Option<watch::Receiver<()>>,
+    indexer: IndexerStub,
+    ticket: Ticket,
     key: KeyPrefix,
     db: Arc<Database>,
     color: Color,
@@ -386,17 +387,24 @@ async fn player(
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
-    let indexing = indexer.index_player(&player, semaphore).await;
+    let key_builder = KeyBuilder::player(&player, query.color);
+    let ticket = indexer.index_player(player).map_err(|QueueFull(player)| {
+        log::error!(
+            "not indexing {} because queue is full",
+            player.as_lowercase_str()
+        );
+        Error::IndexerQueueFull
+    })?;
     let PlayPosition { pos, opening } = query.play.position(openings)?;
-    let key = KeyBuilder::player(&player, query.color)
-        .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
+    let key = key_builder.with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
+        indexer,
         color: query.color,
         filter: query.filter,
         limits: query.limits,
         db,
-        indexing,
+        ticket,
         opening,
         key,
         pos,
@@ -412,14 +420,9 @@ async fn player(
             }
 
             let first = mem::replace(&mut state.first, false);
-            state.done = match state.indexing {
-                Some(ref mut indexing) => {
-                    tokio::select! {
-                        _ = indexing.changed() => true,
-                        _ = tokio::time::sleep(Duration::from_millis(if first { 0 } else { 1000 })) => false,
-                    }
-                }
-                None => true,
+            state.done = tokio::select! {
+                _ = state.ticket.completed() => true,
+                _ = tokio::time::sleep(Duration::from_millis(if first { 0 } else { 1000 })) => false,
             };
 
             spawn_blocking(semaphore, move || {
@@ -436,6 +439,7 @@ async fn player(
                         recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
                         top_games: None,
                         opening: state.opening,
+                        queue_position: Some(state.indexer.preceding_tickets(&state.ticket))
                     },
                     state,
                 ))
@@ -536,6 +540,7 @@ async fn masters(
                     ),
                     opening,
                     recent_games: None,
+                    queue_position: None,
                 }))
             })
             .await
@@ -580,6 +585,7 @@ async fn lichess(
                     recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
                     top_games: Some(finalize_lichess_games(filtered.top_games, &lichess_db)),
                     opening,
+                    queue_position: None,
                 }))
             })
             .await

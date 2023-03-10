@@ -13,7 +13,6 @@ keywords = ["chess", "lichess"]
 edition = "2021"
 
 [dependencies]
-async-channel = "1"
 axum = { version = "0.6", features = ["macros"] }
 bytes = "1"
 clap = { version = "4", features = ["derive", "env", "deprecated"] }
