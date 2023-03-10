@@ -95,7 +95,7 @@ struct IndexerActor {
 impl IndexerActor {
     async fn run(self) {
         loop {
-            let queue_item = self.queue.acquire().await;
+            let queue_item = Arc::clone(&self.queue).acquire().await;
             self.index_player(queue_item.task()).await;
         }
     }
