@@ -445,7 +445,7 @@ async fn player(
                 ))
             }).await
         },
-    ).dedup_by_key(|res| res.total.total())))
+    ).dedup_by_key(|res| (res.queue_position, res.total.total()))))
 }
 
 #[axum::debug_handler(state = AppState)]
