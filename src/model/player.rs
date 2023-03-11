@@ -266,7 +266,11 @@ impl Default for PlayerStatus {
 impl PlayerStatus {
     pub const SIZE_HINT: usize = 3 * 8;
 
-    pub fn maybe_revisit_ongoing(&mut self) -> Option<IndexRun> {
+    pub fn maybe_start_index_run(&self) -> Option<IndexRun> {
+        self.maybe_revisit_ongoing().or_else(|| self.maybe_index())
+    }
+
+    fn maybe_revisit_ongoing(&self) -> Option<IndexRun> {
         if SystemTime::now()
             .duration_since(self.revisited_at)
             .unwrap_or_default()
@@ -279,7 +283,7 @@ impl PlayerStatus {
         }
     }
 
-    pub fn maybe_index(&self) -> Option<IndexRun> {
+    fn maybe_index(&self) -> Option<IndexRun> {
         SystemTime::now()
             .duration_since(self.indexed_at)
             .map_or(false, |cooldown| cooldown > Duration::from_secs(2 * 60))
@@ -288,7 +292,7 @@ impl PlayerStatus {
             })
     }
 
-    pub fn finish_run(&mut self, run: IndexRun) {
+    pub fn finish_index_run(&mut self, run: IndexRun) {
         self.indexed_at = SystemTime::now();
         if matches!(run, IndexRun::Revisit { .. }) {
             self.revisited_at = self.indexed_at;

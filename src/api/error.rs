@@ -18,6 +18,8 @@ pub enum Error {
     RejectedRating { id: GameId, rating: u16 },
     #[error("rejected import of {id} due to date {date}")]
     RejectedDate { id: GameId, date: LaxDate },
+    #[error("indexer queue full")]
+    IndexerQueueFull,
 }
 
 impl From<PositionError<VariantPosition>> for Error {
@@ -28,6 +30,18 @@ impl From<PositionError<VariantPosition>> for Error {
 
 impl axum::response::IntoResponse for Error {
     fn into_response(self) -> Response {
-        (StatusCode::BAD_REQUEST, self.to_string()).into_response()
+        (
+            match self {
+                Error::IndexerQueueFull => StatusCode::SERVICE_UNAVAILABLE,
+                Error::PositionError(_)
+                | Error::IllegalUciError(_)
+                | Error::SanError(_)
+                | Error::DuplicateGame { .. }
+                | Error::RejectedRating { .. }
+                | Error::RejectedDate { .. } => StatusCode::BAD_REQUEST,
+            },
+            self.to_string(),
+        )
+            .into_response()
     }
 }

@@ -1,10 +1,9 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use async_channel::TrySendError;
 use axum::http::StatusCode;
 use clap::Parser;
 use futures_util::StreamExt;
@@ -16,7 +15,6 @@ use shakmaty::{
     ByColor, CastlingMode, Outcome, Position,
 };
 use tokio::{
-    sync::{watch, RwLock, Semaphore},
     task,
     task::JoinHandle,
     time::{sleep, timeout},
@@ -24,16 +22,15 @@ use tokio::{
 
 use crate::{
     db::Database,
-    model::{
-        GamePlayer, IndexRun, KeyBuilder, LichessGame, Mode, Month, PlayerEntry, PlayerStatus,
-        UserId,
-    },
-    util::spawn_blocking,
+    model::{GamePlayer, KeyBuilder, LichessGame, Mode, Month, PlayerEntry, PlayerStatus, UserId},
 };
 
 mod lila;
+mod queue;
 
 use lila::{Game, Lila};
+use queue::Queue;
+pub use queue::{QueueFull, Ticket};
 
 const MAX_PLIES: usize = 50;
 
@@ -52,23 +49,19 @@ pub struct IndexerOpt {
 
 #[derive(Clone)]
 pub struct IndexerStub {
-    db: Arc<Database>,
-    indexing: Arc<RwLock<HashMap<UserId, watch::Sender<()>>>>,
-    tx: async_channel::Sender<IndexerMessage>,
+    queue: Arc<Queue<UserId>>,
 }
 
 impl IndexerStub {
     pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, Vec<JoinHandle<()>>) {
-        let indexing = Arc::new(RwLock::new(HashMap::new()));
+        let queue = Arc::new(Queue::with_capacity(2000));
 
-        let (tx, rx) = async_channel::bounded(opt.indexers * 2);
         let mut join_handles = Vec::with_capacity(opt.indexers);
         for idx in 0..opt.indexers {
             join_handles.push(tokio::spawn(
                 IndexerActor {
                     idx,
-                    rx: rx.clone(),
-                    indexing: Arc::clone(&indexing),
+                    queue: Arc::clone(&queue),
                     db: Arc::clone(&db),
                     lila: Lila::new(opt.clone()),
                 }
@@ -76,105 +69,51 @@ impl IndexerStub {
             ));
         }
 
-        (IndexerStub { db, indexing, tx }, join_handles)
+        (IndexerStub { queue }, join_handles)
     }
 
-    pub async fn num_indexing(&self) -> usize {
-        let guard = self.indexing.read().await;
-        guard.len()
+    pub fn num_indexing(&self) -> usize {
+        self.queue.len()
     }
 
-    pub async fn index_player(
-        &self,
-        player: &UserId,
-        semaphore: &Semaphore,
-    ) -> Option<watch::Receiver<()>> {
-        // Optimization: First try subscribing to an existing indexing run,
-        // without acquiring a write lock.
-        {
-            let guard = self.indexing.read().await;
-            if let Some(sender) = guard.get(player) {
-                return Some(sender.subscribe());
-            }
-        }
+    pub fn preceding_tickets(&self, ticket: &Ticket) -> u64 {
+        self.queue.preceding_tickets(ticket)
+    }
 
-        // Check player indexing status.
-        let mut status = {
-            let db = Arc::clone(&self.db);
-            let player = player.clone();
-            spawn_blocking(semaphore, move || {
-                db.lichess()
-                    .player_status(&player)
-                    .expect("get player status")
-                    .unwrap_or_default()
-            })
-            .await
-        };
-
-        let index_run = match status
-            .maybe_revisit_ongoing()
-            .or_else(|| status.maybe_index())
-        {
-            Some(since) => since,
-            None => return None, // Do not reindex so soon!
-        };
-
-        // Queue indexing request.
-        let mut guard = self.indexing.write().await;
-        let entry = match guard.entry(player.clone()) {
-            Entry::Occupied(entry) => return Some(entry.get().subscribe()),
-            Entry::Vacant(entry) => entry,
-        };
-
-        match self.tx.try_send(IndexerMessage::IndexPlayer {
-            player: player.clone(),
-            status,
-            index_run,
-        }) {
-            Ok(_) => {
-                let (sender, receiver) = watch::channel(());
-                entry.insert(sender);
-                Some(receiver)
-            }
-            Err(TrySendError::Full(_)) => {
-                log::error!(
-                    "not queuing {} because indexer queue is full",
-                    player.as_lowercase_str()
-                );
-                None
-            }
-            Err(TrySendError::Closed(_)) => panic!("all indexers died"),
-        }
+    pub fn index_player(&self, player: UserId) -> Result<Ticket, QueueFull<UserId>> {
+        self.queue.submit(player)
     }
 }
 
 struct IndexerActor {
     idx: usize,
-    indexing: Arc<RwLock<HashMap<UserId, watch::Sender<()>>>>,
-    rx: async_channel::Receiver<IndexerMessage>,
+    queue: Arc<Queue<UserId>>,
     db: Arc<Database>,
     lila: Lila,
 }
 
 impl IndexerActor {
     async fn run(self) {
-        while let Ok(msg) = self.rx.recv().await {
-            match msg {
-                IndexerMessage::IndexPlayer {
-                    player,
-                    status,
-                    index_run,
-                } => {
-                    self.index_player(&player, status, index_run).await;
-
-                    let mut guard = self.indexing.write().await;
-                    guard.remove(&player);
-                }
-            }
+        loop {
+            let queue_item = self.queue.acquire().await;
+            self.index_player(queue_item.task()).await;
         }
     }
 
-    async fn index_player(&self, player: &UserId, mut status: PlayerStatus, index_run: IndexRun) {
+    async fn index_player(&self, player: &UserId) {
+        let mut status = task::block_in_place(|| {
+            self.db
+                .lichess()
+                .player_status(player)
+                .expect("get player status")
+                .unwrap_or_default()
+        });
+
+        let index_run = match status.maybe_start_index_run() {
+            Some(index_run) => index_run,
+            None => return, // Do not reindex so soon!
+        };
+
         let started_at = Instant::now();
         log::info!(
             "indexer {:02}: starting {} ({})",
@@ -246,7 +185,7 @@ impl IndexerActor {
             })
         }
 
-        status.finish_run(index_run);
+        status.finish_index_run(index_run);
         task::block_in_place(|| {
             self.db
                 .lichess()
@@ -442,12 +381,4 @@ impl IndexerActor {
 
         batch.commit().expect("atomically commit game and moves");
     }
-}
-
-enum IndexerMessage {
-    IndexPlayer {
-        player: UserId,
-        status: PlayerStatus,
-        index_run: IndexRun,
-    },
 }

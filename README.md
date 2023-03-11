@@ -240,7 +240,8 @@ and deduplicated. Empty lines may be sent to avoid timeouts.
     "opening": {
         "eco": "B00",
         "name": "King's Pawn"
-    }
+    },
+    "queuePosition": 3 // waiting for other players to be indexed first
 }
 ```
 
