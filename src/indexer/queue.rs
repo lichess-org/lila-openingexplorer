@@ -32,6 +32,10 @@ impl<T: Eq + Hash + Clone> Queue<T> {
             .saturating_sub(self.state.lock().unwrap().acquired_number)
     }
 
+    pub fn watch(&self, task: &T) -> Option<Ticket> {
+        self.state.lock().unwrap().watch(task)
+    }
+
     pub fn submit(&self, task: T) -> Result<Ticket, QueueFull<T>> {
         let result = self.state.lock().unwrap().submit(task);
         if result.is_ok() {
@@ -71,6 +75,10 @@ impl<T: Eq + Hash + Clone> QueueState<T> {
 
     fn len(&self) -> usize {
         self.indexing.len()
+    }
+
+    fn watch(&self, task: &T) -> Option<Ticket> {
+        self.indexing.get(task).map(QueuePosition::ticket)
     }
 
     fn submit(&mut self, task: T) -> Result<Ticket, QueueFull<T>> {
@@ -138,6 +146,11 @@ pub struct Ticket {
 }
 
 impl Ticket {
+    pub fn new_completed() -> Ticket {
+        let (_, rx) = watch::channel(());
+        Ticket { rx, number: 0 }
+    }
+
     pub async fn completed(&mut self) {
         let _ = self.rx.changed().await;
     }

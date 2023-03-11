@@ -15,6 +15,7 @@ use shakmaty::{
     ByColor, CastlingMode, Outcome, Position,
 };
 use tokio::{
+    sync::Semaphore,
     task,
     task::JoinHandle,
     time::{sleep, timeout},
@@ -23,6 +24,7 @@ use tokio::{
 use crate::{
     db::Database,
     model::{GamePlayer, KeyBuilder, LichessGame, Mode, Month, PlayerEntry, PlayerStatus, UserId},
+    util::spawn_blocking,
 };
 
 mod lila;
@@ -50,6 +52,7 @@ pub struct IndexerOpt {
 #[derive(Clone)]
 pub struct IndexerStub {
     queue: Arc<Queue<UserId>>,
+    db: Arc<Database>,
 }
 
 impl IndexerStub {
@@ -69,7 +72,7 @@ impl IndexerStub {
             ));
         }
 
-        (IndexerStub { queue }, join_handles)
+        (IndexerStub { queue, db }, join_handles)
     }
 
     pub fn num_indexing(&self) -> usize {
@@ -80,7 +83,31 @@ impl IndexerStub {
         self.queue.preceding_tickets(ticket)
     }
 
-    pub fn index_player(&self, player: UserId) -> Result<Ticket, QueueFull<UserId>> {
+    pub async fn index_player(
+        &self,
+        player: UserId,
+        semaphore: &Semaphore,
+    ) -> Result<Ticket, QueueFull<UserId>> {
+        if let Some(ticket) = self.queue.watch(&player) {
+            return Ok(ticket);
+        }
+
+        let status = {
+            let player = player.clone();
+            let db = Arc::clone(&self.db);
+            spawn_blocking(semaphore, move || {
+                db.lichess()
+                    .player_status(&player)
+                    .expect("get player status")
+                    .unwrap_or_default()
+            })
+            .await
+        };
+
+        if status.maybe_start_index_run().is_none() {
+            return Ok(Ticket::new_completed()); // Do not reindex so soon!
+        }
+
         self.queue.submit(player)
     }
 }

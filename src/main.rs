@@ -388,7 +388,7 @@ async fn player(
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let key_builder = KeyBuilder::player(&player, query.color);
-    let ticket = indexer.index_player(player).map_err(|QueueFull(player)| {
+    let ticket = indexer.index_player(player, semaphore).await.map_err(|QueueFull(player)| {
         log::error!(
             "not indexing {} because queue is full",
             player.as_lowercase_str()
