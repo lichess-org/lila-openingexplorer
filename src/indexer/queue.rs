@@ -41,14 +41,12 @@ impl<T: Eq + Hash + Clone> Queue<T> {
     }
 
     pub async fn acquire(&self) -> QueueItem<T> {
-        let task = loop {
+        loop {
             if let Some(task) = self.state.lock().unwrap().acquire() {
-                break task;
+                return QueueItem { task, queue: self };
             }
             self.notify.notified().await;
-        };
-
-        QueueItem { task, queue: self }
+        }
     }
 }
 
