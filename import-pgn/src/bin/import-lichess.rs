@@ -231,7 +231,7 @@ fn main() -> Result<(), io::Error> {
         while let Ok(batch) = rx.recv() {
             while args
                 .avoid_utc_hour
-                .contains(OffsetDateTime::now_utc().hour())
+                .contains(&OffsetDateTime::now_utc().hour())
             {
                 println!("paused around this time ...");
                 thread::sleep(Duration::from_secs(10 * 60));
