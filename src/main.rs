@@ -260,7 +260,6 @@ async fn monitor(
             block_filter_hit,
             block_data_miss,
             block_data_hit,
-            block_avg_entry_charge,
         } = db.stats().expect("db stats");
 
         let MastersStats {
@@ -285,7 +284,6 @@ async fn monitor(
                 format!("block_filter_hit={block_filter_hit}u"),
                 format!("block_data_miss={block_data_miss}u"),
                 format!("block_data_hit={block_data_hit}u"),
-                format!("block_avg_entry_charge={block_avg_entry_charge}u"),
                 // Indexer
                 format!("indexing={num_indexing}u"),
                 // Lichess cache

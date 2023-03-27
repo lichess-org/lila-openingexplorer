@@ -27,11 +27,6 @@ pub struct DbOpt {
     /// RAM, leaving the majority for operating system page cache.
     #[arg(long, default_value = "4294967296")]
     db_cache: usize,
-    /// Tune HyperClockCache by estimating average entry charge in bytes.
-    /// If cache composition varies, err towards the lower end. Luckily,
-    /// this coincides with the cache composition at peak time.
-    #[arg(long, default_value = "3123")]
-    db_cache_entry_charge: usize,
     /// Rate limits for writes to disk in bytes per second. This is used to
     /// limit the speed of indexing and importing (flushes and compactions),
     /// so that enough bandwidth remains to respond to queries. Use a sustained
@@ -48,7 +43,6 @@ pub struct DbStats {
     pub block_filter_hit: u64,
     pub block_data_miss: u64,
     pub block_data_hit: u64,
-    pub block_avg_entry_charge: usize,
 }
 
 impl DbStats {
@@ -75,11 +69,6 @@ impl DbStats {
             }
         }
     }
-
-    fn query_cache_stats(&mut self, cache: &Cache) {
-        self.block_avg_entry_charge = (cache.get_usage() - 64 * cache.get_table_address_count())
-            .saturating_div(cache.get_occupancy_count());
-    }
 }
 
 // Note on usage in async contexts: All database operations are blocking
@@ -87,7 +76,6 @@ impl DbStats {
 // thread-pool to avoid blocking other requests.
 pub struct Database {
     pub inner: DB,
-    cache: Cache,
 }
 
 type MergeFn = fn(key: &[u8], existing: Option<&[u8]>, operands: &MergeOperands) -> Option<Vec<u8>>;
@@ -148,7 +136,7 @@ impl Database {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
         }
 
-        let cache = Cache::new_hyper_clock_cache(opt.db_cache, opt.db_cache_entry_charge);
+        let cache = Cache::new_lru_cache(opt.db_cache)?;
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
@@ -205,7 +193,7 @@ impl Database {
         let elapsed = started_at.elapsed();
         log::info!("database opened in {elapsed:.3?}");
 
-        Ok(Database { inner, cache })
+        Ok(Database { inner })
     }
 
     pub fn stats(&self) -> Result<DbStats, rocksdb::Error> {
@@ -213,7 +201,6 @@ impl Database {
         if let Some(options_statistics) = self.inner.property_value(OPTIONS_STATISTICS)? {
             stats.read_options_statistics(&options_statistics);
         }
-        stats.query_cache_stats(&self.cache);
         Ok(stats)
     }
 
