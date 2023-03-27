@@ -388,13 +388,16 @@ async fn player(
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let key_builder = KeyBuilder::player(&player, query.color);
-    let ticket = indexer.index_player(player, semaphore).await.map_err(|QueueFull(player)| {
-        log::error!(
-            "not indexing {} because queue is full",
-            player.as_lowercase_str()
-        );
-        Error::IndexerQueueFull
-    })?;
+    let ticket = indexer
+        .index_player(player, semaphore)
+        .await
+        .map_err(|QueueFull(player)| {
+            log::error!(
+                "not indexing {} because queue is full",
+                player.as_lowercase_str()
+            );
+            Error::IndexerQueueFull
+        })?;
     let PlayPosition { pos, opening } = query.play.position(openings)?;
     let key = key_builder.with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
