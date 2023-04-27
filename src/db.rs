@@ -23,7 +23,7 @@ pub struct DbOpt {
     /// Tune compaction readahead for spinning disks.
     #[arg(long)]
     db_compaction_readahead: bool,
-    /// Size of RocksDB HyperClockCache in bytes. Use up to half of the systems
+    /// Size of RocksDB block cache in bytes. Use up to half of the systems
     /// RAM, leaving the majority for operating system page cache.
     #[arg(long, default_value = "4294967296")]
     db_cache: usize,
