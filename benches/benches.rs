@@ -23,4 +23,4 @@ fn bench_lichess_write_single() -> Vec<u8> {
     buf
 }
 
-iai::main!(bench_lichess_write_single,);
+iai::main!(bench_lichess_write_single);
