@@ -136,7 +136,7 @@ impl Database {
             db_opts.set_compaction_readahead_size(2 * 1024 * 1024);
         }
 
-        let cache = Cache::new_lru_cache(opt.db_cache)?;
+        let cache = Cache::new_lru_cache(opt.db_cache);
 
         let inner = DB::open_cf_descriptors(
             &db_opts,
