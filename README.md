@@ -60,11 +60,12 @@ It's best to whitelist only `/masters`, `/lichess`, and `/player`.
    multiple small disks are preferable to RAIDs with few larger disks.
    Block and page cache will take advantage of large amounts of available RAM.
 
-   As of February 2023, Lichess handles up to 10k requests/minute, using:
+   As of February 2023, Lichess handles around 12k requests/minute, using:
 
    * 4 spinning disks in RAID10
    * 128 GiB RAM, of which 40 GiB are used for the block cache
-   * Compressed PGN import rate of around 100 KiB/s on the live system
+   * Compressed PGN import rate of around 100 KiB/s on the live system,
+     paused at peak hours.
 
    Importing is currently very inefficient, but good enough to index faster
    than games are played. Initially, the database was prepared
