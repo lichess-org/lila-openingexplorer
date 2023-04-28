@@ -130,7 +130,7 @@ async fn serve() {
     let opt = Opt::parse();
 
     let db = Arc::new(Database::open(opt.db).expect("db"));
-    let (indexer, join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
+    let (indexer, _join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
 
     let app = Router::new()
         .route("/monitor/cf/:cf/:prop", get(cf_prop))
@@ -185,10 +185,6 @@ async fn serve() {
         .serve(app.into_make_service())
         .await
         .expect("bind");
-
-    for join_handle in join_handles {
-        join_handle.await.expect("indexer");
-    }
 }
 
 #[derive(Deserialize)]
