@@ -319,7 +319,7 @@ async fn openings_import(
     State(lichess_history_cache): State<ExplorerHistoryCache>,
     mut multipart: Multipart,
 ) -> Result<(), Error> {
-    let mut new_openings = Openings::new();
+    let mut new_openings = Openings::empty();
 
     while let Some(field) = multipart.next_field().await.map_err(Arc::new)? {
         let tsv = field.text().await.map_err(Arc::new)?;
