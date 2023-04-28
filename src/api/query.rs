@@ -171,9 +171,9 @@ impl PartialEq for Play {
     }
 }
 
-pub struct PlayPosition<'a> {
+pub struct PlayPosition {
     pub pos: VariantPosition,
-    pub opening: Option<&'a Opening>,
+    pub opening: Option<Opening>,
 }
 
 impl Play {
@@ -184,7 +184,7 @@ impl Play {
         }
     }
 
-    pub fn position(self, openings: &Openings) -> Result<PlayPosition<'_>, Error> {
+    pub fn position(self, openings: &Openings) -> Result<PlayPosition, Error> {
         let mut pos = match self.fen {
             Some(fen) => {
                 VariantPosition::from_setup(self.variant, fen.into_setup(), CastlingMode::Chess960)

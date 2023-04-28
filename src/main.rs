@@ -13,13 +13,13 @@ use std::{
     net::SocketAddr,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc,
+        Arc, RwLock,
     },
     time::Duration,
 };
 
 use axum::{
-    extract::{FromRef, Path, Query, State},
+    extract::{FromRef, Multipart, Path, Query, State},
     http::StatusCode,
     routing::{get, post, put},
     Json, Router,
@@ -95,7 +95,7 @@ struct CacheStats {
 
 #[derive(FromRef, Clone)]
 struct AppState {
-    openings: &'static Openings,
+    openings: &'static RwLock<Openings>,
     db: Arc<Database>,
     lichess_cache: ExplorerCache<LichessQuery>,
     lichess_history_cache: ExplorerHistoryCache,
@@ -139,6 +139,7 @@ async fn serve() {
         .route("/compact", post(compact))
         .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
+        .route("/import/openings", put(openings_import))
         .route("/masters/pgn/:id", get(masters_pgn))
         .route("/masters", get(masters))
         .route("/lichess", get(lichess))
@@ -148,7 +149,7 @@ async fn serve() {
         .route("/master", get(masters)) // bc
         .route("/personal", get(player)) // bc
         .with_state(AppState {
-            openings: Box::leak(Box::new(Openings::build_table())),
+            openings: Box::leak(Box::default()),
             lichess_cache: Cache::builder()
                 .max_capacity(opt.lichess_cache)
                 .time_to_live(Duration::from_secs(60 * 60 * 12))
@@ -310,6 +311,32 @@ async fn compact(State(db): State<Arc<Database>>, State(semaphore): State<&'stat
     spawn_blocking(semaphore, move || db.compact()).await
 }
 
+#[axum::debug_handler(state = AppState)]
+async fn openings_import(
+    State(openings): State<&'static RwLock<Openings>>,
+    State(masters_cache): State<ExplorerCache<MastersQuery>>,
+    State(lichess_cache): State<ExplorerCache<LichessQuery>>,
+    State(lichess_history_cache): State<ExplorerHistoryCache>,
+    mut multipart: Multipart,
+) -> Result<(), Error> {
+    let mut new_openings = Openings::new();
+
+    while let Some(field) = multipart.next_field().await.map_err(Arc::new)? {
+        let tsv = field.text().await.map_err(Arc::new)?;
+        new_openings.load_tsv(&tsv)?;
+    }
+
+    masters_cache.invalidate_all();
+    lichess_cache.invalidate_all();
+    lichess_history_cache.invalidate_all();
+
+    let new_len = new_openings.len();
+    *openings.write().expect("write openings") = new_openings;
+    log::info!("loaded {} opening names", new_len);
+
+    Ok(())
+}
+
 fn finalize_lichess_moves(
     moves: Vec<PreparedMove>,
     pos: &VariantPosition,
@@ -367,14 +394,14 @@ struct PlayerStreamState {
     filter: PlayerQueryFilter,
     limits: PlayerLimits,
     pos: VariantPosition,
-    opening: Option<&'static Opening>,
+    opening: Option<Opening>,
     first: bool,
     done: bool,
 }
 
 #[axum::debug_handler(state = AppState)]
 async fn player(
-    State(openings): State<&'static Openings>,
+    State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
     State(semaphore): State<&'static Semaphore>,
@@ -392,7 +419,9 @@ async fn player(
             );
             Error::IndexerQueueFull
         })?;
-    let PlayPosition { pos, opening } = query.play.position(openings)?;
+    let PlayPosition { pos, opening } = query
+        .play
+        .position(&openings.read().expect("read openings"))?;
     let key = key_builder.with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
@@ -435,7 +464,7 @@ async fn player(
                         moves: finalize_lichess_moves(filtered.moves, &state.pos, &lichess_db),
                         recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
                         top_games: None,
-                        opening: state.opening,
+                        opening: state.opening.clone(),
                         queue_position: Some(state.indexer.preceding_tickets(&state.ticket))
                     },
                     state,
@@ -475,7 +504,7 @@ async fn masters_pgn(
 
 #[axum::debug_handler(state = AppState)]
 async fn masters(
-    State(openings): State<&'static Openings>,
+    State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(cache_stats): State<&'static CacheStats>,
@@ -486,7 +515,9 @@ async fn masters(
         .get_with(query.clone(), async move {
             cache_stats.masters_miss.fetch_add(1, Ordering::Relaxed);
             spawn_blocking(semaphore, move || {
-                let PlayPosition { pos, opening } = query.play.position(openings)?;
+                let PlayPosition { pos, opening } = query
+                    .play
+                    .position(&openings.read().expect("read openings"))?;
                 let key = KeyBuilder::masters()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
                 let masters_db = db.masters();
@@ -556,7 +587,7 @@ async fn lichess_import(
 
 #[axum::debug_handler(state = AppState)]
 async fn lichess(
-    State(openings): State<&'static Openings>,
+    State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(cache_stats): State<&'static CacheStats>,
@@ -567,7 +598,9 @@ async fn lichess(
         .get_with(query.clone(), async move {
             cache_stats.lichess_miss.fetch_add(1, Ordering::Relaxed);
             spawn_blocking(semaphore, move || {
-                let PlayPosition { pos, opening } = query.play.position(openings)?;
+                let PlayPosition { pos, opening } = query
+                    .play
+                    .position(&openings.read().expect("read openings"))?;
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
                 let lichess_db = db.lichess();
@@ -592,7 +625,7 @@ async fn lichess(
 
 #[axum::debug_handler(state = AppState)]
 async fn lichess_history(
-    State(openings): State<&'static Openings>,
+    State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(lichess_history_cache): State<ExplorerHistoryCache>,
     State(cache_stats): State<&'static CacheStats>,
@@ -605,7 +638,9 @@ async fn lichess_history(
                 .lichess_history_miss
                 .fetch_add(1, Ordering::Relaxed);
             spawn_blocking(semaphore, move || {
-                let PlayPosition { pos, opening } = query.play.position(openings)?;
+                let PlayPosition { pos, opening } = query
+                    .play
+                    .position(&openings.read().expect("read openings"))?;
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
                 let lichess_db = db.lichess();

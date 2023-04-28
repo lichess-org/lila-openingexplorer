@@ -1,4 +1,6 @@
-use axum::{http::StatusCode, response::Response};
+use std::sync::Arc;
+
+use axum::{extract::multipart::MultipartError, http::StatusCode, response::Response};
 use shakmaty::{san::SanError, uci::IllegalUciError, variant::VariantPosition, PositionError};
 use thiserror::Error;
 
@@ -20,6 +22,12 @@ pub enum Error {
     RejectedDate { id: GameId, date: LaxDate },
     #[error("indexer queue full")]
     IndexerQueueFull,
+    #[error("duplicate opening position")]
+    DuplicateOpening,
+    #[error("bad request: {0}")]
+    CsvError(#[from] Arc<csv::Error>),
+    #[error("{0}")]
+    MultipartError(#[from] Arc<MultipartError>),
 }
 
 impl From<PositionError<VariantPosition>> for Error {
@@ -38,7 +46,10 @@ impl axum::response::IntoResponse for Error {
                 | Error::SanError(_)
                 | Error::DuplicateGame { .. }
                 | Error::RejectedRating { .. }
-                | Error::RejectedDate { .. } => StatusCode::BAD_REQUEST,
+                | Error::RejectedDate { .. }
+                | Error::CsvError(_)
+                | Error::DuplicateOpening => StatusCode::BAD_REQUEST,
+                Error::MultipartError(ref err) => err.status(),
             },
             self.to_string(),
         )

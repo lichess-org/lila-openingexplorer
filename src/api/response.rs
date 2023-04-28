@@ -19,7 +19,7 @@ pub struct ExplorerResponse {
     pub recent_games: Option<Vec<ExplorerGameWithUci>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_games: Option<Vec<ExplorerGameWithUci>>,
-    pub opening: Option<&'static Opening>,
+    pub opening: Option<Opening>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub queue_position: Option<u64>,
 }
@@ -100,7 +100,7 @@ impl ExplorerGame {
 #[derive(Serialize, Clone, Debug)]
 pub struct ExplorerHistoryResponse {
     pub history: Vec<ExplorerHistorySegment>,
-    pub opening: Option<&'static Opening>,
+    pub opening: Option<Opening>,
 }
 
 #[serde_as]

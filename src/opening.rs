@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::sync::Arc;
 
 use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use shakmaty::{
 
 use crate::api::Error;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Opening {
     eco: String,
     name: String,
@@ -25,49 +25,62 @@ struct OpeningRecord {
     pgn: String,
 }
 
+#[derive(Default)]
 pub struct Openings {
     data: IntMap<Zobrist64, Opening>,
 }
 
 impl Openings {
-    pub fn build_table() -> Openings {
-        let mut data = HashMap::default();
+    pub fn new() -> Openings {
+        Openings::default()
+    }
 
-        for tsv in TSV_DATA {
-            let mut tsv = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(tsv);
-            for record in tsv.deserialize() {
-                let record: OpeningRecord = record.expect("valid opening tsv");
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
 
-                let mut pos = Chess::default();
-                for token in record.pgn.split(' ') {
-                    if let Ok(san) = token.parse::<San>() {
-                        pos.play_unchecked(&san.to_move(&pos).expect("legal move"));
-                    }
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    pub fn load_tsv(&mut self, tsv: &str) -> Result<(), Error> {
+        let mut tsv = csv::ReaderBuilder::new()
+            .delimiter(b'\t')
+            .from_reader(tsv.as_bytes());
+
+        for record in tsv.deserialize() {
+            let record: OpeningRecord = record.map_err(Arc::new)?;
+
+            let mut pos = Chess::default();
+            for token in record.pgn.split(' ') {
+                if let Ok(san) = token.parse::<San>() {
+                    pos.play_unchecked(&san.to_move(&pos)?);
                 }
+            }
 
-                assert!(
-                    data.insert(
-                        pos.zobrist_hash(EnPassantMode::Legal),
-                        Opening {
-                            eco: record.eco,
-                            name: record.name,
-                        }
-                    )
-                    .is_none(),
-                    "zobrist hash unique on openings"
-                );
+            if self
+                .data
+                .insert(
+                    pos.zobrist_hash(EnPassantMode::Legal),
+                    Opening {
+                        eco: record.eco,
+                        name: record.name,
+                    },
+                )
+                .is_some()
+            {
+                return Err(Error::DuplicateOpening);
             }
         }
 
-        data.shrink_to_fit();
-        Openings { data }
+        Ok(())
     }
 
     pub fn classify_and_play(
         &self,
         root: &mut VariantPosition,
         play: Vec<Uci>,
-    ) -> Result<Option<&Opening>, Error> {
+    ) -> Result<Option<Opening>, Error> {
         let mut opening = self.classify(root);
 
         for uci in play {
@@ -77,7 +90,7 @@ impl Openings {
             opening = self.classify(root).or(opening);
         }
 
-        Ok(opening)
+        Ok(opening.cloned())
     }
 
     fn classify(&self, pos: &VariantPosition) -> Option<&Opening> {
@@ -88,14 +101,6 @@ impl Openings {
         }
     }
 }
-
-const TSV_DATA: [&[u8]; 5] = [
-    include_bytes!("../chess-openings/a.tsv"),
-    include_bytes!("../chess-openings/b.tsv"),
-    include_bytes!("../chess-openings/c.tsv"),
-    include_bytes!("../chess-openings/d.tsv"),
-    include_bytes!("../chess-openings/e.tsv"),
-];
 
 fn opening_sensible(variant: Variant) -> bool {
     matches!(
