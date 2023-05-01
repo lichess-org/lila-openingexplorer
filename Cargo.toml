@@ -20,7 +20,7 @@ csv = "1"
 env_logger = "0.10"
 futures-util = "0.3"
 log = "0.4"
-moka = { version = "0.10", features = ["future"] }
+moka = { version = "0.11", features = ["future"] }
 nohash-hasher = "0.2"
 partial_sort = "0.2"
 pin-project-lite = "0.2"
