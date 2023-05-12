@@ -42,7 +42,7 @@ use tokio::sync::Semaphore;
 
 use crate::{
     api::{
-        Error, ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerMove,
+        CacheHint, Error, ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerMove,
         ExplorerResponse, LichessHistoryQuery, LichessQuery, MastersQuery, NdJson, PlayPosition,
         PlayerLimits, PlayerQuery, PlayerQueryFilter, WithCacheHint,
     },
@@ -91,6 +91,33 @@ struct CacheStats {
     lichess_miss: AtomicU64,
     lichess_history_miss: AtomicU64,
     masters_miss: AtomicU64,
+    hint_useful: AtomicU64,
+    hint_useless: AtomicU64,
+}
+
+impl CacheStats {
+    fn inc_lichess_miss(&self, cache_hint: CacheHint) {
+        self.lichess_miss.fetch_add(1, Ordering::Relaxed);
+        self.inc_hint(cache_hint);
+    }
+
+    fn inc_lichess_history_miss(&self, cache_hint: CacheHint) {
+        self.lichess_history_miss.fetch_add(1, Ordering::Relaxed);
+        self.inc_hint(cache_hint);
+    }
+
+    fn inc_masters_miss(&self, cache_hint: CacheHint) {
+        self.masters_miss.fetch_add(1, Ordering::Relaxed);
+        self.inc_hint(cache_hint);
+    }
+
+    fn inc_hint(&self, cache_hint: CacheHint) {
+        match cache_hint {
+            CacheHint::Useless => &self.hint_useless,
+            CacheHint::Useful => &self.hint_useful,
+        }
+        .fetch_add(1, Ordering::Relaxed);
+    }
 }
 
 #[derive(FromRef, Clone)]
@@ -249,6 +276,9 @@ async fn monitor(
     let num_masters_cache = masters_cache.entry_count();
     let num_masters_miss = cache_stats.masters_miss.load(Ordering::Relaxed);
 
+    let num_hint_useless = cache_stats.hint_useless.load(Ordering::Relaxed);
+    let num_hint_useful = cache_stats.hint_useful.load(Ordering::Relaxed);
+
     spawn_blocking(semaphore, move || {
         let DbStats {
             block_index_miss,
@@ -292,6 +322,9 @@ async fn monitor(
                 // Masters cache
                 format!("masters_cache={num_masters_cache}u"),
                 format!("masters_miss={num_masters_miss}u"),
+                // Cache hints
+                format!("hint_useless={num_hint_useless}u"),
+                format!("hint_useful={num_hint_useful}u"),
                 // Column families
                 format!("masters={num_masters}u"),
                 format!("masters_game={num_masters_game}u"),
@@ -513,7 +546,7 @@ async fn masters(
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
-            cache_stats.masters_miss.fetch_add(1, Ordering::Relaxed);
+            cache_stats.inc_masters_miss(cache_hint);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query
                     .play
@@ -596,7 +629,7 @@ async fn lichess(
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
-            cache_stats.lichess_miss.fetch_add(1, Ordering::Relaxed);
+            cache_stats.inc_lichess_miss(cache_hint);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query
                     .play
@@ -634,9 +667,7 @@ async fn lichess_history(
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
     lichess_history_cache
         .get_with(query.clone(), async move {
-            cache_stats
-                .lichess_history_miss
-                .fetch_add(1, Ordering::Relaxed);
+            cache_stats.inc_lichess_history_miss(cache_hint);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query
                     .play
