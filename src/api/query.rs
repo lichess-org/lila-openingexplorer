@@ -115,10 +115,8 @@ pub struct PlayerQuery {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerLimits {
-    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "usize::max_value")]
     pub moves: usize,
-    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "usize::max_value")]
     pub recent_games: usize,
 }
@@ -203,13 +201,10 @@ impl Play {
 #[derive(Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Limits {
-    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "usize::max_value")]
     pub top_games: usize,
-    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "usize::max_value")]
     pub recent_games: usize,
-    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "Limits::default_moves")]
     pub moves: usize,
 }
