@@ -21,6 +21,15 @@ use crate::{
     opening::{Opening, Openings},
 };
 
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WithCacheHint<T> {
+    #[serde(flatten)]
+    pub query: T,
+    #[serde(default)]
+    pub cache_hint: CacheHint,
+}
+
 #[serde_as]
 #[derive(Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct MastersQuery {
@@ -216,6 +225,23 @@ impl Limits {
 
     pub fn wants_games(&self) -> bool {
         self.top_games > 0 || self.recent_games > 0
+    }
+}
+
+#[derive(Deserialize, Default, Debug, Copy, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum CacheHint {
+    Useless,
+    #[default]
+    Useful,
+}
+
+impl CacheHint {
+    pub fn is_useful(self) -> bool {
+        match self {
+            CacheHint::Useless => false,
+            CacheHint::Useful => true,
+        }
     }
 }
 

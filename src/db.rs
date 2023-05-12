@@ -8,7 +8,7 @@ use rocksdb::{
 };
 
 use crate::{
-    api::{ExplorerHistorySegment, LichessQueryFilter},
+    api::{CacheHint, ExplorerHistorySegment, LichessQueryFilter},
     model::{
         GameId, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry, MastersGame, Month,
         PlayerEntry, PlayerStatus, Stats, UserId, Year,
@@ -318,10 +318,12 @@ impl MastersDatabase<'_> {
         key: KeyPrefix,
         since: Year,
         until: Year,
+        cache_hint: CacheHint,
     ) -> Result<MastersEntry, rocksdb::Error> {
         let mut entry = MastersEntry::default();
 
         let mut opt = ReadOptions::default();
+        opt.fill_cache(cache_hint.is_useful());
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
@@ -455,10 +457,12 @@ impl LichessDatabase<'_> {
         key: &KeyPrefix,
         since: Option<Month>,
         until: Option<Month>,
+        cache_hint: CacheHint,
     ) -> Result<LichessEntry, rocksdb::Error> {
         let mut entry = LichessEntry::default();
 
         let mut opt = ReadOptions::default();
+        opt.fill_cache(cache_hint.is_useful());
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(
@@ -485,11 +489,13 @@ impl LichessDatabase<'_> {
         &self,
         key: &KeyPrefix,
         filter: &LichessQueryFilter,
+        cache_hint: CacheHint,
     ) -> Result<Vec<ExplorerHistorySegment>, rocksdb::Error> {
         let mut history = Vec::new();
         let mut last_month: Option<Month> = filter.since;
 
         let mut opt = ReadOptions::default();
+        opt.fill_cache(cache_hint.is_useful());
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(

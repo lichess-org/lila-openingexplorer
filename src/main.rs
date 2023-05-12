@@ -44,7 +44,7 @@ use crate::{
     api::{
         Error, ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerMove,
         ExplorerResponse, LichessHistoryQuery, LichessQuery, MastersQuery, NdJson, PlayPosition,
-        PlayerLimits, PlayerQuery, PlayerQueryFilter,
+        PlayerLimits, PlayerQuery, PlayerQueryFilter, WithCacheHint,
     },
     db::{Database, DbOpt, LichessDatabase, LichessStats, MastersStats},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
@@ -509,7 +509,7 @@ async fn masters(
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
-    Query(query): Query<MastersQuery>,
+    Query(WithCacheHint { query, cache_hint }): Query<WithCacheHint<MastersQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
@@ -522,7 +522,7 @@ async fn masters(
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
                 let masters_db = db.masters();
                 let entry = masters_db
-                    .read(key, query.since, query.until)
+                    .read(key, query.since, query.until, cache_hint)
                     .expect("get masters")
                     .prepare(&query.limits);
 
@@ -592,7 +592,7 @@ async fn lichess(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
-    Query(query): Query<LichessQuery>,
+    Query(WithCacheHint { query, cache_hint }): Query<WithCacheHint<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
@@ -605,7 +605,7 @@ async fn lichess(
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
                 let lichess_db = db.lichess();
                 let filtered = lichess_db
-                    .read_lichess(&key, query.filter.since, query.filter.until)
+                    .read_lichess(&key, query.filter.since, query.filter.until, cache_hint)
                     .expect("get lichess")
                     .prepare(&query.filter, &query.limits);
 
@@ -630,7 +630,7 @@ async fn lichess_history(
     State(lichess_history_cache): State<ExplorerHistoryCache>,
     State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
-    Query(query): Query<LichessHistoryQuery>,
+    Query(WithCacheHint { query, cache_hint }): Query<WithCacheHint<LichessHistoryQuery>>,
 ) -> Result<Json<ExplorerHistoryResponse>, Error> {
     lichess_history_cache
         .get_with(query.clone(), async move {
@@ -646,7 +646,7 @@ async fn lichess_history(
                 let lichess_db = db.lichess();
                 Ok(Json(ExplorerHistoryResponse {
                     history: lichess_db
-                        .read_lichess_history(&key, &query.filter)
+                        .read_lichess_history(&key, &query.filter, cache_hint)
                         .expect("get lichess history"),
                     opening,
                 }))
