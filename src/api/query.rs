@@ -5,9 +5,7 @@ use std::{
 };
 
 use serde::Deserialize;
-use serde_with::{
-    formats::CommaSeparator, serde_as, DisplayFromStr, StringWithSeparator, TryFromInto,
-};
+use serde_with::{formats::CommaSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 use shakmaty::{
     fen::Fen,
     uci::Uci,
@@ -35,10 +33,10 @@ pub struct WithCacheHint<T> {
 pub struct MastersQuery {
     #[serde(flatten)]
     pub play: Play,
-    #[serde_as(as = "TryFromInto<u16>")]
+    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "Year::min_value")]
     pub since: Year,
-    #[serde_as(as = "TryFromInto<u16>")]
+    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "Year::max_value")]
     pub until: Year,
     #[serde(flatten)]

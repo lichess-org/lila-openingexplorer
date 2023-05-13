@@ -108,6 +108,14 @@ impl TryFrom<u16> for Year {
     }
 }
 
+impl FromStr for Year {
+    type Err = InvalidDate;
+
+    fn from_str(s: &str) -> Result<Year, InvalidDate> {
+        Year::try_from(s.parse::<u16>().map_err(|_| InvalidDate::InvalidYear)?)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Month(u16);
 
