@@ -550,10 +550,12 @@ impl LichessDatabase<'_> {
         key: &KeyPrefix,
         since: Month,
         until: Month,
+        cache_hint: CacheHint,
     ) -> Result<PlayerEntry, rocksdb::Error> {
         let mut entry = PlayerEntry::default();
 
         let mut opt = ReadOptions::default();
+        opt.fill_cache(cache_hint.is_useful());
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_month(since).into_bytes());

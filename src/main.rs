@@ -438,7 +438,7 @@ async fn player(
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
     State(semaphore): State<&'static Semaphore>,
-    Query(query): Query<PlayerQuery>,
+    Query(WithCacheHint { query, cache_hint }): Query<WithCacheHint<PlayerQuery>>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let key_builder = KeyBuilder::player(&player, query.color);
@@ -487,7 +487,7 @@ async fn player(
             spawn_blocking(semaphore, move || {
                 let lichess_db = state.db.lichess();
                 let filtered = lichess_db
-                    .read_player(&state.key, state.filter.since, state.filter.until)
+                    .read_player(&state.key, state.filter.since, state.filter.until, if state.done { cache_hint } else { CacheHint::Useful })
                     .expect("read player")
                     .prepare(state.color, &state.filter, &state.limits);
 
