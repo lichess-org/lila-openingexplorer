@@ -23,8 +23,8 @@ pub struct DbOpt {
     /// Tune compaction readahead for spinning disks.
     #[arg(long)]
     db_compaction_readahead: bool,
-    /// Size of RocksDB block cache in bytes. Use up to half of the systems
-    /// RAM, leaving the majority for operating system page cache.
+    /// Size of RocksDB block cache in bytes. Use around 2/3 of the systems
+    /// RAM, leaving some memory for the operating system page cache.
     #[arg(long, default_value = "4294967296")]
     db_cache: usize,
     /// Rate limits for writes to disk in bytes per second. This is used to
