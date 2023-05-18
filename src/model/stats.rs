@@ -1,4 +1,4 @@
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Sub};
 
 use bytes::{Buf, BufMut};
 use serde::Serialize;
@@ -32,6 +32,19 @@ impl AddAssign<&Stats> for Stats {
         self.white += rhs.white;
         self.draws += rhs.draws;
         self.black += rhs.black;
+    }
+}
+
+impl<'a, 'b> Sub<&'a Stats> for &'b Stats {
+    type Output = Stats;
+
+    fn sub(self, other: &'a Stats) -> Stats {
+        Stats {
+            rating_sum: self.rating_sum - other.rating_sum,
+            white: self.white - other.white,
+            black: self.black - other.black,
+            draws: self.draws - other.draws,
+        }
     }
 }
 

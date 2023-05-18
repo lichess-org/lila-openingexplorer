@@ -8,10 +8,10 @@ use rocksdb::{
 };
 
 use crate::{
-    api::{CacheHint, ExplorerHistorySegment, LichessQueryFilter},
+    api::{CacheHint, HistoryWanted, LichessQueryFilter, Limits},
     model::{
-        GameId, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry, MastersGame, Month,
-        PlayerEntry, PlayerStatus, Stats, UserId, Year,
+        GameId, History, HistoryBuilder, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry,
+        MastersGame, Month, PlayerEntry, PlayerStatus, PreparedResponse, UserId, Year,
     },
 };
 
@@ -455,44 +455,16 @@ impl LichessDatabase<'_> {
     pub fn read_lichess(
         &self,
         key: &KeyPrefix,
-        since: Option<Month>,
-        until: Option<Month>,
-        cache_hint: CacheHint,
-    ) -> Result<LichessEntry, rocksdb::Error> {
-        let mut entry = LichessEntry::default();
-
-        let mut opt = ReadOptions::default();
-        opt.fill_cache(cache_hint.is_useful());
-        opt.set_ignore_range_deletions(true);
-        opt.set_prefix_same_as_start(true);
-        opt.set_iterate_lower_bound(
-            key.with_month(since.unwrap_or_else(Month::min_value))
-                .into_bytes(),
-        );
-        opt.set_iterate_upper_bound(
-            key.with_month(until.map_or(Month::max_value(), |m| m.add_months_saturating(1)))
-                .into_bytes(),
-        );
-
-        let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
-        iter.seek_to_first();
-
-        while let Some(mut value) = iter.value() {
-            entry.extend_from_reader(&mut value);
-            iter.next();
-        }
-
-        iter.status().map(|_| entry)
-    }
-
-    pub fn read_lichess_history(
-        &self,
-        key: &KeyPrefix,
         filter: &LichessQueryFilter,
+        limits: &Limits,
+        history: HistoryWanted,
         cache_hint: CacheHint,
-    ) -> Result<Vec<ExplorerHistorySegment>, rocksdb::Error> {
-        let mut history = Vec::new();
-        let mut last_month: Option<Month> = filter.since;
+    ) -> Result<(PreparedResponse, Option<History>), rocksdb::Error> {
+        let mut entry = LichessEntry::default();
+        let mut history = match history {
+            HistoryWanted::No => None,
+            HistoryWanted::Yes => Some(HistoryBuilder::new_starting_at(filter.since)),
+        };
 
         let mut opt = ReadOptions::default();
         opt.fill_cache(cache_hint.is_useful());
@@ -515,34 +487,27 @@ impl LichessDatabase<'_> {
         iter.seek_to_first();
 
         while let Some((key, mut value)) = iter.item() {
-            // Fill gap.
-            let month = Key::try_from(key)
-                .expect("lichess key size")
-                .month()
-                .expect("read lichess key suffix");
-            if let Some(mut last_month) = last_month {
-                while last_month < month {
-                    history.push(ExplorerHistorySegment {
-                        month: last_month,
-                        stats: Stats::default(),
-                    });
-                    last_month = last_month.add_months_saturating(1);
-                }
-            }
-            last_month = Some(month.add_months_saturating(1));
-
-            // Add entry.
-            let mut entry = LichessEntry::default();
             entry.extend_from_reader(&mut value);
-            history.push(ExplorerHistorySegment {
-                month,
-                stats: entry.total(filter),
-            });
+
+            if let Some(ref mut history) = history {
+                history.record_difference(
+                    Key::try_from(key)
+                        .expect("lichess key size")
+                        .month()
+                        .expect("read lichess key suffix"),
+                    entry.total(filter),
+                );
+            }
 
             iter.next();
         }
 
-        iter.status().map(|_| history)
+        iter.status().map(|_| {
+            (
+                entry.prepare(filter, limits),
+                history.map(HistoryBuilder::build),
+            )
+        })
     }
 
     pub fn read_player(

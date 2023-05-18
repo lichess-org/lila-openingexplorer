@@ -1,5 +1,6 @@
 mod date;
 mod game_id;
+mod history;
 mod key;
 mod lichess;
 mod lichess_game;
@@ -14,6 +15,7 @@ mod user;
 
 pub use date::{InvalidDate, LaxDate, Month, Year};
 pub use game_id::{GameId, InvalidGameId};
+pub use history::{History, HistoryBuilder, HistorySegment};
 pub use key::{Key, KeyBuilder, KeyPrefix};
 pub use lichess::{LichessEntry, LichessGroup, PreparedMove, PreparedResponse, RatingGroup};
 pub use lichess_game::{GamePlayer, LichessGame};

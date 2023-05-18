@@ -405,7 +405,7 @@ impl LichessEntry {
                                 }
                             }
 
-                            if limits.wants_games() {
+                            if limits.games_wanted() {
                                 recent_games.extend(group.games.iter().copied().map(
                                     |(idx, game)| (rating_group, speed, idx, uci.clone(), game),
                                 ));

@@ -51,6 +51,8 @@ pub struct LichessQuery {
     pub limits: Limits,
     #[serde(flatten)]
     pub filter: LichessQueryFilter,
+    #[serde(default)]
+    pub history: HistoryWanted,
 }
 
 #[derive(Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
@@ -226,9 +228,25 @@ impl Limits {
         12
     }
 
-    pub fn wants_games(&self) -> bool {
+    pub fn games_wanted(&self) -> bool {
         self.top_games > 0 || self.recent_games > 0
     }
+}
+
+#[derive(Deserialize, Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum HistoryWanted {
+    #[serde(alias = "false")]
+    #[serde(alias = "False")]
+    #[serde(alias = "off")]
+    #[serde(alias = "0")]
+    #[default]
+    No,
+    #[serde(alias = "true")]
+    #[serde(alias = "True")]
+    #[serde(alias = "on")]
+    #[serde(alias = "1")]
+    Yes,
 }
 
 #[derive(Deserialize, Default, Debug, Copy, Clone, Eq, PartialEq)]

@@ -3,7 +3,9 @@ use serde_with::{serde_as, DisplayFromStr, TryFromInto};
 use shakmaty::{san::SanPlus, uci::Uci, ByColor, Color};
 
 use crate::{
-    model::{GameId, GamePlayer, LichessGame, MastersGame, Mode, Month, Speed, Stats, Year},
+    model::{
+        GameId, GamePlayer, History, LichessGame, MastersGame, Mode, Month, Speed, Stats, Year,
+    },
     opening::Opening,
     util::ByColorDef,
 };
@@ -22,6 +24,8 @@ pub struct ExplorerResponse {
     pub opening: Option<Opening>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub queue_position: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history: Option<History>,
 }
 
 #[serde_as]
@@ -95,19 +99,4 @@ impl ExplorerGame {
             month: info.date.month(),
         }
     }
-}
-
-#[derive(Serialize, Clone, Debug)]
-pub struct ExplorerHistoryResponse {
-    pub history: Vec<ExplorerHistorySegment>,
-    pub opening: Option<Opening>,
-}
-
-#[serde_as]
-#[derive(Serialize, Clone, Debug)]
-pub struct ExplorerHistorySegment {
-    #[serde_as(as = "DisplayFromStr")]
-    pub month: Month,
-    #[serde(flatten)]
-    pub stats: Stats,
 }

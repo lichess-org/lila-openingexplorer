@@ -42,9 +42,9 @@ use tokio::sync::Semaphore;
 
 use crate::{
     api::{
-        CacheHint, Error, ExplorerGame, ExplorerGameWithUci, ExplorerHistoryResponse, ExplorerMove,
-        ExplorerResponse, LichessHistoryQuery, LichessQuery, MastersQuery, NdJson, PlayPosition,
-        PlayerLimits, PlayerQuery, PlayerQueryFilter, WithCacheHint,
+        CacheHint, Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse,
+        HistoryWanted, LichessQuery, MastersQuery, NdJson, PlayPosition, PlayerLimits, PlayerQuery,
+        PlayerQueryFilter, WithCacheHint,
     },
     db::{Database, DbOpt, LichessDatabase, LichessStats, MastersStats},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
@@ -72,9 +72,6 @@ struct Opt {
     /// Maximum number of cached responses for /lichess.
     #[arg(long, default_value = "40000")]
     lichess_cache: u64,
-    /// Maximum number of cached responses for /lichess/history.
-    #[arg(long, default_value = "4000")]
-    lichess_history_cache: u64,
     #[command(flatten)]
     db: DbOpt,
     #[command(flatten)]
@@ -83,13 +80,9 @@ struct Opt {
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 
-type ExplorerHistoryCache =
-    Cache<LichessHistoryQuery, Result<Json<ExplorerHistoryResponse>, Error>>;
-
 #[derive(Default)]
 struct CacheStats {
     lichess_miss: AtomicU64,
-    lichess_history_miss: AtomicU64,
     masters_miss: AtomicU64,
     hint_useful: AtomicU64,
     hint_useless: AtomicU64,
@@ -98,11 +91,6 @@ struct CacheStats {
 impl CacheStats {
     fn inc_lichess_miss(&self, cache_hint: CacheHint) {
         self.lichess_miss.fetch_add(1, Ordering::Relaxed);
-        self.inc_hint(cache_hint);
-    }
-
-    fn inc_lichess_history_miss(&self, cache_hint: CacheHint) {
-        self.lichess_history_miss.fetch_add(1, Ordering::Relaxed);
         self.inc_hint(cache_hint);
     }
 
@@ -125,7 +113,6 @@ struct AppState {
     openings: &'static RwLock<Openings>,
     db: Arc<Database>,
     lichess_cache: ExplorerCache<LichessQuery>,
-    lichess_history_cache: ExplorerHistoryCache,
     masters_cache: ExplorerCache<MastersQuery>,
     cache_stats: &'static CacheStats,
     lichess_importer: LichessImporter,
@@ -170,7 +157,7 @@ async fn serve() {
         .route("/masters/pgn/:id", get(masters_pgn))
         .route("/masters", get(masters))
         .route("/lichess", get(lichess))
-        .route("/lichess/history", get(lichess_history))
+        .route("/lichess/history", get(lichess_history)) // bc
         .route("/player", get(player))
         .route("/master/pgn/:id", get(masters_pgn)) // bc
         .route("/master", get(masters)) // bc
@@ -181,11 +168,6 @@ async fn serve() {
                 .max_capacity(opt.lichess_cache)
                 .time_to_live(Duration::from_secs(60 * 60 * 12))
                 .time_to_idle(Duration::from_secs(60 * 10))
-                .build(),
-            lichess_history_cache: Cache::builder()
-                .max_capacity(opt.lichess_history_cache)
-                .time_to_live(Duration::from_secs(60 * 60 * 24))
-                .time_to_idle(Duration::from_secs(60 * 60 * 2))
                 .build(),
             masters_cache: Cache::builder()
                 .max_capacity(opt.masters_cache)
@@ -258,7 +240,6 @@ async fn db_prop(
 #[axum::debug_handler(state = AppState)]
 async fn monitor(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
-    State(lichess_history_cache): State<ExplorerHistoryCache>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(cache_stats): State<&'static CacheStats>,
     State(indexer): State<IndexerStub>,
@@ -269,9 +250,6 @@ async fn monitor(
 
     let num_lichess_cache = lichess_cache.entry_count();
     let num_lichess_miss = cache_stats.lichess_miss.load(Ordering::Relaxed);
-
-    let num_lichess_history_cache = lichess_history_cache.entry_count();
-    let num_lichess_history_miss = cache_stats.lichess_history_miss.load(Ordering::Relaxed);
 
     let num_masters_cache = masters_cache.entry_count();
     let num_masters_miss = cache_stats.masters_miss.load(Ordering::Relaxed);
@@ -316,9 +294,6 @@ async fn monitor(
                 // Lichess cache
                 format!("lichess_cache={num_lichess_cache}u"),
                 format!("lichess_miss={num_lichess_miss}u"),
-                // Lichess history cache
-                format!("lichess_history_cache={num_lichess_history_cache}u"),
-                format!("lichess_history_miss={num_lichess_history_miss}u"),
                 // Masters cache
                 format!("masters_cache={num_masters_cache}u"),
                 format!("masters_miss={num_masters_miss}u"),
@@ -349,7 +324,6 @@ async fn openings_import(
     State(openings): State<&'static RwLock<Openings>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
-    State(lichess_history_cache): State<ExplorerHistoryCache>,
     mut multipart: Multipart,
 ) -> Result<(), Error> {
     let mut new_openings = Openings::empty();
@@ -361,7 +335,6 @@ async fn openings_import(
 
     masters_cache.invalidate_all();
     lichess_cache.invalidate_all();
-    lichess_history_cache.invalidate_all();
 
     let new_len = new_openings.len();
     *openings.write().expect("write openings") = new_openings;
@@ -497,6 +470,7 @@ async fn player(
                         moves: finalize_lichess_moves(filtered.moves, &state.pos, &lichess_db),
                         recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
                         top_games: None,
+                        history: None,
                         opening: state.opening.clone(),
                         queue_position: Some(state.indexer.preceding_tickets(&state.ticket))
                     },
@@ -602,6 +576,7 @@ async fn masters(
                     opening,
                     recent_games: None,
                     queue_position: None,
+                    history: None,
                 }))
             })
             .await
@@ -637,10 +612,15 @@ async fn lichess(
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
                 let lichess_db = db.lichess();
-                let filtered = lichess_db
-                    .read_lichess(&key, query.filter.since, query.filter.until, cache_hint)
-                    .expect("get lichess")
-                    .prepare(&query.filter, &query.limits);
+                let (filtered, history) = lichess_db
+                    .read_lichess(
+                        &key,
+                        &query.filter,
+                        &query.limits,
+                        query.history,
+                        cache_hint,
+                    )
+                    .expect("get lichess");
 
                 Ok(Json(ExplorerResponse {
                     total: filtered.total,
@@ -649,6 +629,7 @@ async fn lichess(
                     top_games: Some(finalize_lichess_games(filtered.top_games, &lichess_db)),
                     opening,
                     queue_position: None,
+                    history,
                 }))
             })
             .await
@@ -658,31 +639,21 @@ async fn lichess(
 
 #[axum::debug_handler(state = AppState)]
 async fn lichess_history(
-    State(openings): State<&'static RwLock<Openings>>,
-    State(db): State<Arc<Database>>,
-    State(lichess_history_cache): State<ExplorerHistoryCache>,
-    State(cache_stats): State<&'static CacheStats>,
-    State(semaphore): State<&'static Semaphore>,
-    Query(WithCacheHint { query, cache_hint }): Query<WithCacheHint<LichessHistoryQuery>>,
-) -> Result<Json<ExplorerHistoryResponse>, Error> {
-    lichess_history_cache
-        .get_with(query.clone(), async move {
-            cache_stats.inc_lichess_history_miss(cache_hint);
-            spawn_blocking(semaphore, move || {
-                let PlayPosition { pos, opening } = query
-                    .play
-                    .position(&openings.read().expect("read openings"))?;
-                let key = KeyBuilder::lichess()
-                    .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
-                let lichess_db = db.lichess();
-                Ok(Json(ExplorerHistoryResponse {
-                    history: lichess_db
-                        .read_lichess_history(&key, &query.filter, cache_hint)
-                        .expect("get lichess history"),
-                    opening,
-                }))
-            })
-            .await
-        })
-        .await
+    openings: State<&'static RwLock<Openings>>,
+    db: State<Arc<Database>>,
+    lichess_cache: State<ExplorerCache<LichessQuery>>,
+    cache_stats: State<&'static CacheStats>,
+    semaphore: State<&'static Semaphore>,
+    Query(mut with_cache_hint): Query<WithCacheHint<LichessQuery>>,
+) -> Result<Json<ExplorerResponse>, Error> {
+    with_cache_hint.query.history = HistoryWanted::Yes;
+    lichess(
+        openings,
+        db,
+        lichess_cache,
+        cache_stats,
+        semaphore,
+        Query(with_cache_hint),
+    )
+    .await
 }
