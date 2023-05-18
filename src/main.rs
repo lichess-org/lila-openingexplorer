@@ -79,6 +79,7 @@ struct Opt {
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 
+#[derive(Default)]
 struct PlyStats {
     groups: [AtomicU64; 10],
 }
