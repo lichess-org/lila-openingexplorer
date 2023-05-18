@@ -26,6 +26,8 @@ pub struct WithCacheHint<T> {
     pub query: T,
     #[serde(default)]
     pub cache_hint: Option<CacheHint>,
+    #[serde(default)]
+    pub source: Option<Source>,
 }
 
 #[serde_as]
@@ -254,6 +256,15 @@ pub enum HistoryWanted {
 pub enum CacheHint {
     Useless,
     Useful,
+}
+
+#[derive(Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum Source {
+    Analysis,
+    Fishnet,
+    Opening,
+    OpeningCrawler,
 }
 
 #[cfg(test)]

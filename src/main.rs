@@ -25,7 +25,6 @@ use axum::{
     Json, Router,
 };
 use clap::Parser;
-use db::DbStats;
 use futures_util::stream::Stream;
 use moka::future::Cache;
 use serde::Deserialize;
@@ -44,9 +43,9 @@ use crate::{
     api::{
         CacheHint, Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse,
         HistoryWanted, LichessQuery, MastersQuery, NdJson, PlayPosition, PlayerLimits, PlayerQuery,
-        PlayerQueryFilter, WithCacheHint,
+        PlayerQueryFilter, Source, WithCacheHint,
     },
-    db::{Database, DbOpt, LichessDatabase, LichessStats, MastersStats},
+    db::{Database, DbOpt, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub, QueueFull, Ticket},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
@@ -84,20 +83,30 @@ type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 struct CacheStats {
     lichess_miss: AtomicU64,
     masters_miss: AtomicU64,
+
     hint_none: AtomicU64,
     hint_useful: AtomicU64,
     hint_useless: AtomicU64,
+
+    source_none: AtomicU64,
+    source_analysis_lichess: AtomicU64,
+    source_analysis_masters: AtomicU64,
+    source_fishnet: AtomicU64,
+    source_opening: AtomicU64,
+    source_opening_crawler: AtomicU64,
 }
 
 impl CacheStats {
-    fn inc_lichess_miss(&self, cache_hint: Option<CacheHint>) {
+    fn inc_lichess_miss(&self, cache_hint: Option<CacheHint>, source: Option<Source>) {
         self.lichess_miss.fetch_add(1, Ordering::Relaxed);
         self.inc_hint(cache_hint);
+        self.inc_source(source, &self.source_analysis_lichess);
     }
 
-    fn inc_masters_miss(&self, cache_hint: Option<CacheHint>) {
+    fn inc_masters_miss(&self, cache_hint: Option<CacheHint>, source: Option<Source>) {
         self.masters_miss.fetch_add(1, Ordering::Relaxed);
         self.inc_hint(cache_hint);
+        self.inc_source(source, &self.source_analysis_masters);
     }
 
     fn inc_hint(&self, cache_hint: Option<CacheHint>) {
@@ -105,6 +114,17 @@ impl CacheStats {
             None => &self.hint_none,
             Some(CacheHint::Useless) => &self.hint_useless,
             Some(CacheHint::Useful) => &self.hint_useful,
+        }
+        .fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn inc_source(&self, source: Option<Source>, analysis_db: &AtomicU64) {
+        match source {
+            None => &self.source_none,
+            Some(Source::Analysis) => analysis_db,
+            Some(Source::Fishnet) => &self.source_fishnet,
+            Some(Source::Opening) => &self.source_opening,
+            Some(Source::OpeningCrawler) => &self.source_opening_crawler,
         }
         .fetch_add(1, Ordering::Relaxed);
     }
@@ -248,69 +268,79 @@ async fn monitor(
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
 ) -> String {
-    let num_indexing = indexer.num_indexing();
-
-    let num_lichess_cache = lichess_cache.entry_count();
-    let num_lichess_miss = cache_stats.lichess_miss.load(Ordering::Relaxed);
-
-    let num_masters_cache = masters_cache.entry_count();
-    let num_masters_miss = cache_stats.masters_miss.load(Ordering::Relaxed);
-
-    let num_hint_none = cache_stats.hint_none.load(Ordering::Relaxed);
-    let num_hint_useless = cache_stats.hint_useless.load(Ordering::Relaxed);
-    let num_hint_useful = cache_stats.hint_useful.load(Ordering::Relaxed);
-
     spawn_blocking(semaphore, move || {
-        let DbStats {
-            block_index_miss,
-            block_index_hit,
-            block_filter_miss,
-            block_filter_hit,
-            block_data_miss,
-            block_data_hit,
-        } = db.stats().expect("db stats");
-
-        let MastersStats {
-            num_masters,
-            num_masters_game,
-        } = db.masters().estimate_stats().expect("masters stats");
-
-        let LichessStats {
-            num_lichess,
-            num_lichess_game,
-            num_player,
-            num_player_status,
-        } = db.lichess().estimate_stats().expect("lichess stats");
-
+        let db_stats = db.stats().expect("db stats");
+        let masters_stats = db.masters().estimate_stats().expect("masters stats");
+        let lichess_stats = db.lichess().estimate_stats().expect("lichess stats");
         format!(
             "opening_explorer {}",
             [
                 // Block cache
-                format!("block_index_miss={block_index_miss}u"),
-                format!("block_index_hit={block_index_hit}u"),
-                format!("block_filter_miss={block_filter_miss}u"),
-                format!("block_filter_hit={block_filter_hit}u"),
-                format!("block_data_miss={block_data_miss}u"),
-                format!("block_data_hit={block_data_hit}u"),
+                format!("block_index_miss={}u", db_stats.block_index_miss),
+                format!("block_index_hit={}u", db_stats.block_index_hit),
+                format!("block_filter_miss={}u", db_stats.block_filter_miss),
+                format!("block_filter_hit={}u", db_stats.block_filter_hit),
+                format!("block_data_miss={}u", db_stats.block_data_miss),
+                format!("block_data_hit={}u", db_stats.block_data_hit),
                 // Indexer
-                format!("indexing={num_indexing}u"),
+                format!("indexing={}u", indexer.num_indexing()),
                 // Lichess cache
-                format!("lichess_cache={num_lichess_cache}u"),
-                format!("lichess_miss={num_lichess_miss}u"),
+                format!("lichess_cache={}u", lichess_cache.entry_count()),
+                format!(
+                    "lichess_miss={}u",
+                    cache_stats.lichess_miss.load(Ordering::Relaxed)
+                ),
                 // Masters cache
-                format!("masters_cache={num_masters_cache}u"),
-                format!("masters_miss={num_masters_miss}u"),
-                // Cache hints
-                format!("hint_none={num_hint_none}u"),
-                format!("hint_useless={num_hint_useless}u"),
-                format!("hint_useful={num_hint_useful}u"),
+                format!("masters_cache={}u", masters_cache.entry_count()),
+                format!(
+                    "masters_miss={}u",
+                    cache_stats.masters_miss.load(Ordering::Relaxed)
+                ),
+                // Cache miss: hint
+                format!(
+                    "hint_none={}u",
+                    cache_stats.hint_none.load(Ordering::Relaxed)
+                ),
+                format!(
+                    "hint_useless={}u",
+                    cache_stats.hint_useless.load(Ordering::Relaxed)
+                ),
+                format!(
+                    "hint_useful={}u",
+                    cache_stats.hint_useful.load(Ordering::Relaxed)
+                ),
+                // Cache miss: source
+                format!(
+                    "source_none={}u",
+                    cache_stats.source_none.load(Ordering::Relaxed)
+                ),
+                format!(
+                    "source_analysis_lichess={}u",
+                    cache_stats.source_analysis_lichess.load(Ordering::Relaxed)
+                ),
+                format!(
+                    "source_analysis_masters={}u",
+                    cache_stats.source_analysis_masters.load(Ordering::Relaxed)
+                ),
+                format!(
+                    "source_fishnet={}u",
+                    cache_stats.source_fishnet.load(Ordering::Relaxed)
+                ),
+                format!(
+                    "source_opening={}u",
+                    cache_stats.source_opening.load(Ordering::Relaxed)
+                ),
+                format!(
+                    "source_opening_crawler={}u",
+                    cache_stats.source_opening_crawler.load(Ordering::Relaxed)
+                ),
                 // Column families
-                format!("masters={num_masters}u"),
-                format!("masters_game={num_masters_game}u"),
-                format!("lichess={num_lichess}u"),
-                format!("lichess_game={num_lichess_game}u"),
-                format!("player={num_player}u"),
-                format!("player_status={num_player_status}u"),
+                format!("masters={}u", masters_stats.num_masters),
+                format!("masters_game={}u", masters_stats.num_masters_game),
+                format!("lichess={}u", lichess_stats.num_lichess),
+                format!("lichess_game={}u", lichess_stats.num_lichess_game),
+                format!("player={}u", lichess_stats.num_player),
+                format!("player_status={}u", lichess_stats.num_player_status),
             ]
             .join(",")
         )
@@ -415,7 +445,9 @@ async fn player(
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
     State(semaphore): State<&'static Semaphore>,
-    Query(WithCacheHint { query, cache_hint }): Query<WithCacheHint<PlayerQuery>>,
+    Query(WithCacheHint {
+        query, cache_hint, ..
+    }): Query<WithCacheHint<PlayerQuery>>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let key_builder = KeyBuilder::player(&player, query.color);
@@ -520,11 +552,15 @@ async fn masters(
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
-    Query(WithCacheHint { query, cache_hint }): Query<WithCacheHint<MastersQuery>>,
+    Query(WithCacheHint {
+        query,
+        cache_hint,
+        source,
+    }): Query<WithCacheHint<MastersQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
-            cache_stats.inc_masters_miss(cache_hint);
+            cache_stats.inc_masters_miss(cache_hint, source);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query
                     .play
@@ -604,11 +640,15 @@ async fn lichess(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
-    Query(WithCacheHint { query, cache_hint }): Query<WithCacheHint<LichessQuery>>,
+    Query(WithCacheHint {
+        query,
+        cache_hint,
+        source,
+    }): Query<WithCacheHint<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
-            cache_stats.inc_lichess_miss(cache_hint);
+            cache_stats.inc_lichess_miss(cache_hint, source);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query
                     .play
