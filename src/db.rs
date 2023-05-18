@@ -463,7 +463,7 @@ impl LichessDatabase<'_> {
         let mut entry = LichessEntry::default();
         let mut history = match history {
             HistoryWanted::No => None,
-            HistoryWanted::Yes => Some(HistoryBuilder::new_starting_at(filter.since)),
+            HistoryWanted::Yes => Some(HistoryBuilder::new_between(filter.since, filter.until)),
         };
 
         let mut opt = ReadOptions::default();

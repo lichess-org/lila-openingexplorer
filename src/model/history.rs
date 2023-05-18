@@ -19,14 +19,16 @@ pub struct HistoryBuilder {
     segments: Vec<HistorySegment>,
     last_total: Stats,
     last_month: Option<Month>,
+    until_is_none: bool,
 }
 
 impl HistoryBuilder {
-    pub fn new_starting_at(month: Option<Month>) -> HistoryBuilder {
+    pub fn new_between(since: Option<Month>, until: Option<Month>) -> HistoryBuilder {
         HistoryBuilder {
             segments: Vec::with_capacity(128),
             last_total: Stats::default(),
-            last_month: month,
+            last_month: since,
+            until_is_none: until.is_none(),
         }
     }
 
@@ -51,7 +53,13 @@ impl HistoryBuilder {
         self.last_total = total;
     }
 
-    pub fn build(self) -> History {
+    pub fn build(mut self) -> History {
+        if self.until_is_none {
+            // By default, omit the last month, which may not be completely
+            // indexed.
+            self.segments.pop();
+        }
+
         self.segments
     }
 }
