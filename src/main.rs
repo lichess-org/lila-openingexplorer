@@ -34,7 +34,7 @@ use shakmaty::{
     uci::Uci,
     variant::VariantPosition,
     zobrist::ZobristHash,
-    Color, EnPassantMode,
+    Color, EnPassantMode, Position,
 };
 use tikv_jemallocator::Jemalloc;
 use tokio::sync::Semaphore;
@@ -79,6 +79,33 @@ struct Opt {
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 
+struct PlyStats {
+    groups: [AtomicU64; 10],
+}
+
+impl PlyStats {
+    const GROUP_WIDTH: usize = 5;
+
+    fn inc(&self, ply: u32) {
+        if let Some(group) = self.groups.get(ply as usize / PlyStats::GROUP_WIDTH) {
+            group.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    fn to_influx_string(&self, prefix: &str) -> String {
+        self.groups
+            .iter()
+            .enumerate()
+            .map(|(i, group)| {
+                let ply = i * PlyStats::GROUP_WIDTH;
+                let num = group.load(Ordering::Relaxed);
+                format!("{prefix}_{ply}={num}u")
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+}
+
 #[derive(Default)]
 struct CacheStats {
     lichess_miss: AtomicU64,
@@ -94,13 +121,16 @@ struct CacheStats {
     source_fishnet: AtomicU64,
     source_opening: AtomicU64,
     source_opening_crawler: AtomicU64,
+
+    lichess_ply: PlyStats,
 }
 
 impl CacheStats {
-    fn inc_lichess_miss(&self, cache_hint: Option<CacheHint>, source: Option<Source>) {
+    fn inc_lichess_miss(&self, cache_hint: Option<CacheHint>, source: Option<Source>, ply: u32) {
         self.lichess_miss.fetch_add(1, Ordering::Relaxed);
         self.inc_hint(cache_hint);
         self.inc_source(source, &self.source_analysis_lichess);
+        self.lichess_ply.inc(ply);
     }
 
     fn inc_masters_miss(&self, cache_hint: Option<CacheHint>, source: Option<Source>) {
@@ -296,7 +326,7 @@ async fn monitor(
                     "masters_miss={}u",
                     cache_stats.masters_miss.load(Ordering::Relaxed)
                 ),
-                // Cache miss: hint
+                // Cache hint (response cache miss only)
                 format!(
                     "hint_none={}u",
                     cache_stats.hint_none.load(Ordering::Relaxed)
@@ -309,7 +339,7 @@ async fn monitor(
                     "hint_useful={}u",
                     cache_stats.hint_useful.load(Ordering::Relaxed)
                 ),
-                // Cache miss: source
+                // Source (response cache miss only)
                 format!(
                     "source_none={}u",
                     cache_stats.source_none.load(Ordering::Relaxed)
@@ -334,6 +364,8 @@ async fn monitor(
                     "source_opening_crawler={}u",
                     cache_stats.source_opening_crawler.load(Ordering::Relaxed)
                 ),
+                // Ply (response cache miss only)
+                cache_stats.lichess_ply.to_influx_string("lichess_ply"),
                 // Column families
                 format!("masters={}u", masters_stats.num_masters),
                 format!("masters_game={}u", masters_stats.num_masters_game),
@@ -560,11 +592,13 @@ async fn masters(
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
-            cache_stats.inc_masters_miss(cache_hint, source);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query
                     .play
                     .position(&openings.read().expect("read openings"))?;
+
+                cache_stats.inc_masters_miss(cache_hint, source);
+
                 let key = KeyBuilder::masters()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
                 let masters_db = db.masters();
@@ -648,11 +682,19 @@ async fn lichess(
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
-            cache_stats.inc_lichess_miss(cache_hint, source);
             spawn_blocking(semaphore, move || {
                 let PlayPosition { pos, opening } = query
                     .play
                     .position(&openings.read().expect("read openings"))?;
+
+                cache_stats.inc_lichess_miss(
+                    cache_hint,
+                    source,
+                    (u32::from(pos.fullmoves()) - 1)
+                        .saturating_mul(2)
+                        .saturating_add(pos.turn().fold_wb(0, 1)),
+                );
+
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
                 let lichess_db = db.lichess();
