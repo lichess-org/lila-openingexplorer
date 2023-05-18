@@ -318,12 +318,12 @@ impl MastersDatabase<'_> {
         key: KeyPrefix,
         since: Year,
         until: Year,
-        cache_hint: CacheHint,
+        cache_hint: Option<CacheHint>,
     ) -> Result<MastersEntry, rocksdb::Error> {
         let mut entry = MastersEntry::default();
 
         let mut opt = ReadOptions::default();
-        opt.fill_cache(cache_hint.is_useful());
+        opt.fill_cache(cache_hint != Some(CacheHint::Useless));
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
@@ -458,7 +458,7 @@ impl LichessDatabase<'_> {
         filter: &LichessQueryFilter,
         limits: &Limits,
         history: HistoryWanted,
-        cache_hint: CacheHint,
+        cache_hint: Option<CacheHint>,
     ) -> Result<(PreparedResponse, Option<History>), rocksdb::Error> {
         let mut entry = LichessEntry::default();
         let mut history = match history {
@@ -467,7 +467,7 @@ impl LichessDatabase<'_> {
         };
 
         let mut opt = ReadOptions::default();
-        opt.fill_cache(cache_hint.is_useful());
+        opt.fill_cache(cache_hint != Some(CacheHint::Useless));
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(
@@ -515,12 +515,12 @@ impl LichessDatabase<'_> {
         key: &KeyPrefix,
         since: Month,
         until: Month,
-        cache_hint: CacheHint,
+        cache_hint: Option<CacheHint>,
     ) -> Result<PlayerEntry, rocksdb::Error> {
         let mut entry = PlayerEntry::default();
 
         let mut opt = ReadOptions::default();
-        opt.fill_cache(cache_hint.is_useful());
+        opt.fill_cache(cache_hint != Some(CacheHint::Useless));
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_month(since).into_bytes());

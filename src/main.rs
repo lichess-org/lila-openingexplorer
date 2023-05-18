@@ -84,25 +84,27 @@ type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 struct CacheStats {
     lichess_miss: AtomicU64,
     masters_miss: AtomicU64,
+    hint_none: AtomicU64,
     hint_useful: AtomicU64,
     hint_useless: AtomicU64,
 }
 
 impl CacheStats {
-    fn inc_lichess_miss(&self, cache_hint: CacheHint) {
+    fn inc_lichess_miss(&self, cache_hint: Option<CacheHint>) {
         self.lichess_miss.fetch_add(1, Ordering::Relaxed);
         self.inc_hint(cache_hint);
     }
 
-    fn inc_masters_miss(&self, cache_hint: CacheHint) {
+    fn inc_masters_miss(&self, cache_hint: Option<CacheHint>) {
         self.masters_miss.fetch_add(1, Ordering::Relaxed);
         self.inc_hint(cache_hint);
     }
 
-    fn inc_hint(&self, cache_hint: CacheHint) {
+    fn inc_hint(&self, cache_hint: Option<CacheHint>) {
         match cache_hint {
-            CacheHint::Useless => &self.hint_useless,
-            CacheHint::Useful => &self.hint_useful,
+            None => &self.hint_none,
+            Some(CacheHint::Useless) => &self.hint_useless,
+            Some(CacheHint::Useful) => &self.hint_useful,
         }
         .fetch_add(1, Ordering::Relaxed);
     }
@@ -254,6 +256,7 @@ async fn monitor(
     let num_masters_cache = masters_cache.entry_count();
     let num_masters_miss = cache_stats.masters_miss.load(Ordering::Relaxed);
 
+    let num_hint_none = cache_stats.hint_none.load(Ordering::Relaxed);
     let num_hint_useless = cache_stats.hint_useless.load(Ordering::Relaxed);
     let num_hint_useful = cache_stats.hint_useful.load(Ordering::Relaxed);
 
@@ -298,6 +301,7 @@ async fn monitor(
                 format!("masters_cache={num_masters_cache}u"),
                 format!("masters_miss={num_masters_miss}u"),
                 // Cache hints
+                format!("hint_none={num_hint_none}u"),
                 format!("hint_useless={num_hint_useless}u"),
                 format!("hint_useful={num_hint_useful}u"),
                 // Column families
@@ -460,7 +464,7 @@ async fn player(
             spawn_blocking(semaphore, move || {
                 let lichess_db = state.db.lichess();
                 let filtered = lichess_db
-                    .read_player(&state.key, state.filter.since, state.filter.until, if state.done { cache_hint } else { CacheHint::Useful })
+                    .read_player(&state.key, state.filter.since, state.filter.until, if state.done { cache_hint } else { Some(CacheHint::Useful) })
                     .expect("read player")
                     .prepare(state.color, &state.filter, &state.limits);
 
