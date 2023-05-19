@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, path::PathBuf, time::Instant};
+use std::{path::PathBuf, time::Instant};
 
 use clap::Parser;
 use rocksdb::{
@@ -6,7 +6,6 @@ use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
     MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
-use shakmaty::Color;
 
 use crate::{
     api::{HistoryWanted, LichessQueryFilter, Limits},
@@ -80,10 +79,6 @@ pub struct CacheHint {
 impl CacheHint {
     pub fn from_ply(ply: u32) -> CacheHint {
         CacheHint { ply }
-    }
-
-    pub fn from_fullmoves_and_turn(fullmoves: NonZeroU32, turn: Color) -> CacheHint {
-        Self::from_ply((u32::from(fullmoves) - 1) / 2 + turn.fold_wb(0, 1))
     }
 
     pub fn always() -> CacheHint {

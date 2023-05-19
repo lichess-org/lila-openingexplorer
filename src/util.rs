@@ -8,7 +8,7 @@ use futures_util::{ready, stream::Stream};
 use partial_sort::partial_sort;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
-use shakmaty::ByColor;
+use shakmaty::{variant::VariantPosition, ByColor, Position};
 use tokio::{sync::Semaphore, task};
 
 #[derive(Serialize, Deserialize)]
@@ -16,6 +16,12 @@ use tokio::{sync::Semaphore, task};
 pub struct ByColorDef<T> {
     black: T,
     white: T,
+}
+
+pub fn ply(pos: &VariantPosition) -> u32 {
+    (u32::from(pos.fullmoves()) - 1)
+        .saturating_mul(2)
+        .saturating_add(pos.turn().fold_wb(0, 1))
 }
 
 pub fn sort_by_key_and_truncate<T, K, F>(vec: &mut Vec<T>, num: usize, mut f: F)

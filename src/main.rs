@@ -6,15 +6,13 @@ pub mod importer;
 pub mod indexer;
 pub mod model;
 pub mod opening;
+pub mod stats;
 pub mod util;
 
 use std::{
     net::SocketAddr,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc, RwLock,
-    },
-    time::Duration,
+    sync::{Arc, RwLock},
+    time::{Duration, Instant},
 };
 
 use axum::{
@@ -33,7 +31,7 @@ use shakmaty::{
     uci::Uci,
     variant::VariantPosition,
     zobrist::ZobristHash,
-    Color, EnPassantMode, Position,
+    Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
 use tokio::sync::Semaphore;
@@ -42,14 +40,15 @@ use crate::{
     api::{
         Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, HistoryWanted,
         LichessQuery, MastersQuery, NdJson, PlayPosition, PlayerLimits, PlayerQuery,
-        PlayerQueryFilter, Source, WithSource,
+        PlayerQueryFilter, WithSource,
     },
     db::{CacheHint, Database, DbOpt, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub, QueueFull, Ticket},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
-    util::{spawn_blocking, DedupStreamExt as _},
+    stats::Stats,
+    util::{ply, spawn_blocking, DedupStreamExt as _},
 };
 
 #[global_allocator]
@@ -78,82 +77,13 @@ struct Opt {
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 
-#[derive(Default)]
-struct PlyStats {
-    groups: [AtomicU64; 10],
-}
-
-impl PlyStats {
-    const GROUP_WIDTH: usize = 5;
-
-    fn inc(&self, ply: u32) {
-        if let Some(group) = self.groups.get(ply as usize / PlyStats::GROUP_WIDTH) {
-            group.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-
-    fn to_influx_string(&self, prefix: &str) -> String {
-        self.groups
-            .iter()
-            .enumerate()
-            .map(|(i, group)| {
-                let ply = i * PlyStats::GROUP_WIDTH;
-                let num = group.load(Ordering::Relaxed);
-                format!("{prefix}_{ply}={num}u")
-            })
-            .collect::<Vec<_>>()
-            .join(",")
-    }
-}
-
-#[derive(Default)]
-struct CacheStats {
-    lichess_miss: AtomicU64,
-    masters_miss: AtomicU64,
-
-    source_none: AtomicU64,
-    source_analysis_lichess: AtomicU64,
-    source_analysis_masters: AtomicU64,
-    source_analysis_player: AtomicU64,
-    source_analysis_player_incomplete: AtomicU64,
-    source_fishnet: AtomicU64,
-    source_opening: AtomicU64,
-    source_opening_crawler: AtomicU64,
-
-    lichess_ply: PlyStats,
-}
-
-impl CacheStats {
-    fn inc_lichess_miss(&self, source: Option<Source>, ply: u32) {
-        self.lichess_miss.fetch_add(1, Ordering::Relaxed);
-        self.inc_source(source, &self.source_analysis_lichess);
-        self.lichess_ply.inc(ply);
-    }
-
-    fn inc_masters_miss(&self, source: Option<Source>) {
-        self.masters_miss.fetch_add(1, Ordering::Relaxed);
-        self.inc_source(source, &self.source_analysis_masters);
-    }
-
-    fn inc_source(&self, source: Option<Source>, analysis_db: &AtomicU64) {
-        match source {
-            None => &self.source_none,
-            Some(Source::Analysis) => analysis_db,
-            Some(Source::Fishnet) => &self.source_fishnet,
-            Some(Source::Opening) => &self.source_opening,
-            Some(Source::OpeningCrawler) => &self.source_opening_crawler,
-        }
-        .fetch_add(1, Ordering::Relaxed);
-    }
-}
-
 #[derive(FromRef, Clone)]
 struct AppState {
     openings: &'static RwLock<Openings>,
     db: Arc<Database>,
     lichess_cache: ExplorerCache<LichessQuery>,
     masters_cache: ExplorerCache<MastersQuery>,
-    cache_stats: &'static CacheStats,
+    stats: &'static Stats,
     lichess_importer: LichessImporter,
     masters_importer: MastersImporter,
     indexer: IndexerStub,
@@ -213,7 +143,7 @@ async fn serve() {
                 .time_to_live(Duration::from_secs(60 * 60 * 24))
                 .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
-            cache_stats: Box::leak(Box::default()),
+            stats: Box::leak(Box::default()),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),
             indexer,
@@ -280,7 +210,7 @@ async fn db_prop(
 async fn monitor(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
-    State(cache_stats): State<&'static CacheStats>,
+    State(stats): State<&'static Stats>,
     State(indexer): State<IndexerStub>,
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
@@ -301,55 +231,9 @@ async fn monitor(
                 format!("block_data_hit={}u", db_stats.block_data_hit),
                 // Indexer
                 format!("indexing={}u", indexer.num_indexing()),
-                // Lichess cache
+                // Cache entries
                 format!("lichess_cache={}u", lichess_cache.entry_count()),
-                format!(
-                    "lichess_miss={}u",
-                    cache_stats.lichess_miss.load(Ordering::Relaxed)
-                ),
-                // Masters cache
                 format!("masters_cache={}u", masters_cache.entry_count()),
-                format!(
-                    "masters_miss={}u",
-                    cache_stats.masters_miss.load(Ordering::Relaxed)
-                ),
-                // Source (response cache miss only)
-                format!(
-                    "source_none={}u",
-                    cache_stats.source_none.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "source_analysis_lichess={}u",
-                    cache_stats.source_analysis_lichess.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "source_analysis_masters={}u",
-                    cache_stats.source_analysis_masters.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "source_fishnet={}u",
-                    cache_stats.source_fishnet.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "source_opening={}u",
-                    cache_stats.source_opening.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "source_opening_crawler={}u",
-                    cache_stats.source_opening_crawler.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "source_analysis_player={}u",
-                    cache_stats.source_analysis_player.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "source_analysis_player_incomplete={}u",
-                    cache_stats
-                        .source_analysis_player_incomplete
-                        .load(Ordering::Relaxed)
-                ),
-                // Ply (response cache miss only)
-                cache_stats.lichess_ply.to_influx_string("lichess_ply"),
                 // Column families
                 format!("masters={}u", masters_stats.num_masters),
                 format!("masters_game={}u", masters_stats.num_masters_game),
@@ -357,6 +241,8 @@ async fn monitor(
                 format!("lichess_game={}u", lichess_stats.num_lichess_game),
                 format!("player={}u", lichess_stats.num_player),
                 format!("player_status={}u", lichess_stats.num_player_status),
+                // Database hits
+                stats.to_influx_string(),
             ]
             .join(",")
         )
@@ -460,7 +346,7 @@ async fn player(
     State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
-    State(cache_stats): State<&'static CacheStats>,
+    State(stats): State<&'static Stats>,
     State(semaphore): State<&'static Semaphore>,
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
@@ -479,7 +365,7 @@ async fn player(
     let PlayPosition { pos, opening } = query
         .play
         .position(&openings.read().expect("read openings"))?;
-    let cache_hint = CacheHint::from_fullmoves_and_turn(pos.fullmoves(), pos.turn());
+    let cache_hint = CacheHint::from_ply(ply(&pos));
     let key = key_builder.with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
@@ -523,11 +409,7 @@ async fn player(
                 },
                 _ => {
                     spawn_blocking(semaphore, move || {
-                        if state.done {
-                            &cache_stats.source_analysis_player
-                        } else {
-                            &cache_stats.source_analysis_player_incomplete
-                        }.fetch_add(1, Ordering::Relaxed);
+                        let started_at = Instant::now();
 
                         let lichess_db = state.db.lichess();
                         let filtered = lichess_db
@@ -549,6 +431,7 @@ async fn player(
                             state.first_response = Some(response.clone());
                         }
 
+                        stats.inc_player(started_at.elapsed(), state.done, ply(&state.pos));
                         (response, state)
                     }).await
                 }
@@ -590,29 +473,29 @@ async fn masters(
     State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
-    State(cache_stats): State<&'static CacheStats>,
+    State(stats): State<&'static Stats>,
     State(semaphore): State<&'static Semaphore>,
     Query(WithSource { query, source }): Query<WithSource<MastersQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
             spawn_blocking(semaphore, move || {
+                let started_at = Instant::now();
+
                 let PlayPosition { pos, opening } = query
                     .play
                     .position(&openings.read().expect("read openings"))?;
 
-                cache_stats.inc_masters_miss(source);
-
                 let key = KeyBuilder::masters()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
-                let cache_hint = CacheHint::from_fullmoves_and_turn(pos.fullmoves(), pos.turn());
+                let cache_hint = CacheHint::from_ply(ply(&pos));
                 let masters_db = db.masters();
                 let entry = masters_db
                     .read(key, query.since, query.until, cache_hint)
                     .expect("get masters")
                     .prepare(&query.limits);
 
-                Ok(Json(ExplorerResponse {
+                let response = Ok(Json(ExplorerResponse {
                     total: entry.total,
                     moves: entry
                         .moves
@@ -656,7 +539,10 @@ async fn masters(
                     recent_games: None,
                     queue_position: None,
                     history: None,
-                }))
+                }));
+
+                stats.inc_masters(started_at.elapsed(), source, ply(&pos));
+                response
             })
             .await
         })
@@ -677,27 +563,22 @@ async fn lichess(
     State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
-    State(cache_stats): State<&'static CacheStats>,
+    State(stats): State<&'static Stats>,
     State(semaphore): State<&'static Semaphore>,
     Query(WithSource { query, source }): Query<WithSource<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
             spawn_blocking(semaphore, move || {
+                let started_at = Instant::now();
+
                 let PlayPosition { pos, opening } = query
                     .play
                     .position(&openings.read().expect("read openings"))?;
 
-                cache_stats.inc_lichess_miss(
-                    source,
-                    (u32::from(pos.fullmoves()) - 1)
-                        .saturating_mul(2)
-                        .saturating_add(pos.turn().fold_wb(0, 1)),
-                );
-
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
-                let cache_hint = CacheHint::from_fullmoves_and_turn(pos.fullmoves(), pos.turn());
+                let cache_hint = CacheHint::from_ply(ply(&pos));
                 let lichess_db = db.lichess();
                 let (filtered, history) = lichess_db
                     .read_lichess(
@@ -709,7 +590,7 @@ async fn lichess(
                     )
                     .expect("get lichess");
 
-                Ok(Json(ExplorerResponse {
+                let response = Ok(Json(ExplorerResponse {
                     total: filtered.total,
                     moves: finalize_lichess_moves(filtered.moves, &pos, &lichess_db),
                     recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
@@ -717,7 +598,10 @@ async fn lichess(
                     opening,
                     queue_position: None,
                     history,
-                }))
+                }));
+
+                stats.inc_lichess(started_at.elapsed(), source, ply(&pos));
+                response
             })
             .await
         })
@@ -729,7 +613,7 @@ async fn lichess_history(
     openings: State<&'static RwLock<Openings>>,
     db: State<Arc<Database>>,
     lichess_cache: State<ExplorerCache<LichessQuery>>,
-    cache_stats: State<&'static CacheStats>,
+    stats: State<&'static Stats>,
     semaphore: State<&'static Semaphore>,
     Query(mut with_source): Query<WithSource<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
@@ -741,7 +625,7 @@ async fn lichess_history(
         openings,
         db,
         lichess_cache,
-        cache_stats,
+        stats,
         semaphore,
         Query(with_source),
     )
