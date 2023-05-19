@@ -6,8 +6,7 @@ mod response;
 pub use error::Error;
 pub use nd_json::NdJson;
 pub use query::{
-    CacheHint, HistoryWanted, LichessHistoryQuery, LichessQuery, LichessQueryFilter, Limits,
-    MastersQuery, PlayPosition, PlayerLimits, PlayerQuery, PlayerQueryFilter, Source,
-    WithCacheHint,
+    HistoryWanted, LichessHistoryQuery, LichessQuery, LichessQueryFilter, Limits, MastersQuery,
+    PlayPosition, PlayerLimits, PlayerQuery, PlayerQueryFilter, Source, WithSource,
 };
 pub use response::{ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse};

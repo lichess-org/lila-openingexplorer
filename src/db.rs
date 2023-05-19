@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Instant};
+use std::{num::NonZeroU32, path::PathBuf, time::Instant};
 
 use clap::Parser;
 use rocksdb::{
@@ -6,9 +6,10 @@ use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
     MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
+use shakmaty::Color;
 
 use crate::{
-    api::{CacheHint, HistoryWanted, LichessQueryFilter, Limits},
+    api::{HistoryWanted, LichessQueryFilter, Limits},
     model::{
         GameId, History, HistoryBuilder, Key, KeyPrefix, LichessEntry, LichessGame, MastersEntry,
         MastersGame, Month, PlayerEntry, PlayerStatus, PreparedResponse, UserId, Year,
@@ -68,6 +69,42 @@ impl DbStats {
                 self.block_data_hit = c;
             }
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct CacheHint {
+    ply: u32,
+}
+
+impl CacheHint {
+    pub fn from_ply(ply: u32) -> CacheHint {
+        CacheHint { ply }
+    }
+
+    pub fn from_fullmoves_and_turn(fullmoves: NonZeroU32, turn: Color) -> CacheHint {
+        Self::from_ply((u32::from(fullmoves) - 1) / 2 + turn.fold_wb(0, 1))
+    }
+
+    pub fn always() -> CacheHint {
+        CacheHint { ply: 0 }
+    }
+
+    pub fn should_fill_cache(&self) -> bool {
+        let percent = if self.ply < 5 {
+            return true;
+        } else if self.ply < 10 {
+            90
+        } else if self.ply < 15 {
+            70
+        } else if self.ply < 20 {
+            40
+        } else if self.ply < 25 {
+            10
+        } else {
+            2
+        };
+        fastrand::u32(0..100) < percent
     }
 }
 
@@ -318,12 +355,12 @@ impl MastersDatabase<'_> {
         key: KeyPrefix,
         since: Year,
         until: Year,
-        cache_hint: Option<CacheHint>,
+        cache_hint: CacheHint,
     ) -> Result<MastersEntry, rocksdb::Error> {
         let mut entry = MastersEntry::default();
 
         let mut opt = ReadOptions::default();
-        opt.fill_cache(cache_hint != Some(CacheHint::Useless));
+        opt.fill_cache(cache_hint.should_fill_cache());
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
@@ -458,7 +495,7 @@ impl LichessDatabase<'_> {
         filter: &LichessQueryFilter,
         limits: &Limits,
         history: HistoryWanted,
-        cache_hint: Option<CacheHint>,
+        cache_hint: CacheHint,
     ) -> Result<(PreparedResponse, Option<History>), rocksdb::Error> {
         let mut entry = LichessEntry::default();
         let mut history = match history {
@@ -467,7 +504,7 @@ impl LichessDatabase<'_> {
         };
 
         let mut opt = ReadOptions::default();
-        opt.fill_cache(cache_hint != Some(CacheHint::Useless));
+        opt.fill_cache(cache_hint.should_fill_cache());
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(
@@ -515,12 +552,12 @@ impl LichessDatabase<'_> {
         key: &KeyPrefix,
         since: Month,
         until: Month,
-        cache_hint: Option<CacheHint>,
+        cache_hint: CacheHint,
     ) -> Result<PlayerEntry, rocksdb::Error> {
         let mut entry = PlayerEntry::default();
 
         let mut opt = ReadOptions::default();
-        opt.fill_cache(cache_hint != Some(CacheHint::Useless));
+        opt.fill_cache(cache_hint.should_fill_cache());
         opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_month(since).into_bytes());

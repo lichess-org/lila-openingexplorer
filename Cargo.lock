@@ -1068,6 +1068,7 @@ dependencies = [
  "clap",
  "csv",
  "env_logger 0.10.0",
+ "fastrand",
  "futures-util",
  "iai",
  "log",

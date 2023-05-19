@@ -41,11 +41,11 @@ use tokio::sync::Semaphore;
 
 use crate::{
     api::{
-        CacheHint, Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse,
-        HistoryWanted, LichessQuery, MastersQuery, NdJson, PlayPosition, PlayerLimits, PlayerQuery,
-        PlayerQueryFilter, Source, WithCacheHint,
+        Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, HistoryWanted,
+        LichessQuery, MastersQuery, NdJson, PlayPosition, PlayerLimits, PlayerQuery,
+        PlayerQueryFilter, Source, WithSource,
     },
-    db::{Database, DbOpt, LichessDatabase},
+    db::{CacheHint, Database, DbOpt, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub, QueueFull, Ticket},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
@@ -112,10 +112,6 @@ struct CacheStats {
     lichess_miss: AtomicU64,
     masters_miss: AtomicU64,
 
-    hint_none: AtomicU64,
-    hint_useful: AtomicU64,
-    hint_useless: AtomicU64,
-
     source_none: AtomicU64,
     source_analysis_lichess: AtomicU64,
     source_analysis_masters: AtomicU64,
@@ -127,26 +123,15 @@ struct CacheStats {
 }
 
 impl CacheStats {
-    fn inc_lichess_miss(&self, cache_hint: Option<CacheHint>, source: Option<Source>, ply: u32) {
+    fn inc_lichess_miss(&self, source: Option<Source>, ply: u32) {
         self.lichess_miss.fetch_add(1, Ordering::Relaxed);
-        self.inc_hint(cache_hint);
         self.inc_source(source, &self.source_analysis_lichess);
         self.lichess_ply.inc(ply);
     }
 
-    fn inc_masters_miss(&self, cache_hint: Option<CacheHint>, source: Option<Source>) {
+    fn inc_masters_miss(&self, source: Option<Source>) {
         self.masters_miss.fetch_add(1, Ordering::Relaxed);
-        self.inc_hint(cache_hint);
         self.inc_source(source, &self.source_analysis_masters);
-    }
-
-    fn inc_hint(&self, cache_hint: Option<CacheHint>) {
-        match cache_hint {
-            None => &self.hint_none,
-            Some(CacheHint::Useless) => &self.hint_useless,
-            Some(CacheHint::Useful) => &self.hint_useful,
-        }
-        .fetch_add(1, Ordering::Relaxed);
     }
 
     fn inc_source(&self, source: Option<Source>, analysis_db: &AtomicU64) {
@@ -327,19 +312,6 @@ async fn monitor(
                     "masters_miss={}u",
                     cache_stats.masters_miss.load(Ordering::Relaxed)
                 ),
-                // Cache hint (response cache miss only)
-                format!(
-                    "hint_none={}u",
-                    cache_stats.hint_none.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "hint_useless={}u",
-                    cache_stats.hint_useless.load(Ordering::Relaxed)
-                ),
-                format!(
-                    "hint_useful={}u",
-                    cache_stats.hint_useful.load(Ordering::Relaxed)
-                ),
                 // Source (response cache miss only)
                 format!(
                     "source_none={}u",
@@ -478,9 +450,7 @@ async fn player(
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
     State(semaphore): State<&'static Semaphore>,
-    Query(WithCacheHint {
-        query, cache_hint, ..
-    }): Query<WithCacheHint<PlayerQuery>>,
+    Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let key_builder = KeyBuilder::player(&player, query.color);
@@ -497,6 +467,7 @@ async fn player(
     let PlayPosition { pos, opening } = query
         .play
         .position(&openings.read().expect("read openings"))?;
+    let cache_hint = CacheHint::from_fullmoves_and_turn(pos.fullmoves(), pos.turn());
     let key = key_builder.with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
@@ -529,7 +500,7 @@ async fn player(
             spawn_blocking(semaphore, move || {
                 let lichess_db = state.db.lichess();
                 let filtered = lichess_db
-                    .read_player(&state.key, state.filter.since, state.filter.until, if state.done { cache_hint } else { Some(CacheHint::Useful) })
+                    .read_player(&state.key, state.filter.since, state.filter.until, if state.done { cache_hint } else { CacheHint::always() })
                     .expect("read player")
                     .prepare(state.color, &state.filter, &state.limits);
 
@@ -585,11 +556,7 @@ async fn masters(
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
-    Query(WithCacheHint {
-        query,
-        cache_hint,
-        source,
-    }): Query<WithCacheHint<MastersQuery>>,
+    Query(WithSource { query, source }): Query<WithSource<MastersQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     masters_cache
         .get_with(query.clone(), async move {
@@ -598,10 +565,11 @@ async fn masters(
                     .play
                     .position(&openings.read().expect("read openings"))?;
 
-                cache_stats.inc_masters_miss(cache_hint, source);
+                cache_stats.inc_masters_miss(source);
 
                 let key = KeyBuilder::masters()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
+                let cache_hint = CacheHint::from_fullmoves_and_turn(pos.fullmoves(), pos.turn());
                 let masters_db = db.masters();
                 let entry = masters_db
                     .read(key, query.since, query.until, cache_hint)
@@ -675,11 +643,7 @@ async fn lichess(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
-    Query(WithCacheHint {
-        query,
-        cache_hint,
-        source,
-    }): Query<WithCacheHint<LichessQuery>>,
+    Query(WithSource { query, source }): Query<WithSource<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     lichess_cache
         .get_with(query.clone(), async move {
@@ -689,7 +653,6 @@ async fn lichess(
                     .position(&openings.read().expect("read openings"))?;
 
                 cache_stats.inc_lichess_miss(
-                    cache_hint,
                     source,
                     (u32::from(pos.fullmoves()) - 1)
                         .saturating_mul(2)
@@ -698,6 +661,7 @@ async fn lichess(
 
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
+                let cache_hint = CacheHint::from_fullmoves_and_turn(pos.fullmoves(), pos.turn());
                 let lichess_db = db.lichess();
                 let (filtered, history) = lichess_db
                     .read_lichess(
@@ -731,19 +695,19 @@ async fn lichess_history(
     lichess_cache: State<ExplorerCache<LichessQuery>>,
     cache_stats: State<&'static CacheStats>,
     semaphore: State<&'static Semaphore>,
-    Query(mut with_cache_hint): Query<WithCacheHint<LichessQuery>>,
+    Query(mut with_source): Query<WithSource<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
-    with_cache_hint.query.history = HistoryWanted::Yes;
-    with_cache_hint.query.limits.recent_games = 0;
-    with_cache_hint.query.limits.top_games = 0;
-    with_cache_hint.query.limits.moves = 0;
+    with_source.query.history = HistoryWanted::Yes;
+    with_source.query.limits.recent_games = 0;
+    with_source.query.limits.top_games = 0;
+    with_source.query.limits.moves = 0;
     lichess(
         openings,
         db,
         lichess_cache,
         cache_stats,
         semaphore,
-        Query(with_cache_hint),
+        Query(with_source),
     )
     .await
 }

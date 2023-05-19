@@ -21,11 +21,9 @@ use crate::{
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct WithCacheHint<T> {
+pub struct WithSource<T> {
     #[serde(flatten)]
     pub query: T,
-    #[serde(default)]
-    pub cache_hint: Option<CacheHint>,
     #[serde(default)]
     pub source: Option<Source>,
 }
@@ -249,13 +247,6 @@ pub enum HistoryWanted {
     #[serde(alias = "on")]
     #[serde(alias = "1")]
     Yes,
-}
-
-#[derive(Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum CacheHint {
-    Useless,
-    Useful,
 }
 
 #[derive(Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
