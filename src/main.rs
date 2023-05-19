@@ -9,7 +9,6 @@ pub mod opening;
 pub mod util;
 
 use std::{
-    mem,
     net::SocketAddr,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -452,7 +451,7 @@ struct PlayerStreamState {
     limits: PlayerLimits,
     pos: VariantPosition,
     opening: Option<Opening>,
-    first: bool,
+    first_response: Option<ExplorerResponse>,
     done: bool,
 }
 
@@ -493,7 +492,7 @@ async fn player(
         opening,
         key,
         pos,
-        first: true,
+        first_response: None,
         done: false,
     };
 
@@ -504,38 +503,56 @@ async fn player(
                 return None;
             }
 
-            let first = mem::replace(&mut state.first, false);
+            let first = state.first_response.is_none();
             state.done = tokio::select! {
                 _ = state.ticket.completed() => true,
                 _ = tokio::time::sleep(Duration::from_millis(if first { 0 } else { 1000 })) => false,
             };
 
-            spawn_blocking(semaphore, move || {
-                if state.done {
-                    &cache_stats.source_analysis_player
-                } else {
-                    &cache_stats.source_analysis_player_incomplete
-                }.fetch_add(1, Ordering::Relaxed);
+            let preceding_tickets = state.indexer.preceding_tickets(&state.ticket);
 
-                let lichess_db = state.db.lichess();
-                let filtered = lichess_db
-                    .read_player(&state.key, state.filter.since, state.filter.until, if state.done { cache_hint } else { CacheHint::always() })
-                    .expect("read player")
-                    .prepare(state.color, &state.filter, &state.limits);
+            Some(match state.first_response {
+                Some(ref first_response) if preceding_tickets > 0 => {
+                    // While indexing has not even started, just repeat the
+                    // first response with updated queue position.
+                    let response = ExplorerResponse {
+                        queue_position: Some(preceding_tickets),
+                        ..first_response.clone()
+                    };
+                    (response, state)
+                },
+                _ => {
+                    spawn_blocking(semaphore, move || {
+                        if state.done {
+                            &cache_stats.source_analysis_player
+                        } else {
+                            &cache_stats.source_analysis_player_incomplete
+                        }.fetch_add(1, Ordering::Relaxed);
 
-                Some((
-                    ExplorerResponse {
-                        total: filtered.total,
-                        moves: finalize_lichess_moves(filtered.moves, &state.pos, &lichess_db),
-                        recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
-                        top_games: None,
-                        history: None,
-                        opening: state.opening.clone(),
-                        queue_position: Some(state.indexer.preceding_tickets(&state.ticket))
-                    },
-                    state,
-                ))
-            }).await
+                        let lichess_db = state.db.lichess();
+                        let filtered = lichess_db
+                            .read_player(&state.key, state.filter.since, state.filter.until, cache_hint)
+                            .expect("read player")
+                            .prepare(state.color, &state.filter, &state.limits);
+
+                        let response = ExplorerResponse {
+                            total: filtered.total,
+                            moves: finalize_lichess_moves(filtered.moves, &state.pos, &lichess_db),
+                            recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
+                            top_games: None,
+                            history: None,
+                            opening: state.opening.clone(),
+                            queue_position: Some(preceding_tickets),
+                        };
+
+                        if state.first_response.is_none() {
+                            state.first_response = Some(response.clone());
+                        }
+
+                        (response, state)
+                    }).await
+                }
+            })
         },
     ).dedup_by_key(|res| (res.queue_position, res.total.total()))))
 }
