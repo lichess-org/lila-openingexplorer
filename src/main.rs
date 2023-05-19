@@ -734,6 +734,9 @@ async fn lichess_history(
     Query(mut with_cache_hint): Query<WithCacheHint<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
     with_cache_hint.query.history = HistoryWanted::Yes;
+    with_cache_hint.query.limits.recent_games = 0;
+    with_cache_hint.query.limits.top_games = 0;
+    with_cache_hint.query.limits.moves = 0;
     lichess(
         openings,
         db,
