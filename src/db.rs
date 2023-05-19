@@ -98,19 +98,16 @@ impl CacheHint {
     }
 
     pub fn should_fill_cache(&self) -> bool {
-        let percent = if self.ply < 5 {
+        let percent = if self.ply < 15 {
             return true;
-        } else if self.ply < 10 {
-            90
-        } else if self.ply < 15 {
-            70
         } else if self.ply < 20 {
-            40
+            5
         } else if self.ply < 25 {
-            10
-        } else {
             2
+        } else {
+            1
         };
+
         fastrand::u32(0..100) < percent
     }
 }
