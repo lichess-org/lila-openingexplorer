@@ -216,33 +216,27 @@ async fn monitor(
     State(semaphore): State<&'static Semaphore>,
 ) -> String {
     spawn_blocking(semaphore, move || {
-        let db_stats = db.stats().expect("db stats");
-        let masters_stats = db.masters().estimate_stats().expect("masters stats");
-        let lichess_stats = db.lichess().estimate_stats().expect("lichess stats");
         format!(
             "opening_explorer {}",
             [
-                // Block cache
-                format!("block_index_miss={}u", db_stats.block_index_miss),
-                format!("block_index_hit={}u", db_stats.block_index_hit),
-                format!("block_filter_miss={}u", db_stats.block_filter_miss),
-                format!("block_filter_hit={}u", db_stats.block_filter_hit),
-                format!("block_data_miss={}u", db_stats.block_data_miss),
-                format!("block_data_hit={}u", db_stats.block_data_hit),
-                // Indexer
-                format!("indexing={}u", indexer.num_indexing()),
                 // Cache entries
                 format!("lichess_cache={}u", lichess_cache.entry_count()),
                 format!("masters_cache={}u", masters_cache.entry_count()),
-                // Column families
-                format!("masters={}u", masters_stats.num_masters),
-                format!("masters_game={}u", masters_stats.num_masters_game),
-                format!("lichess={}u", lichess_stats.num_lichess),
-                format!("lichess_game={}u", lichess_stats.num_lichess_game),
-                format!("player={}u", lichess_stats.num_player),
-                format!("player_status={}u", lichess_stats.num_player_status),
-                // Database hits
+                // Request stats
                 stats.to_influx_string(),
+                // Block cache
+                db.stats().expect("db stats").to_influx_string(),
+                // Indexer
+                format!("indexing={}u", indexer.num_indexing()),
+                // Column families
+                db.masters()
+                    .estimate_stats()
+                    .expect("masters stats")
+                    .to_influx_string(),
+                db.lichess()
+                    .estimate_stats()
+                    .expect("lichess stats")
+                    .to_influx_string(),
             ]
             .join(",")
         )

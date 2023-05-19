@@ -69,6 +69,18 @@ impl DbStats {
             }
         }
     }
+
+    pub fn to_influx_string(&self) -> String {
+        [
+            format!("block_index_miss={}u", self.block_index_miss),
+            format!("block_index_hit={}u", self.block_index_hit),
+            format!("block_filter_miss={}u", self.block_filter_miss),
+            format!("block_filter_hit={}u", self.block_filter_hit),
+            format!("block_data_miss={}u", self.block_data_miss),
+            format!("block_data_hit={}u", self.block_data_hit),
+        ]
+        .join(",")
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -278,8 +290,18 @@ pub struct MastersDatabase<'a> {
 }
 
 pub struct MastersStats {
-    pub num_masters: u64,
-    pub num_masters_game: u64,
+    num_masters: u64,
+    num_masters_game: u64,
+}
+
+impl MastersStats {
+    pub fn to_influx_string(&self) -> String {
+        [
+            format!("num_masters={}u", self.num_masters),
+            format!("num_masters_game={}u", self.num_masters_game),
+        ]
+        .join(",")
+    }
 }
 
 impl MastersDatabase<'_> {
@@ -417,10 +439,22 @@ pub struct LichessDatabase<'a> {
 }
 
 pub struct LichessStats {
-    pub num_lichess: u64,
-    pub num_lichess_game: u64,
-    pub num_player: u64,
-    pub num_player_status: u64,
+    num_lichess: u64,
+    num_lichess_game: u64,
+    num_player: u64,
+    num_player_status: u64,
+}
+
+impl LichessStats {
+    pub fn to_influx_string(&self) -> String {
+        [
+            format!("num_lichess={}u", self.num_lichess),
+            format!("num_lichess_game={}u", self.num_lichess_game),
+            format!("num_player={}u", self.num_player),
+            format!("num_player_status={}u", self.num_player_status),
+        ]
+        .join(",")
+    }
 }
 
 impl LichessDatabase<'_> {
