@@ -24,7 +24,7 @@ pub struct DbOpt {
     #[arg(long)]
     db_compaction_readahead: bool,
     /// Size of RocksDB block cache in bytes. Use the majority of the systems
-    /// RAM, leaving some memory for the operating system page cache.
+    /// RAM, leaving some memory for the operating system.
     #[arg(long, default_value = "4294967296")]
     db_cache: usize,
     /// Rate limits for writes to disk in bytes per second. This is used to
@@ -147,6 +147,9 @@ impl Column<'_> {
         cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
         cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
 
+        cf_opts.set_use_direct_reads(true);
+        cf_opts.set_use_direct_io_for_flush_and_compaction(true);
+
         cf_opts.set_prefix_extractor(match self.prefix {
             Some(prefix) => SliceTransform::create_fixed_prefix(prefix),
             None => SliceTransform::create_noop(),
@@ -170,6 +173,9 @@ impl Database {
         db_opts.set_max_background_jobs(if opt.db_compaction_readahead { 2 } else { 4 });
         db_opts.set_ratelimiter(opt.db_rate_limit, 100_000, 10);
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
+
+        db_opts.set_use_direct_reads(true);
+        db_opts.set_use_direct_io_for_flush_and_compaction(true);
 
         db_opts.enable_statistics();
 
