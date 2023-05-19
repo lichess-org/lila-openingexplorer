@@ -115,6 +115,8 @@ struct CacheStats {
     source_none: AtomicU64,
     source_analysis_lichess: AtomicU64,
     source_analysis_masters: AtomicU64,
+    source_analysis_player: AtomicU64,
+    source_analysis_player_incomplete: AtomicU64,
     source_fishnet: AtomicU64,
     source_opening: AtomicU64,
     source_opening_crawler: AtomicU64,
@@ -337,6 +339,16 @@ async fn monitor(
                     "source_opening_crawler={}u",
                     cache_stats.source_opening_crawler.load(Ordering::Relaxed)
                 ),
+                format!(
+                    "source_analysis_player={}u",
+                    cache_stats.source_analysis_player.load(Ordering::Relaxed)
+                ),
+                format!(
+                    "source_analysis_player_incomplete={}u",
+                    cache_stats
+                        .source_analysis_player_incomplete
+                        .load(Ordering::Relaxed)
+                ),
                 // Ply (response cache miss only)
                 cache_stats.lichess_ply.to_influx_string("lichess_ply"),
                 // Column families
@@ -449,6 +461,7 @@ async fn player(
     State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
+    State(cache_stats): State<&'static CacheStats>,
     State(semaphore): State<&'static Semaphore>,
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
@@ -498,6 +511,12 @@ async fn player(
             };
 
             spawn_blocking(semaphore, move || {
+                if state.done {
+                    &cache_stats.source_analysis_player
+                } else {
+                    &cache_stats.source_analysis_player_incomplete
+                }.fetch_add(1, Ordering::Relaxed);
+
                 let lichess_db = state.db.lichess();
                 let filtered = lichess_db
                     .read_player(&state.key, state.filter.since, state.filter.until, if state.done { cache_hint } else { CacheHint::always() })
