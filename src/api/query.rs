@@ -5,7 +5,9 @@ use std::{
 };
 
 use serde::Deserialize;
-use serde_with::{formats::CommaSeparator, serde_as, DisplayFromStr, StringWithSeparator};
+use serde_with::{
+    formats::CommaSeparator, serde_as, DefaultOnError, DisplayFromStr, StringWithSeparator,
+};
 use shakmaty::{
     fen::Fen,
     uci::Uci,
@@ -19,12 +21,13 @@ use crate::{
     opening::{Opening, Openings},
 };
 
+#[serde_as]
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct WithSource<T> {
     #[serde(flatten)]
     pub query: T,
-    #[serde(default)]
+    #[serde_as(as = "DefaultOnError")]
     pub source: Option<Source>,
 }
 
