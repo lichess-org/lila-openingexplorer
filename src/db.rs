@@ -300,8 +300,8 @@ pub struct MastersStats {
 impl MastersStats {
     pub fn to_influx_string(&self) -> String {
         [
-            format!("num_masters={}u", self.num_masters),
-            format!("num_masters_game={}u", self.num_masters_game),
+            format!("masters={}u", self.num_masters),
+            format!("masters_game={}u", self.num_masters_game),
         ]
         .join(",")
     }
@@ -451,10 +451,10 @@ pub struct LichessStats {
 impl LichessStats {
     pub fn to_influx_string(&self) -> String {
         [
-            format!("num_lichess={}u", self.num_lichess),
-            format!("num_lichess_game={}u", self.num_lichess_game),
-            format!("num_player={}u", self.num_player),
-            format!("num_player_status={}u", self.num_player_status),
+            format!("lichess={}u", self.num_lichess),
+            format!("lichess_game={}u", self.num_lichess_game),
+            format!("player={}u", self.num_player),
+            format!("player_status={}u", self.num_player_status),
         ]
         .join(",")
     }
