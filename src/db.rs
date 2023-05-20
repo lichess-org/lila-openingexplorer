@@ -147,7 +147,6 @@ impl Column<'_> {
         cf_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
         cf_opts.set_level_compaction_dynamic_level_bytes(false); // Infinitely growing database
 
-        cf_opts.set_use_direct_reads(true);
         cf_opts.set_use_direct_io_for_flush_and_compaction(true);
 
         cf_opts.set_prefix_extractor(match self.prefix {
@@ -174,7 +173,6 @@ impl Database {
         db_opts.set_ratelimiter(opt.db_rate_limit, 100_000, 10);
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
 
-        db_opts.set_use_direct_reads(true);
         db_opts.set_use_direct_io_for_flush_and_compaction(true);
 
         db_opts.enable_statistics();
