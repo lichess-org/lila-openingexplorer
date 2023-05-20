@@ -591,7 +591,7 @@ async fn lichess(
                     top_games: Some(finalize_lichess_games(filtered.top_games, &lichess_db)),
                     opening,
                     queue_position: None,
-                    history,
+                    history: Some(history.unwrap_or_default()), // work around
                 }));
 
                 stats.inc_lichess(started_at.elapsed(), source, ply(&pos));
