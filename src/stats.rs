@@ -88,7 +88,7 @@ impl HitStats {
     fn inc_source(&self, source: Option<Source>, analysis_db: &AtomicU64) {
         match source {
             None => &self.source_none,
-            Some(Source::Analysis) => analysis_db,
+            Some(Source::Analysis | Source::Mobile) => analysis_db,
             Some(Source::Fishnet) => &self.source_fishnet,
             Some(Source::Opening) => &self.source_opening,
             Some(Source::OpeningCrawler) => &self.source_opening_crawler,

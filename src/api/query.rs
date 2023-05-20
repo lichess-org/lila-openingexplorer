@@ -259,6 +259,7 @@ pub enum Source {
     Fishnet,
     Opening,
     OpeningCrawler,
+    Mobile,
 }
 
 #[cfg(test)]
