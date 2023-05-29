@@ -28,6 +28,7 @@ pub struct WithSource<T> {
     #[serde(flatten)]
     pub query: T,
     #[serde_as(as = "DefaultOnError")]
+    #[serde(default)]
     pub source: Option<Source>,
 }
 
