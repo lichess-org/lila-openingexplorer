@@ -4,9 +4,9 @@ pub mod api;
 pub mod db;
 pub mod importer;
 pub mod indexer;
+pub mod metrics;
 pub mod model;
 pub mod opening;
-pub mod metrics;
 pub mod util;
 
 use std::{
@@ -45,9 +45,9 @@ use crate::{
     db::{CacheHint, Database, DbOpt, LichessDatabase},
     importer::{LichessGameImport, LichessImporter, MastersImporter},
     indexer::{IndexerOpt, IndexerStub, QueueFull, Ticket},
+    metrics::Metrics,
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
-    metrics::Metrics,
     util::{ply, spawn_blocking, DedupStreamExt as _},
 };
 
@@ -206,6 +206,52 @@ async fn db_prop(
     .await
 }
 
+#[cfg(tokio_unstable)]
+fn tokio_metrics_to_influx_string() -> String {
+    let rt_metrics = tokio::runtime::Handle::current().metrics();
+
+    [
+        format!("tokio_num_workers={}u", rt_metrics.num_workers()),
+        format!(
+            "tokio_num_blocking_threads={}u",
+            rt_metrics.num_blocking_threads()
+        ),
+        format!(
+            "tokio_num_idle_blocking_threads={}u",
+            rt_metrics.num_idle_blocking_threads()
+        ),
+        format!(
+            "tokio_remote_schedule_count={}u",
+            rt_metrics.remote_schedule_count()
+        ),
+        format!(
+            "tokio_budget_forced_yield_count={}u",
+            rt_metrics.budget_forced_yield_count()
+        ),
+        format!(
+            "tokio_injection_queue_depth={}u",
+            rt_metrics.injection_queue_depth()
+        ),
+        format!(
+            "tokio_blocking_queue_depth={}u",
+            rt_metrics.blocking_queue_depth()
+        ),
+        format!(
+            "tokio_io_driver_fd_registered_count={}u",
+            rt_metrics.io_driver_fd_registered_count()
+        ),
+        format!(
+            "tokio_io_driver_fd_deregistered_count={}u",
+            rt_metrics.io_driver_fd_deregistered_count()
+        ),
+        format!(
+            "tokio_io_driver_ready_count={}u",
+            rt_metrics.io_driver_ready_count()
+        ),
+    ]
+    .join(",")
+}
+
 #[axum::debug_handler(state = AppState)]
 async fn monitor(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
@@ -237,6 +283,9 @@ async fn monitor(
                     .estimate_metrics()
                     .expect("lichess metrics")
                     .to_influx_string(),
+                // Tokio
+                #[cfg(tokio_unstable)]
+                tokio_metrics_to_influx_string(),
             ]
             .join(",")
         )
