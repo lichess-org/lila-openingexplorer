@@ -36,7 +36,7 @@ pub struct DbOpt {
 }
 
 #[derive(Default)]
-pub struct DbStats {
+pub struct DbMetrics {
     pub block_index_miss: u64,
     pub block_index_hit: u64,
     pub block_filter_miss: u64,
@@ -45,7 +45,7 @@ pub struct DbStats {
     pub block_data_hit: u64,
 }
 
-impl DbStats {
+impl DbMetrics {
     fn read_options_statistics(&mut self, s: &str) {
         fn count(line: &str, prefix: &str) -> Option<u64> {
             line.strip_prefix(prefix)
@@ -241,12 +241,12 @@ impl Database {
         Ok(Database { inner })
     }
 
-    pub fn stats(&self) -> Result<DbStats, rocksdb::Error> {
-        let mut stats = DbStats::default();
+    pub fn metrics(&self) -> Result<DbMetrics, rocksdb::Error> {
+        let mut metrics = DbMetrics::default();
         if let Some(options_statistics) = self.inner.property_value(OPTIONS_STATISTICS)? {
-            stats.read_options_statistics(&options_statistics);
+            metrics.read_options_statistics(&options_statistics);
         }
-        Ok(stats)
+        Ok(metrics)
     }
 
     pub fn compact(&self) {
@@ -290,12 +290,12 @@ pub struct MastersDatabase<'a> {
     cf_masters_game: &'a ColumnFamily,
 }
 
-pub struct MastersStats {
+pub struct MastersMetrics {
     num_masters: u64,
     num_masters_game: u64,
 }
 
-impl MastersStats {
+impl MastersMetrics {
     pub fn to_influx_string(&self) -> String {
         [
             format!("masters={}u", self.num_masters),
@@ -313,8 +313,8 @@ impl MastersDatabase<'_> {
         compact_column(self.inner, self.cf_masters_game);
     }
 
-    pub fn estimate_stats(&self) -> Result<MastersStats, rocksdb::Error> {
-        Ok(MastersStats {
+    pub fn estimate_metrics(&self) -> Result<MastersMetrics, rocksdb::Error> {
+        Ok(MastersMetrics {
             num_masters: self
                 .inner
                 .property_int_value_cf(self.cf_masters, ESTIMATE_NUM_KEYS)?
@@ -439,14 +439,14 @@ pub struct LichessDatabase<'a> {
     cf_player_status: &'a ColumnFamily,
 }
 
-pub struct LichessStats {
+pub struct LichessMetrics {
     num_lichess: u64,
     num_lichess_game: u64,
     num_player: u64,
     num_player_status: u64,
 }
 
-impl LichessStats {
+impl LichessMetrics {
     pub fn to_influx_string(&self) -> String {
         [
             format!("lichess={}u", self.num_lichess),
@@ -470,8 +470,8 @@ impl LichessDatabase<'_> {
         compact_column(self.inner, self.cf_player_status);
     }
 
-    pub fn estimate_stats(&self) -> Result<LichessStats, rocksdb::Error> {
-        Ok(LichessStats {
+    pub fn estimate_metrics(&self) -> Result<LichessMetrics, rocksdb::Error> {
+        Ok(LichessMetrics {
             num_lichess: self
                 .inner
                 .property_int_value_cf(self.cf_lichess, ESTIMATE_NUM_KEYS)?

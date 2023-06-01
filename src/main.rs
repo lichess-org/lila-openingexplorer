@@ -6,7 +6,7 @@ pub mod importer;
 pub mod indexer;
 pub mod model;
 pub mod opening;
-pub mod stats;
+pub mod metrics;
 pub mod util;
 
 use std::{
@@ -47,7 +47,7 @@ use crate::{
     indexer::{IndexerOpt, IndexerStub, QueueFull, Ticket},
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
-    stats::Stats,
+    metrics::Metrics,
     util::{ply, spawn_blocking, DedupStreamExt as _},
 };
 
@@ -83,7 +83,7 @@ struct AppState {
     db: Arc<Database>,
     lichess_cache: ExplorerCache<LichessQuery>,
     masters_cache: ExplorerCache<MastersQuery>,
-    stats: &'static Stats,
+    metrics: &'static Metrics,
     lichess_importer: LichessImporter,
     masters_importer: MastersImporter,
     indexer: IndexerStub,
@@ -143,7 +143,7 @@ async fn serve() {
                 .time_to_live(Duration::from_secs(60 * 60 * 24))
                 .time_to_idle(Duration::from_secs(60 * 10))
                 .build(),
-            stats: Box::leak(Box::default()),
+            metrics: Box::leak(Box::default()),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),
             indexer,
@@ -210,7 +210,7 @@ async fn db_prop(
 async fn monitor(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
-    State(stats): State<&'static Stats>,
+    State(metrics): State<&'static Metrics>,
     State(indexer): State<IndexerStub>,
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
@@ -222,20 +222,20 @@ async fn monitor(
                 // Cache entries
                 format!("lichess_cache={}u", lichess_cache.entry_count()),
                 format!("masters_cache={}u", masters_cache.entry_count()),
-                // Request stats
-                stats.to_influx_string(),
+                // Request metrics
+                metrics.to_influx_string(),
                 // Block cache
-                db.stats().expect("db stats").to_influx_string(),
+                db.metrics().expect("db metrics").to_influx_string(),
                 // Indexer
                 format!("indexing={}u", indexer.num_indexing()),
                 // Column families
                 db.masters()
-                    .estimate_stats()
-                    .expect("masters stats")
+                    .estimate_metrics()
+                    .expect("masters metrics")
                     .to_influx_string(),
                 db.lichess()
-                    .estimate_stats()
-                    .expect("lichess stats")
+                    .estimate_metrics()
+                    .expect("lichess metrics")
                     .to_influx_string(),
             ]
             .join(",")
@@ -340,7 +340,7 @@ async fn player(
     State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(indexer): State<IndexerStub>,
-    State(stats): State<&'static Stats>,
+    State(metrics): State<&'static Metrics>,
     State(semaphore): State<&'static Semaphore>,
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
@@ -425,7 +425,7 @@ async fn player(
                             state.first_response = Some(response.clone());
                         }
 
-                        stats.inc_player(started_at.elapsed(), state.done, ply(&state.pos));
+                        metrics.inc_player(started_at.elapsed(), state.done, ply(&state.pos));
                         (response, state)
                     }).await
                 }
@@ -467,7 +467,7 @@ async fn masters(
     State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
-    State(stats): State<&'static Stats>,
+    State(metrics): State<&'static Metrics>,
     State(semaphore): State<&'static Semaphore>,
     Query(WithSource { query, source }): Query<WithSource<MastersQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
@@ -535,7 +535,7 @@ async fn masters(
                     history: None,
                 }));
 
-                stats.inc_masters(started_at.elapsed(), source, ply(&pos));
+                metrics.inc_masters(started_at.elapsed(), source, ply(&pos));
                 response
             })
             .await
@@ -557,7 +557,7 @@ async fn lichess(
     State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
-    State(stats): State<&'static Stats>,
+    State(metrics): State<&'static Metrics>,
     State(semaphore): State<&'static Semaphore>,
     Query(WithSource { query, source }): Query<WithSource<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
@@ -594,7 +594,7 @@ async fn lichess(
                     queue_position: None,
                 }));
 
-                stats.inc_lichess(started_at.elapsed(), source, ply(&pos));
+                metrics.inc_lichess(started_at.elapsed(), source, ply(&pos));
                 response
             })
             .await
@@ -607,7 +607,7 @@ async fn lichess_history(
     openings: State<&'static RwLock<Openings>>,
     db: State<Arc<Database>>,
     lichess_cache: State<ExplorerCache<LichessQuery>>,
-    stats: State<&'static Stats>,
+    metrics: State<&'static Metrics>,
     semaphore: State<&'static Semaphore>,
     Query(mut with_source): Query<WithSource<LichessQuery>>,
 ) -> Result<Json<ExplorerResponse>, Error> {
@@ -619,7 +619,7 @@ async fn lichess_history(
         openings,
         db,
         lichess_cache,
-        stats,
+        metrics,
         semaphore,
         Query(with_source),
     )

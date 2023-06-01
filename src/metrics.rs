@@ -6,12 +6,12 @@ use std::{
 use crate::api::Source;
 
 #[derive(Default)]
-pub struct Stats {
-    hit: HitStats,
-    slow_hit: HitStats,
+pub struct Metrics {
+    hit: HitMetrics,
+    slow_hit: HitMetrics,
 }
 
-impl Stats {
+impl Metrics {
     const SLOW_DURATION: Duration = Duration::from_millis(500);
 
     pub fn to_influx_string(&self) -> String {
@@ -24,28 +24,28 @@ impl Stats {
 
     pub fn inc_lichess(&self, duration: Duration, source: Option<Source>, ply: u32) {
         self.hit.inc_lichess(source, ply);
-        if Stats::SLOW_DURATION <= duration {
+        if Metrics::SLOW_DURATION <= duration {
             self.slow_hit.inc_lichess(source, ply);
         }
     }
 
     pub fn inc_masters(&self, duration: Duration, source: Option<Source>, ply: u32) {
         self.hit.inc_masters(source, ply);
-        if Stats::SLOW_DURATION <= duration {
+        if Metrics::SLOW_DURATION <= duration {
             self.slow_hit.inc_masters(source, ply);
         }
     }
 
     pub fn inc_player(&self, duration: Duration, done: bool, ply: u32) {
         self.hit.inc_player(done, ply);
-        if Stats::SLOW_DURATION <= duration {
+        if Metrics::SLOW_DURATION <= duration {
             self.slow_hit.inc_player(done, ply);
         }
     }
 }
 
 #[derive(Default)]
-struct HitStats {
+struct HitMetrics {
     lichess_miss: AtomicU64,
     masters_miss: AtomicU64,
 
@@ -58,12 +58,12 @@ struct HitStats {
     source_opening: AtomicU64,
     source_opening_crawler: AtomicU64,
 
-    lichess_ply: PlyStats,
-    masters_ply: PlyStats,
-    player_ply: PlyStats,
+    lichess_ply: PlyMetrics,
+    masters_ply: PlyMetrics,
+    player_ply: PlyMetrics,
 }
 
-impl HitStats {
+impl HitMetrics {
     pub fn inc_lichess(&self, source: Option<Source>, ply: u32) {
         self.lichess_miss.fetch_add(1, Ordering::Relaxed);
         self.inc_source(source, &self.source_analysis_lichess);
@@ -151,15 +151,15 @@ impl HitStats {
 }
 
 #[derive(Default)]
-struct PlyStats {
+struct PlyMetrics {
     groups: [AtomicU64; 10],
 }
 
-impl PlyStats {
+impl PlyMetrics {
     const GROUP_WIDTH: usize = 5;
 
     fn inc(&self, ply: u32) {
-        if let Some(group) = self.groups.get(ply as usize / PlyStats::GROUP_WIDTH) {
+        if let Some(group) = self.groups.get(ply as usize / PlyMetrics::GROUP_WIDTH) {
             group.fetch_add(1, Ordering::Relaxed);
         }
     }
@@ -169,7 +169,7 @@ impl PlyStats {
             .iter()
             .enumerate()
             .map(|(i, group)| {
-                let ply = i * PlyStats::GROUP_WIDTH;
+                let ply = i * PlyMetrics::GROUP_WIDTH;
                 let num = group.load(Ordering::Relaxed);
                 format!("{field_prefix}{ply}={num}u")
             })
