@@ -261,36 +261,44 @@ async fn monitor(
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
 ) -> String {
-    spawn_blocking(semaphore, move || {
+    if metrics.fetch_set_deploy_event_sent() {
+        spawn_blocking(semaphore, move || {
+            format!(
+                "opening_explorer {}",
+                [
+                    // Cache entries
+                    format!("lichess_cache={}u", lichess_cache.entry_count()),
+                    format!("masters_cache={}u", masters_cache.entry_count()),
+                    // Request metrics
+                    metrics.to_influx_string(),
+                    // Block cache
+                    db.metrics().expect("db metrics").to_influx_string(),
+                    // Indexer
+                    format!("indexing={}u", indexer.num_indexing()),
+                    // Column families
+                    db.masters()
+                        .estimate_metrics()
+                        .expect("masters metrics")
+                        .to_influx_string(),
+                    db.lichess()
+                        .estimate_metrics()
+                        .expect("lichess metrics")
+                        .to_influx_string(),
+                    // Tokio
+                    #[cfg(tokio_unstable)]
+                    tokio_metrics_to_influx_string(),
+                ]
+                .join(",")
+            )
+        })
+        .await
+    } else {
         format!(
-            "opening_explorer {}",
-            [
-                // Cache entries
-                format!("lichess_cache={}u", lichess_cache.entry_count()),
-                format!("masters_cache={}u", masters_cache.entry_count()),
-                // Request metrics
-                metrics.to_influx_string(),
-                // Block cache
-                db.metrics().expect("db metrics").to_influx_string(),
-                // Indexer
-                format!("indexing={}u", indexer.num_indexing()),
-                // Column families
-                db.masters()
-                    .estimate_metrics()
-                    .expect("masters metrics")
-                    .to_influx_string(),
-                db.lichess()
-                    .estimate_metrics()
-                    .expect("lichess metrics")
-                    .to_influx_string(),
-                // Tokio
-                #[cfg(tokio_unstable)]
-                tokio_metrics_to_influx_string(),
-            ]
-            .join(",")
+            "event,program=lila-openingexplorer commit={:?},text={:?}",
+            env!("VERGEN_GIT_SHA"),
+            env!("VERGEN_GIT_COMMIT_MESSAGE")
         )
-    })
-    .await
+    }
 }
 
 #[axum::debug_handler(state = AppState)]

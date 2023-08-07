@@ -11,6 +11,7 @@ authors = ["Niklas Fiekas <niklas.fiekas@backscattering.de>"]
 categories = ["games"]
 keywords = ["chess", "lichess"]
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 axum = { version = "0.6", features = ["macros", "multipart"] }
@@ -52,3 +53,6 @@ lto = true
 [[bench]]
 name = "benches"
 harness = false
+
+[build-dependencies]
+vergen = { version = "8.2.4", features = ["git", "gitcl"] }
