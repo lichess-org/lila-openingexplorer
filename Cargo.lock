@@ -1132,7 +1132,7 @@ dependencies = [
  "clap",
  "csv",
  "env_logger 0.10.1",
- "fastrand 1.9.0",
+ "fastrand 2.0.1",
  "futures-util",
  "iai",
  "log",
@@ -1932,9 +1932,9 @@ dependencies = [
 
 [[package]]
 name = "shakmaty"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3423f7235d679251bb3a4014ab286d3a724efa130a3ac00d4e85916231f5ed30"
+checksum = "7da274d26b6aac011b0af8ec3514eb1d598cf51fb47944d1d2142338f210cfb3"
 dependencies = [
  "arrayvec",
  "bitflags 2.4.1",
