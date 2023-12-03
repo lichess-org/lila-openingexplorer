@@ -5,7 +5,7 @@ use std::{
 };
 
 use axum::{
-    body,
+    body::Body,
     response::{IntoResponse, Response},
 };
 use bytes::{Buf, BufMut};
@@ -95,7 +95,7 @@ impl IntoResponse for MastersGame {
 
         Response::builder()
             .header(axum::http::header::CONTENT_TYPE, "application/x-chess-pgn")
-            .body(body::boxed(body::Full::from(buf.into_inner())))
+            .body(Body::from(buf.into_inner()))
             .unwrap()
     }
 }

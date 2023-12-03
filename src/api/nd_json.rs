@@ -5,8 +5,7 @@ use std::{
 };
 
 use axum::{
-    body::{self, HttpBody},
-    http::HeaderMap,
+    body::Body,
     response::{IntoResponse, Response},
 };
 use bytes::Bytes;
@@ -33,8 +32,8 @@ where
         Response::builder()
             .header("X-Accel-Buffering", "no")
             .header(axum::http::header::CONTENT_TYPE, "application/x-ndjson")
-            .body(body::boxed(NdJsonBody {
-                stream: SyncWrapper::new(self.0),
+            .body(Body::from_stream(NdJsonStream {
+                item_stream: SyncWrapper::new(self.0),
                 keep_alive,
             }))
             .unwrap()
@@ -42,28 +41,24 @@ where
 }
 
 pin_project! {
-    pub struct NdJsonBody<S> {
+    pub struct NdJsonStream<S> {
         #[pin]
-        stream: SyncWrapper<S>,
+        item_stream: SyncWrapper<S>,
         keep_alive: Interval,
     }
 }
 
-impl<S, T> HttpBody for NdJsonBody<S>
+impl<S, T> Stream for NdJsonStream<S>
 where
     S: Stream<Item = T>,
     T: Serialize,
 {
-    type Data = Bytes;
-    type Error = serde_json::Error;
+    type Item = Result<Bytes, serde_json::Error>;
 
-    fn poll_data(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<Self::Data, Self::Error>>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
 
-        let without_keepalive = this.stream.get_pin_mut().poll_next(cx).map(|item| {
+        let without_keepalive = this.item_stream.get_pin_mut().poll_next(cx).map(|item| {
             item.map(|item| {
                 serde_json::to_vec(&item).map(|mut buf| {
                     buf.push(b'\n');
@@ -83,12 +78,5 @@ where
             }
             Poll::Ready(end_or_err) => Poll::Ready(end_or_err),
         }
-    }
-
-    fn poll_trailers(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<HeaderMap>, Self::Error>> {
-        Poll::Ready(Ok(None))
     }
 }

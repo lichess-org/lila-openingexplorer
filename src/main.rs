@@ -34,7 +34,7 @@ use shakmaty::{
     Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
-use tokio::sync::Semaphore;
+use tokio::{net::TcpListener, sync::Semaphore};
 
 use crate::{
     api::{
@@ -160,10 +160,8 @@ async fn serve() {
         app
     };
 
-    axum::Server::bind(&opt.bind)
-        .serve(app.into_make_service())
-        .await
-        .expect("bind");
+    let listener = TcpListener::bind(&opt.bind).await.expect("bind");
+    axum::serve(listener, app).await.expect("serve");
 }
 
 #[derive(Deserialize)]
@@ -368,7 +366,7 @@ fn finalize_lichess_games(
         .games(games.iter().map(|(_, id)| *id))
         .expect("get games")
         .into_iter()
-        .zip(games.into_iter())
+        .zip(games)
         .filter_map(|(info, (uci, id))| {
             info.map(|info| ExplorerGameWithUci {
                 uci,

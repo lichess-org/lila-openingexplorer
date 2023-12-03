@@ -4,10 +4,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use axum::http::StatusCode;
 use clap::Parser;
 use futures_util::StreamExt;
 use nohash_hasher::IntMap;
+use reqwest::StatusCode;
 use shakmaty::{
     uci::Uci,
     variant::VariantPosition,
