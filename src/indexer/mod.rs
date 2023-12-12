@@ -15,7 +15,7 @@ use shakmaty::{
     ByColor, CastlingMode, Outcome, Position,
 };
 use tokio::{
-    sync::Semaphore,
+    sync::{mpsc, Semaphore},
     task,
     task::JoinHandle,
     time::{sleep, timeout},
@@ -175,23 +175,33 @@ impl IndexerActor {
             }
         };
 
+        let (tx_game, mut rx_game) = mpsc::channel(100);
+        let idx = self.idx;
+        tokio::spawn(async move {
+            loop {
+                let game = match timeout(Duration::from_secs(60), games.next()).await {
+                    Ok(Some(Ok(game))) => game,
+                    Ok(Some(Err(err))) => {
+                        log::error!("indexer {:02}: {}", idx, err);
+                        continue;
+                    }
+                    Ok(None) => break,
+                    Err(timed_out) => {
+                        log::error!("indexer {:02}: stream from lila: {}", idx, timed_out);
+                        break;
+                    }
+                };
+                if tx_game.send(game).await.is_err() {
+                    log::error!("indexer {:02}: game receiver dropped", idx);
+                    break;
+                }
+            }
+        });
+
         let hash = ByColor::new_with(|color| KeyBuilder::player(player, color));
 
         let mut num_games = 0;
-        loop {
-            let game = match timeout(Duration::from_secs(60), games.next()).await {
-                Ok(Some(Ok(game))) => game,
-                Ok(Some(Err(err))) => {
-                    log::error!("indexer {:02}: {}", self.idx, err);
-                    continue;
-                }
-                Ok(None) => break,
-                Err(timed_out) => {
-                    log::error!("indexer {:02}: stream from lila: {}", self.idx, timed_out);
-                    return;
-                }
-            };
-
+        while let Some(game) = rx_game.recv().await {
             task::block_in_place(|| {
                 self.index_game(player, &hash, game, &mut status);
 
@@ -209,7 +219,7 @@ impl IndexerActor {
                         player.as_lowercase_str()
                     );
                 }
-            })
+            });
         }
 
         status.finish_index_run(index_run);
