@@ -127,6 +127,50 @@ impl IndexerActor {
         }
     }
 
+    async fn feed_games(&self, player: &UserId, since: u64, tx: mpsc::Sender<Game>) {
+        let mut games =
+            match timeout(Duration::from_secs(60), self.lila.user_games(player, since)).await {
+                Ok(Ok(games)) => games,
+                Ok(Err(err)) if err.status() == Some(StatusCode::NOT_FOUND) => {
+                    log::warn!(
+                        "indexer {:02}: did not find player {}",
+                        self.idx,
+                        player.as_lowercase_str()
+                    );
+                    return;
+                }
+                Ok(Err(err)) => {
+                    log::error!("indexer {:02}: request failed: {}", self.idx, err);
+                    sleep(Duration::from_secs(5)).await;
+                    return;
+                }
+                Err(timed_out) => {
+                    log::error!("indexer {:02}: request to lila: {}", self.idx, timed_out);
+                    return;
+                }
+            };
+
+        loop {
+            let game = match timeout(Duration::from_secs(60), games.next()).await {
+                Ok(Some(Ok(game))) => game,
+                Ok(Some(Err(err))) => {
+                    log::error!("indexer {:02}: {}", self.idx, err);
+                    continue;
+                }
+                Ok(None) => break,
+                Err(timed_out) => {
+                    log::error!("indexer {:02}: stream from lila: {}", self.idx, timed_out);
+                    break;
+                }
+            };
+
+            if tx.send(game).await.is_err() {
+                log::error!("indexer {:02}: game receiver dropped", self.idx);
+                break;
+            }
+        }
+    }
+
     async fn index_player(&self, player: &UserId) {
         let mut status = {
             let db = Arc::clone(&self.db);
@@ -138,7 +182,7 @@ impl IndexerActor {
                     .unwrap_or_default()
             })
             .await
-            .expect("blocking get player status")
+            .expect("join get player status")
         };
 
         let index_run = match status.maybe_start_index_run() {
@@ -146,118 +190,78 @@ impl IndexerActor {
             None => return, // Do not reindex so soon!
         };
 
-        let started_at = Instant::now();
-        log::info!(
-            "indexer {:02}: starting {} ({})",
-            self.idx,
-            player.as_lowercase_str(),
-            index_run,
-        );
-
-        let mut games = match timeout(
-            Duration::from_secs(60),
-            self.lila.user_games(player, index_run.since()),
-        )
-        .await
-        {
-            Ok(Ok(games)) => games,
-            Ok(Err(err)) if err.status() == Some(StatusCode::NOT_FOUND) => {
-                log::warn!(
-                    "indexer {:02}: did not find player {}",
-                    self.idx,
-                    player.as_lowercase_str()
-                );
-                return;
-            }
-            Ok(Err(err)) => {
-                log::error!("indexer {:02}: request failed: {}", self.idx, err);
-                sleep(Duration::from_secs(5)).await;
-                return;
-            }
-            Err(timed_out) => {
-                log::error!("indexer {:02}: request to lila: {}", self.idx, timed_out);
-                return;
-            }
-        };
-
+        let index_run_since = index_run.since();
         let (tx_game, mut rx_game) = mpsc::channel(100);
-        let idx = self.idx;
-        tokio::spawn(async move {
-            loop {
-                let game = match timeout(Duration::from_secs(60), games.next()).await {
-                    Ok(Some(Ok(game))) => game,
-                    Ok(Some(Err(err))) => {
-                        log::error!("indexer {:02}: {}", idx, err);
-                        continue;
+
+        let join_handle = {
+            let idx = self.idx;
+            let db = Arc::clone(&self.db);
+            let player = player.clone();
+
+            task::spawn_blocking(move || {
+                let started_at = Instant::now();
+                log::info!(
+                    "indexer {:02}: starting {} ({})",
+                    idx,
+                    player.as_lowercase_str(),
+                    index_run,
+                );
+
+                let hash = ByColor::new_with(|color| KeyBuilder::player(&player, color));
+
+                let mut num_games = 0;
+                while let Some(game) = rx_game.blocking_recv() {
+                    IndexerActor::index_game(idx, &db, &player, &hash, game, &mut status);
+                    num_games += 1;
+
+                    if num_games % 1024 == 0 {
+                        db.lichess()
+                            .put_player_status(&player, &status)
+                            .expect("put player status");
+
+                        log::info!(
+                            "indexer {:02}: indexed {} games for {} ...",
+                            idx,
+                            num_games,
+                            player.as_lowercase_str()
+                        );
                     }
-                    Ok(None) => break,
-                    Err(timed_out) => {
-                        log::error!("indexer {:02}: stream from lila: {}", idx, timed_out);
-                        break;
-                    }
-                };
-                if tx_game.send(game).await.is_err() {
-                    log::error!("indexer {:02}: game receiver dropped", idx);
-                    break;
                 }
-            }
-        });
 
-        let hash = ByColor::new_with(|color| KeyBuilder::player(player, color));
+                status.finish_index_run(index_run);
+                db.lichess()
+                    .put_player_status(&player, &status)
+                    .expect("put player status");
 
-        let mut num_games = 0;
-        while let Some(game) = rx_game.recv().await {
-            task::block_in_place(|| {
-                self.index_game(player, &hash, game, &mut status);
+                let elapsed = started_at.elapsed();
 
-                num_games += 1;
-                if num_games % 1024 == 0 {
-                    self.db
-                        .lichess()
-                        .put_player_status(player, &status)
-                        .expect("put player status");
-
+                if num_games > 0 {
                     log::info!(
-                        "indexer {:02}: indexed {} games for {} ...",
-                        self.idx,
+                        "indexer {:02}: finished {} games for {} in {:.3?} ({:.3?}/game, {:.1} games/s)",
+                        idx,
                         num_games,
+                        player.as_lowercase_str(),
+                        elapsed,
+                        elapsed / num_games,
+                        f64::from(num_games) / elapsed.as_secs_f64()
+                    );
+                } else {
+                    log::info!(
+                        "indexer {:02}: no new games for {}",
+                        idx,
                         player.as_lowercase_str()
                     );
                 }
-            });
-        }
+            })
+        };
 
-        status.finish_index_run(index_run);
-        task::block_in_place(|| {
-            self.db
-                .lichess()
-                .put_player_status(player, &status)
-                .expect("put player status");
-        });
-
-        let elapsed = started_at.elapsed();
-
-        if num_games > 0 {
-            log::info!(
-                "indexer {:02}: finished {} games for {} in {:.3?} ({:.3?}/game, {:.1} games/s)",
-                self.idx,
-                num_games,
-                player.as_lowercase_str(),
-                elapsed,
-                elapsed / num_games,
-                f64::from(num_games) / elapsed.as_secs_f64()
-            );
-        } else {
-            log::info!(
-                "indexer {:02}: no new games for {}",
-                self.idx,
-                player.as_lowercase_str()
-            );
-        }
+        self.feed_games(player, index_run_since, tx_game).await;
+        join_handle.await.expect("join index player");
     }
 
     fn index_game(
-        &self,
+        idx: usize,
+        db: &Database,
         player: &UserId,
         hash: &ByColor<KeyBuilder>,
         game: Game,
@@ -269,7 +273,7 @@ impl IndexerActor {
             if status.revisit_ongoing_created_at.is_none() {
                 log::info!(
                     "indexer {:02}: will revisit ongoing game {} eventually",
-                    self.idx,
+                    idx,
                     game.id
                 );
                 status.revisit_ongoing_created_at = Some(game.created_at);
@@ -297,7 +301,7 @@ impl IndexerActor {
             None => {
                 log::error!(
                     "indexer {:02}: {} did not play in {}",
-                    self.idx,
+                    idx,
                     player.as_lowercase_str(),
                     game.id
                 );
@@ -308,18 +312,13 @@ impl IndexerActor {
         // Skip game if already indexed from this side. This cannot race with
         // writes, because all writes for the same player are sequenced by
         // this actor. So making a transaction is not required.
-        let lichess_db = self.db.lichess();
+        let lichess_db = db.lichess();
         if lichess_db
             .game(game.id)
             .expect("get game info")
             .map_or(false, |info| *info.indexed_player.get(color))
         {
-            log::debug!(
-                "indexer {:02}: {}/{} already indexed",
-                self.idx,
-                game.id,
-                color
-            );
+            log::debug!("indexer {:02}: {}/{} already indexed", idx, game.id, color);
             return;
         }
 
@@ -335,7 +334,7 @@ impl IndexerActor {
                 ) {
                     Ok(pos) => pos,
                     Err(err) => {
-                        log::warn!("indexer {:02}: not indexing {}: {}", self.idx, game.id, err);
+                        log::warn!("indexer {:02}: not indexing {}: {}", idx, game.id, err);
                         return;
                     }
                 }
@@ -347,7 +346,7 @@ impl IndexerActor {
             None => {
                 log::warn!(
                     "indexer {:02}: skipping {} without opponent rating",
-                    self.idx,
+                    idx,
                     game.id
                 );
                 return;
@@ -368,7 +367,7 @@ impl IndexerActor {
                 Err(err) => {
                     log::warn!(
                         "indexer {:02}: cutting off {} at ply {}: {}: {}",
-                        self.idx,
+                        idx,
                         game.id,
                         ply,
                         err,
