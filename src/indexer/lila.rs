@@ -25,7 +25,10 @@ pub struct Lila {
 impl Lila {
     pub fn new(opt: IndexerOpt) -> Lila {
         Lila {
-            client: reqwest::Client::builder().build().expect("reqwest client"),
+            client: reqwest::Client::builder()
+                .user_agent("lila-openingexplorer")
+                .build()
+                .expect("reqwest client"),
             opt,
         }
     }

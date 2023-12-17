@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{extract::multipart::MultipartError, http::StatusCode, response::Response};
+use axum::{http::StatusCode, response::Response};
 use shakmaty::{san::SanError, uci::IllegalUciError, variant::VariantPosition, PositionError};
 use thiserror::Error;
 
@@ -25,14 +25,26 @@ pub enum Error {
     #[error("duplicate opening position")]
     DuplicateOpening,
     #[error("bad request: {0}")]
-    CsvError(#[from] Arc<csv::Error>),
-    #[error("{0}")]
-    MultipartError(#[from] Arc<MultipartError>),
+    CsvError(Arc<csv::Error>),
+    #[error("internal request failed: {0}")]
+    ReqwestError(Arc<reqwest::Error>),
 }
 
 impl From<PositionError<VariantPosition>> for Error {
     fn from(error: PositionError<VariantPosition>) -> Error {
         Error::PositionError(Box::new(error))
+    }
+}
+
+impl From<csv::Error> for Error {
+    fn from(error: csv::Error) -> Error {
+        Error::CsvError(Arc::new(error))
+    }
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(error: reqwest::Error) -> Error {
+        Error::ReqwestError(Arc::new(error))
     }
 }
 
@@ -49,7 +61,7 @@ impl axum::response::IntoResponse for Error {
                 | Error::RejectedDate { .. }
                 | Error::CsvError(_)
                 | Error::DuplicateOpening => StatusCode::BAD_REQUEST,
-                Error::MultipartError(ref err) => err.status(),
+                Error::ReqwestError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
             self.to_string(),
         )

@@ -16,7 +16,7 @@ use std::{
 };
 
 use axum::{
-    extract::{FromRef, Multipart, Path, Query, State},
+    extract::{FromRef, Path, Query, State},
     http::StatusCode,
     routing::{get, post, put},
     Json, Router,
@@ -34,7 +34,7 @@ use shakmaty::{
     Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
-use tokio::{net::TcpListener, sync::Semaphore};
+use tokio::{net::TcpListener, sync::Semaphore, task, time};
 
 use crate::{
     api::{
@@ -112,7 +112,25 @@ fn main() {
 async fn serve() {
     let opt = Opt::parse();
 
-    let db = Arc::new(Database::open(opt.db).expect("db"));
+    let openings: &'static RwLock<Openings> = Box::leak(Box::default());
+    let lichess_cache = Cache::builder()
+        .max_capacity(opt.lichess_cache)
+        .time_to_live(Duration::from_secs(60 * 60 * 12))
+        .time_to_idle(Duration::from_secs(60 * 10))
+        .build();
+    let masters_cache = Cache::builder()
+        .max_capacity(opt.masters_cache)
+        .time_to_live(Duration::from_secs(60 * 60 * 24))
+        .time_to_idle(Duration::from_secs(60 * 10))
+        .build();
+
+    tokio::spawn(periodic_openings_import(
+        openings,
+        lichess_cache.clone(),
+        masters_cache.clone(),
+    ));
+
+    let db = task::block_in_place(|| Arc::new(Database::open(opt.db).expect("db")));
     let (indexer, _join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
 
     let app = Router::new()
@@ -132,17 +150,9 @@ async fn serve() {
         .route("/master", get(masters)) // bc
         .route("/personal", get(player)) // bc
         .with_state(AppState {
-            openings: Box::leak(Box::default()),
-            lichess_cache: Cache::builder()
-                .max_capacity(opt.lichess_cache)
-                .time_to_live(Duration::from_secs(60 * 60 * 12))
-                .time_to_idle(Duration::from_secs(60 * 10))
-                .build(),
-            masters_cache: Cache::builder()
-                .max_capacity(opt.masters_cache)
-                .time_to_live(Duration::from_secs(60 * 60 * 24))
-                .time_to_idle(Duration::from_secs(60 * 10))
-                .build(),
+            openings,
+            lichess_cache,
+            masters_cache,
             metrics: Box::leak(Box::default()),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),
@@ -162,6 +172,27 @@ async fn serve() {
 
     let listener = TcpListener::bind(&opt.bind).await.expect("bind");
     axum::serve(listener, app).await.expect("serve");
+}
+
+async fn periodic_openings_import(
+    openings: &'static RwLock<Openings>,
+    lichess_cache: ExplorerCache<LichessQuery>,
+    masters_cache: ExplorerCache<MastersQuery>,
+) {
+    loop {
+        if let Err(err) = openings_import(
+            State(openings),
+            State(lichess_cache.clone()),
+            State(masters_cache.clone()),
+        )
+        .await
+        {
+            log::error!("failed to refresh opening names: {err}");
+            time::sleep(Duration::from_secs(60 * 2)).await;
+        } else {
+            time::sleep(Duration::from_secs(60 * 60)).await;
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -307,24 +338,33 @@ async fn compact(State(db): State<Arc<Database>>, State(semaphore): State<&'stat
 #[axum::debug_handler(state = AppState)]
 async fn openings_import(
     State(openings): State<&'static RwLock<Openings>>,
-    State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
-    mut multipart: Multipart,
+    State(masters_cache): State<ExplorerCache<MastersQuery>>,
 ) -> Result<(), Error> {
-    let mut new_openings = Openings::empty();
-
-    while let Some(field) = multipart.next_field().await.map_err(Arc::new)? {
-        let tsv = field.text().await.map_err(Arc::new)?;
+    let mut new_openings = Openings::new();
+    let client = reqwest::Client::builder()
+        .user_agent("lila-openingexplorer")
+        .timeout(Duration::from_secs(60))
+        .build()
+        .expect("reqwest client");
+    for part in ["a", "b", "c", "d", "e"] {
+        let tsv = client
+            .get(format!(
+                "https://raw.githubusercontent.com/lichess-org/chess-openings/master/{part}.tsv"
+            ))
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
         new_openings.load_tsv(&tsv)?;
     }
+    log::info!("loaded {} opening names", new_openings.len());
 
+    let mut write_lock = openings.write().expect("write openings");
     masters_cache.invalidate_all();
     lichess_cache.invalidate_all();
-
-    let new_len = new_openings.len();
-    *openings.write().expect("write openings") = new_openings;
-    log::info!("loaded {} opening names", new_len);
-
+    *write_lock = new_openings;
     Ok(())
 }
 

@@ -1,5 +1,3 @@
-use std::{collections::HashMap, sync::Arc};
-
 use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
 use shakmaty::{
@@ -25,37 +23,14 @@ struct OpeningRecord {
     pgn: String,
 }
 
-const TSV_DATA: [&str; 5] = [
-    include_str!("../chess-openings/a.tsv"),
-    include_str!("../chess-openings/b.tsv"),
-    include_str!("../chess-openings/c.tsv"),
-    include_str!("../chess-openings/d.tsv"),
-    include_str!("../chess-openings/e.tsv"),
-];
-
+#[derive(Default)]
 pub struct Openings {
     data: IntMap<Zobrist64, Opening>,
-}
-
-impl Default for Openings {
-    fn default() -> Openings {
-        let mut openings = Openings::empty();
-        for tsv in TSV_DATA {
-            openings.load_tsv(tsv).expect("valid opening tsv");
-        }
-        openings
-    }
 }
 
 impl Openings {
     pub fn new() -> Openings {
         Openings::default()
-    }
-
-    pub fn empty() -> Openings {
-        Openings {
-            data: HashMap::default(),
-        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -72,7 +47,7 @@ impl Openings {
             .from_reader(tsv.as_bytes());
 
         for record in tsv.deserialize() {
-            let record: OpeningRecord = record.map_err(Arc::new)?;
+            let record: OpeningRecord = record?;
 
             let mut pos = Chess::default();
             for token in record.pgn.split(' ') {
