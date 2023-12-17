@@ -9,6 +9,7 @@ for lichess.org, capable of handling trillions of positions, featuring:
 * A database of master games
 * [Rated games from Lichess itself](https://database.lichess.org/)
 * An on-demand database of [openings by player](https://lichess.org/blog/YXMPxxMAACEAy3g4/announcing-the-personal-opening-explorer)
+* [Curated opening names](https://github.com/lichess-org/chess-openings)
 
 Usage
 -----
@@ -17,13 +18,9 @@ Usage
 
 1. Install recent stable Rust ([rustup](https://rustup.rs/) recommended).
 
-2. ```
-   git submodule update --init
-   ```
+2. Set some environment variables used at build time: `set -a && source .env && set +a`
 
-3. Set some environment variables used at build time: `set -a && source .env && set +a`
-
-4. Build the server and view available options:
+3. Build the server and view available options:
 
    ```
    cargo run --release -- --help
@@ -32,7 +29,7 @@ Usage
    Strongly consider adjusting `--db-compaction-readahead`, `--db-cache`, and
    `--db-rate-limit` depending on your setup.
 
-5. Run the server with the chosen options:
+4. Run the server with the chosen options:
 
    ```
    ulimit -n 131072 && EXPLORER_LOG=lila_openingexplorer=info cargo run --release -- --db-compaction-readahead
