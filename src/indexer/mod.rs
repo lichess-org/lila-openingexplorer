@@ -128,13 +128,18 @@ impl IndexerActor {
     }
 
     async fn index_player(&self, player: &UserId) {
-        let mut status = task::block_in_place(|| {
-            self.db
-                .lichess()
-                .player_status(player)
-                .expect("get player status")
-                .unwrap_or_default()
-        });
+        let mut status = {
+            let db = Arc::clone(&self.db);
+            let player = player.clone();
+            task::spawn_blocking(move || {
+                db.lichess()
+                    .player_status(&player)
+                    .expect("get player status")
+                    .unwrap_or_default()
+            })
+            .await
+            .expect("blocking get player status")
+        };
 
         let index_run = match status.maybe_start_index_run() {
             Some(index_run) => index_run,
