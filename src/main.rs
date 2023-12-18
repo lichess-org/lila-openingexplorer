@@ -113,22 +113,8 @@ async fn serve() {
     let opt = Opt::parse();
 
     let openings: &'static RwLock<Openings> = Box::leak(Box::default());
-    let lichess_cache = Cache::builder()
-        .max_capacity(opt.lichess_cache)
-        .time_to_live(Duration::from_secs(60 * 60 * 12))
-        .time_to_idle(Duration::from_secs(60 * 10))
-        .build();
-    let masters_cache = Cache::builder()
-        .max_capacity(opt.masters_cache)
-        .time_to_live(Duration::from_secs(60 * 60 * 24))
-        .time_to_idle(Duration::from_secs(60 * 10))
-        .build();
 
-    tokio::spawn(periodic_openings_import(
-        openings,
-        lichess_cache.clone(),
-        masters_cache.clone(),
-    ));
+    tokio::spawn(periodic_openings_import(openings));
 
     let db = task::block_in_place(|| Arc::new(Database::open(opt.db).expect("db")));
     let (indexer, _join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
@@ -151,8 +137,16 @@ async fn serve() {
         .route("/personal", get(player)) // bc
         .with_state(AppState {
             openings,
-            lichess_cache,
-            masters_cache,
+            lichess_cache: Cache::builder()
+                .max_capacity(opt.lichess_cache)
+                .time_to_live(Duration::from_secs(60 * 60 * 2))
+                .time_to_idle(Duration::from_secs(60 * 10))
+                .build(),
+            masters_cache: Cache::builder()
+                .max_capacity(opt.masters_cache)
+                .time_to_live(Duration::from_secs(60 * 60 * 4))
+                .time_to_idle(Duration::from_secs(60 * 10))
+                .build(),
             metrics: Box::leak(Box::default()),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),
@@ -174,24 +168,18 @@ async fn serve() {
     axum::serve(listener, app).await.expect("serve");
 }
 
-async fn periodic_openings_import(
-    openings: &'static RwLock<Openings>,
-    lichess_cache: ExplorerCache<LichessQuery>,
-    masters_cache: ExplorerCache<MastersQuery>,
-) {
+async fn periodic_openings_import(openings: &'static RwLock<Openings>) {
     loop {
-        if let Err(err) = openings_import(
-            State(openings),
-            State(lichess_cache.clone()),
-            State(masters_cache.clone()),
-        )
-        .await
-        {
-            log::error!("failed to refresh opening names: {err}");
-            time::sleep(Duration::from_secs(60 * 2)).await;
-        } else {
-            time::sleep(Duration::from_secs(60 * 60)).await;
+        match Openings::download().await {
+            Ok(new_openings) => {
+                log::info!("refreshed {} opening names", new_openings.len());
+                *openings.write().expect("write openings") = new_openings;
+            }
+            Err(err) => {
+                log::error!("failed to refresh opening names: {err}");
+            }
         }
+        time::sleep(Duration::from_secs(60 * 60 * 2)).await;
     }
 }
 
@@ -341,29 +329,12 @@ async fn openings_import(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
 ) -> Result<(), Error> {
-    let mut new_openings = Openings::new();
-    let client = reqwest::Client::builder()
-        .user_agent("lila-openingexplorer")
-        .timeout(Duration::from_secs(60))
-        .build()
-        .expect("reqwest client");
-    for part in ["a", "b", "c", "d", "e"] {
-        let tsv = client
-            .get(format!(
-                "https://raw.githubusercontent.com/lichess-org/chess-openings/master/{part}.tsv"
-            ))
-            .send()
-            .await?
-            .error_for_status()?
-            .text()
-            .await?;
-        new_openings.load_tsv(&tsv)?;
-    }
+    let new_openings = Openings::download().await?;
     log::info!("loaded {} opening names", new_openings.len());
 
     let mut write_lock = openings.write().expect("write openings");
-    masters_cache.invalidate_all();
     lichess_cache.invalidate_all();
+    masters_cache.invalidate_all();
     *write_lock = new_openings;
     Ok(())
 }
