@@ -81,7 +81,7 @@ impl Year {
     }
 
     pub fn max_masters() -> Year {
-        Year(2022)
+        Year(2024)
     }
 
     #[must_use]
