@@ -1,4 +1,5 @@
 use std::{
+    future::Future as _,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
@@ -15,7 +16,7 @@ use serde::Serialize;
 use sync_wrapper::SyncWrapper;
 use tokio::{
     time,
-    time::{Interval, MissedTickBehavior},
+    time::{Instant, Sleep},
 };
 
 pub struct NdJson<S>(pub S);
@@ -26,17 +27,42 @@ where
     T: Serialize,
 {
     fn into_response(self) -> Response {
-        let mut keep_alive = time::interval(Duration::from_secs(8));
-        keep_alive.set_missed_tick_behavior(MissedTickBehavior::Delay);
-
         Response::builder()
             .header("X-Accel-Buffering", "no")
             .header(axum::http::header::CONTENT_TYPE, "application/x-ndjson")
             .body(Body::from_stream(NdJsonStream {
                 item_stream: SyncWrapper::new(self.0),
-                keep_alive,
+                keep_alive: KeepAlive::new(Duration::from_secs(8)),
             }))
             .unwrap()
+    }
+}
+
+pin_project! {
+    pub struct KeepAlive {
+        #[pin]
+        sleep: Sleep,
+        expiry: Duration,
+    }
+}
+
+impl KeepAlive {
+    fn new(expiry: Duration) -> KeepAlive {
+        KeepAlive {
+            sleep: time::sleep(expiry),
+            expiry,
+        }
+    }
+
+    fn reset(self: Pin<&mut Self>) {
+        let this = self.project();
+        this.sleep.reset(Instant::now() + *this.expiry);
+    }
+
+    fn poll_expired(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+        ready!(self.as_mut().project().sleep.poll(cx));
+        self.reset();
+        Poll::Ready(())
     }
 }
 
@@ -44,7 +70,8 @@ pin_project! {
     pub struct NdJsonStream<S> {
         #[pin]
         item_stream: SyncWrapper<S>,
-        keep_alive: Interval,
+        #[pin]
+        keep_alive: KeepAlive,
     }
 }
 
@@ -69,7 +96,7 @@ where
 
         match without_keepalive {
             Poll::Pending => {
-                ready!(this.keep_alive.poll_tick(cx));
+                ready!(this.keep_alive.poll_expired(cx));
                 Poll::Ready(Some(Ok(Bytes::from("\n"))))
             }
             Poll::Ready(Some(Ok(event))) => {
