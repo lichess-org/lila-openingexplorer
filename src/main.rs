@@ -451,6 +451,7 @@ async fn player(
 
             let first = state.first_response.is_none();
             state.done = tokio::select! {
+                biased;
                 _ = state.ticket.completed() => true,
                 _ = tokio::time::sleep(Duration::from_millis(if first { 0 } else { 1000 })) => false,
             };
