@@ -383,7 +383,6 @@ impl MastersDatabase<'_> {
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_year(until.add_years_saturating(1)).into_bytes());
-        opt.set_auto_readahead_size(true);
 
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_masters, opt);
         iter.seek_to_first();
@@ -550,7 +549,6 @@ impl LichessDatabase<'_> {
             )
             .into_bytes(),
         );
-        opt.set_auto_readahead_size(true);
 
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_lichess, opt);
         iter.seek_to_first();
@@ -594,7 +592,6 @@ impl LichessDatabase<'_> {
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());
-        opt.set_auto_readahead_size(true);
 
         let mut iter = self.inner.raw_iterator_cf_opt(self.cf_player, opt);
         iter.seek_to_first();
