@@ -17,7 +17,7 @@ use shakmaty::{
 use tokio::{
     sync::{mpsc, Semaphore},
     task,
-    task::JoinHandle,
+    task::JoinSet,
     time::{sleep, timeout},
 };
 
@@ -56,12 +56,11 @@ pub struct IndexerStub {
 }
 
 impl IndexerStub {
-    pub fn spawn(db: Arc<Database>, opt: IndexerOpt) -> (IndexerStub, Vec<JoinHandle<()>>) {
+    pub fn spawn(join_set: &mut JoinSet<()>, db: Arc<Database>, opt: IndexerOpt) -> IndexerStub {
         let queue = Arc::new(Queue::with_capacity(2000));
 
-        let mut join_handles = Vec::with_capacity(opt.indexers);
         for idx in 0..opt.indexers {
-            join_handles.push(tokio::spawn(
+            join_set.spawn(
                 IndexerActor {
                     idx,
                     queue: Arc::clone(&queue),
@@ -69,10 +68,10 @@ impl IndexerStub {
                     lila: Lila::new(opt.clone()),
                 }
                 .run(),
-            ));
+            );
         }
 
-        (IndexerStub { queue, db }, join_handles)
+        IndexerStub { queue, db }
     }
 
     pub fn num_indexing(&self) -> usize {

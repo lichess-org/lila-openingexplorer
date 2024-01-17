@@ -34,7 +34,7 @@ use shakmaty::{
     Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
-use tokio::{net::TcpListener, sync::Semaphore, task, time};
+use tokio::{net::TcpListener, sync::Semaphore, task, task::JoinSet, time};
 
 use crate::{
     api::{
@@ -112,12 +112,14 @@ fn main() {
 async fn serve() {
     let opt = Opt::parse();
 
+    let mut join_set = JoinSet::new();
+
     let openings: &'static RwLock<Openings> = Box::leak(Box::default());
 
-    tokio::spawn(periodic_openings_import(openings));
+    join_set.spawn(periodic_openings_import(openings));
 
     let db = task::block_in_place(|| Arc::new(Database::open(opt.db).expect("db")));
-    let (indexer, _join_handles) = IndexerStub::spawn(Arc::clone(&db), opt.indexer);
+    let indexer = IndexerStub::spawn(&mut join_set, Arc::clone(&db), opt.indexer);
 
     let app = Router::new()
         .route("/monitor/cf/:cf/:prop", get(cf_prop))
