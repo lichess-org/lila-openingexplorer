@@ -172,7 +172,7 @@ speeds | string | *all* | Comma separated list of speeds (`ultraBullet`, `bullet
 since | string | `0000-01` | Year-Month. Filter for games played in this month or later
 until | string | `3000-12` | Year-Month. Filter for games played in this month or earlier
 
-Response: Streamed [`application/x-ndjson`](http://ndjson.org/)
+Response: Streamed [`application/x-ndjson`](https://github.com/ndjson/ndjson-spec)
 with rows as follows.
 
 Will start indexing, immediately respond with the current results,
