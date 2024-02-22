@@ -13,7 +13,7 @@ use shakmaty::{
     san::San,
     uci::Uci,
     variant::{Variant, VariantPosition},
-    zobrist::{Zobrist128, ZobristHash},
+    zobrist::ZobristHash,
     ByColor, CastlingMode, Chess, Color, EnPassantMode, Outcome, Position,
 };
 
@@ -25,6 +25,7 @@ use crate::{
         MastersGameWithId, Mode, Speed, Year,
     },
     util::{midpoint, ByColorDef},
+    zobrist::StableZobrist128,
 };
 
 const MAX_PLIES: usize = 50;
@@ -73,7 +74,7 @@ impl MastersImporter {
             return Err(Error::DuplicateGame { id: body.id });
         }
 
-        let mut without_loops: IntMap<Zobrist128, (Uci, Color)> =
+        let mut without_loops: IntMap<StableZobrist128, (Uci, Color)> =
             HashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
         let mut pos = Chess::default();
         let mut final_key = None;
@@ -193,7 +194,7 @@ impl LichessImporter {
             None => VariantPosition::new(game.variant),
         };
 
-        let mut without_loops: IntMap<Zobrist128, (Uci, Color)> =
+        let mut without_loops: IntMap<StableZobrist128, (Uci, Color)> =
             HashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
         for san in game.moves.into_iter().take(MAX_PLIES) {
             let m = san.to_move(&pos)?;

@@ -9,10 +9,8 @@ use futures_util::StreamExt;
 use nohash_hasher::IntMap;
 use reqwest::StatusCode;
 use shakmaty::{
-    uci::Uci,
-    variant::VariantPosition,
-    zobrist::{Zobrist128, ZobristHash},
-    ByColor, CastlingMode, Outcome, Position,
+    uci::Uci, variant::VariantPosition, zobrist::ZobristHash, ByColor, CastlingMode, Outcome,
+    Position,
 };
 use tokio::{
     sync::{mpsc, Semaphore},
@@ -25,6 +23,7 @@ use crate::{
     db::Database,
     model::{GamePlayer, KeyBuilder, LichessGame, Mode, Month, PlayerEntry, PlayerStatus, UserId},
     util::spawn_blocking,
+    zobrist::StableZobrist128,
 };
 
 mod lila;
@@ -353,7 +352,7 @@ impl IndexerActor {
         };
 
         // Build an intermediate table to remove loops (due to repetitions).
-        let mut without_loops: IntMap<Zobrist128, Uci> =
+        let mut without_loops: IntMap<StableZobrist128, Uci> =
             HashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
 
         for (ply, san) in game.moves.into_iter().enumerate() {

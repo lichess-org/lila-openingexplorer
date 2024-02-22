@@ -6,3 +6,4 @@ pub mod indexer;
 pub mod model;
 pub mod opening;
 pub mod util;
+pub mod zobrist;

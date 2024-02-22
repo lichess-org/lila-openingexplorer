@@ -8,6 +8,7 @@ pub mod metrics;
 pub mod model;
 pub mod opening;
 pub mod util;
+pub mod zobrist;
 
 use std::{
     net::SocketAddr,

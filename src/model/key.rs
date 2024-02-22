@@ -2,9 +2,12 @@ use std::array::TryFromSliceError;
 
 use bytes::{Buf, BufMut};
 use sha1::{Digest, Sha1};
-use shakmaty::{variant::Variant, zobrist::Zobrist128, Color};
+use shakmaty::{variant::Variant, Color};
 
-use crate::model::{InvalidDate, Month, UserId, Year};
+use crate::{
+    model::{InvalidDate, Month, UserId, Year},
+    zobrist::StableZobrist128,
+};
 
 #[derive(Debug)]
 pub struct KeyBuilder {
@@ -30,7 +33,7 @@ impl KeyBuilder {
         KeyBuilder { base: 0 }
     }
 
-    pub fn with_zobrist(&self, variant: Variant, zobrist: Zobrist128) -> KeyPrefix {
+    pub fn with_zobrist(&self, variant: Variant, zobrist: StableZobrist128) -> KeyPrefix {
         // Zobrist hashes are the opposite of cryptographically secure. An
         // attacker could efficiently construct a position such that a record
         // will appear in the opening explorer of another player. This is not
@@ -113,7 +116,7 @@ mod tests {
         fn test_key_order(a: Month, b: Month) -> bool {
             let user_id = UserId::from("blindfoldpig".parse::<UserName>().unwrap());
             let prefix = KeyBuilder::player(&user_id, Color::White)
-                .with_zobrist(Variant::Chess, Zobrist128(0xd1d06239bd7d2ae8ad6fa208133e1f9a));
+                .with_zobrist(Variant::Chess, StableZobrist128(0xd1d06239bd7d2ae8ad6fa208133e1f9a));
 
             (a <= b) == (prefix.with_month(a).into_bytes() <= prefix.with_month(b).into_bytes())
         }
