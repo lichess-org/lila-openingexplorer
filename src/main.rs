@@ -208,15 +208,17 @@ async fn periodic_openings_import(openings: &'static RwLock<Openings>) {
 }
 
 async fn periodic_blacklist_update(blacklist: &'static RwLock<HashSet<UserId>>, opt: LilaOpt) {
-    let mut last_update = SystemTime::UNIX_EPOCH;
-    let overlap = Duration::from_secs(60 * 60);
     let lila = Lila::new(opt);
+
+    let mut last_update = SystemTime::UNIX_EPOCH;
     loop {
+        // Request
+        let begin = SystemTime::now();
         let mut users = match timeout(
             Duration::from_secs(60),
             lila.mod_marked_since(
                 last_update
-                    .checked_sub(overlap)
+                    .checked_sub(Duration::from_secs(60 * 10)) // Overlap
                     .unwrap_or(SystemTime::UNIX_EPOCH),
             ),
         )
@@ -234,8 +236,10 @@ async fn periodic_blacklist_update(blacklist: &'static RwLock<HashSet<UserId>>, 
             }
         };
 
+        // Collect into vector
+        let mut new_users = Vec::new();
         loop {
-            let user = match timeout(Duration::from_secs(60), users.next()).await {
+            new_users.push(match timeout(Duration::from_secs(60), users.next()).await {
                 Ok(Some(Ok(user))) => user,
                 Ok(Some(Err(err))) => {
                     log::error!("blacklist: {err}");
@@ -246,16 +250,21 @@ async fn periodic_blacklist_update(blacklist: &'static RwLock<HashSet<UserId>>, 
                     log::error!("blacklist stream from lila: {timed_out}");
                     break;
                 }
-            };
-
-            blacklist.write().expect("write blacklist").insert(user);
+            });
         }
 
+        // Add to global hash set
         log::info!(
-            "blacklist updated: {} users total",
+            "blacklist updated in {:.3?}: {} new users (with some overlap), {} users total",
+            begin.elapsed().unwrap_or_default(),
+            new_users.len(),
             blacklist.read().expect("read blacklist").len()
         );
-        last_update = SystemTime::now();
+        blacklist
+            .write()
+            .expect("write blacklist")
+            .extend(new_users);
+        last_update = begin;
         time::sleep(Duration::from_secs(60 * 173)).await;
     }
 }
