@@ -56,3 +56,6 @@ harness = false
 
 [build-dependencies]
 vergen = { version = "8.2.4", features = ["git", "gitcl"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tokio_unstable)"] }
