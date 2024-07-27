@@ -11,9 +11,10 @@ pub mod util;
 pub mod zobrist;
 
 use std::{
+    collections::HashSet,
     net::SocketAddr,
     sync::{Arc, RwLock},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 use axum::{
@@ -23,7 +24,7 @@ use axum::{
     Json, Router,
 };
 use clap::Parser;
-use futures_util::stream::Stream;
+use futures_util::{stream::Stream, StreamExt};
 use moka::future::Cache;
 use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -35,7 +36,14 @@ use shakmaty::{
     Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
-use tokio::{net::TcpListener, sync::Semaphore, task, task::JoinSet, time};
+use tokio::{
+    net::TcpListener,
+    sync::Semaphore,
+    task,
+    task::JoinSet,
+    time,
+    time::{sleep, timeout},
+};
 
 use crate::{
     api::{
@@ -48,7 +56,7 @@ use crate::{
         LichessGameImport, LichessImporter, MastersImporter, PlayerIndexerOpt, PlayerIndexerStub,
         QueueFull, Ticket,
     },
-    lila::LilaOpt,
+    lila::{Lila, LilaOpt},
     metrics::Metrics,
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
@@ -86,6 +94,7 @@ type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
 #[derive(FromRef, Clone)]
 struct AppState {
     openings: &'static RwLock<Openings>,
+    blacklist: &'static RwLock<HashSet<UserId>>,
     db: Arc<Database>,
     lichess_cache: ExplorerCache<LichessQuery>,
     masters_cache: ExplorerCache<MastersQuery>,
@@ -121,8 +130,10 @@ async fn serve() {
     let mut join_set = JoinSet::new();
 
     let openings: &'static RwLock<Openings> = Box::leak(Box::default());
-
     join_set.spawn(periodic_openings_import(openings));
+
+    let blacklist: &'static RwLock<HashSet<UserId>> = Box::leak(Box::default());
+    join_set.spawn(periodic_blacklist_update(blacklist, opt.lila.clone()));
 
     let db = task::block_in_place(|| Arc::new(Database::open(opt.db).expect("db")));
     let player_indexer =
@@ -146,6 +157,7 @@ async fn serve() {
         .route("/personal", get(player)) // bc
         .with_state(AppState {
             openings,
+            blacklist,
             lichess_cache: Cache::builder()
                 .max_capacity(opt.lichess_cache)
                 .time_to_live(Duration::from_secs(60 * 60 * 2))
@@ -188,7 +200,60 @@ async fn periodic_openings_import(openings: &'static RwLock<Openings>) {
                 log::error!("failed to refresh opening names: {err}");
             }
         }
-        time::sleep(Duration::from_secs(60 * 60 * 2)).await;
+        time::sleep(Duration::from_secs(60 * 167)).await;
+    }
+}
+
+async fn periodic_blacklist_update(blacklist: &'static RwLock<HashSet<UserId>>, opt: LilaOpt) {
+    let mut last_update = SystemTime::UNIX_EPOCH;
+    let overlap = Duration::from_secs(60 * 60);
+    let lila = Lila::new(opt);
+    loop {
+        let mut users = match timeout(
+            Duration::from_secs(60),
+            lila.mod_marked_since(
+                last_update
+                    .checked_sub(overlap)
+                    .unwrap_or(SystemTime::UNIX_EPOCH),
+            ),
+        )
+        .await
+        {
+            Ok(Ok(users)) => users,
+            Ok(Err(err)) => {
+                log::error!("blacklist request failed: {err}");
+                sleep(Duration::from_secs(5)).await;
+                continue;
+            }
+            Err(timed_out) => {
+                log::error!("blacklist request to lila: {timed_out}");
+                continue;
+            }
+        };
+
+        loop {
+            let user = match timeout(Duration::from_secs(60), users.next()).await {
+                Ok(Some(Ok(user))) => user,
+                Ok(Some(Err(err))) => {
+                    log::error!("blacklist: {err}");
+                    continue;
+                }
+                Ok(None) => break,
+                Err(timed_out) => {
+                    log::error!("blacklist stream from lila: {timed_out}");
+                    break;
+                }
+            };
+
+            blacklist.write().expect("write blacklist").insert(user);
+        }
+
+        log::info!(
+            "blacklist updated: {} users total",
+            blacklist.read().expect("read blacklist").len()
+        );
+        last_update = SystemTime::now();
+        time::sleep(Duration::from_secs(60 * 173)).await;
     }
 }
 
@@ -284,6 +349,7 @@ async fn monitor(
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(metrics): State<&'static Metrics>,
     State(player_indexer): State<PlayerIndexerStub>,
+    State(blacklist): State<&'static RwLock<HashSet<UserId>>>,
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
 ) -> String {
@@ -301,6 +367,11 @@ async fn monitor(
                     db.metrics().expect("db metrics").to_influx_string(),
                     // Indexer
                     format!("indexing={}u", player_indexer.num_indexing()),
+                    // Blacklist
+                    format!(
+                        "blacklist={}u",
+                        blacklist.read().expect("read blacklist").len()
+                    ),
                     // Column families
                     db.masters()
                         .estimate_metrics()
