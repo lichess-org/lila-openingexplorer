@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, time::SystemTime};
 
 use clap::Parser;
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
@@ -77,6 +77,46 @@ impl Lila {
                     Ok(line) if line.is_empty() => None,
                     Ok(line) => Some(
                         serde_json::from_str::<Game>(&line)
+                            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err)),
+                    ),
+                    Err(err) => Some(Err(err)),
+                }
+            }),
+        ))
+    }
+
+    pub async fn mod_marked_since(
+        &self,
+        since: SystemTime,
+    ) -> Result<impl Stream<Item = Result<UserId, io::Error>>, reqwest::Error> {
+        let mut builder = self
+            .client
+            .get(format!("{}/api/stream/mod-marked-since", self.opt.lila))
+            .query(&[(
+                "since",
+                since
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .map_or(0, |d| d.as_millis()),
+            )]);
+
+        if let Some(ref bearer) = self.opt.bearer {
+            builder = builder.bearer_auth(bearer);
+        }
+
+        let stream = builder
+            .send()
+            .await
+            .and_then(|r| r.error_for_status())?
+            .bytes_stream()
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+
+        Ok(Box::pin(
+            LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {
+                match line {
+                    Ok(line) if line.is_empty() => None,
+                    Ok(line) => Some(
+                        line.parse::<UserName>()
+                            .map(UserId::from)
                             .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err)),
                     ),
                     Err(err) => Some(Err(err)),
