@@ -58,7 +58,10 @@ use crate::{
     },
     lila::{Lila, LilaOpt},
     metrics::Metrics,
-    model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
+    model::{
+        GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId,
+        UserName,
+    },
     opening::{Opening, Openings},
     util::{ply, spawn_blocking, DedupStreamExt as _},
 };
@@ -452,6 +455,7 @@ fn finalize_lichess_moves(
 fn finalize_lichess_games(
     games: Vec<(UciMove, GameId)>,
     lichess_db: &LichessDatabase,
+    blacklist: &HashSet<UserId>,
 ) -> Vec<ExplorerGameWithUciMove> {
     lichess_db
         .games(games.iter().map(|(_, id)| *id))
@@ -459,7 +463,13 @@ fn finalize_lichess_games(
         .into_iter()
         .zip(games)
         .filter_map(|(info, (uci, id))| {
-            info.map(|info| ExplorerGameWithUciMove {
+            info.filter(|info| {
+                info.players
+                    .iter()
+                    .filter_map(|player| player.name.parse::<UserName>().ok().map(UserId::from))
+                    .all(|player_id| !blacklist.contains(&player_id))
+            })
+            .map(|info| ExplorerGameWithUciMove {
                 uci,
                 row: ExplorerGame::from_lichess(id, info),
             })
@@ -561,7 +571,7 @@ async fn player(
                         let response = ExplorerResponse {
                             total: filtered.total,
                             moves: finalize_lichess_moves(filtered.moves, &state.pos, &lichess_db),
-                            recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
+                            recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db, &HashSet::new())),
                             top_games: None,
                             history: None,
                             opening: state.opening.clone(),
@@ -702,6 +712,7 @@ async fn lichess_import(
 #[axum::debug_handler(state = AppState)]
 async fn lichess(
     State(openings): State<&'static RwLock<Openings>>,
+    State(blacklist): State<&'static RwLock<HashSet<UserId>>>,
     State(db): State<Arc<Database>>,
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(metrics): State<&'static Metrics>,
@@ -731,11 +742,20 @@ async fn lichess(
                     )
                     .expect("get lichess");
 
+                let blacklist = blacklist.read().expect("read blacklist");
                 let response = Ok(Json(ExplorerResponse {
                     total: filtered.total,
                     moves: finalize_lichess_moves(filtered.moves, &pos, &lichess_db),
-                    recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db)),
-                    top_games: Some(finalize_lichess_games(filtered.top_games, &lichess_db)),
+                    recent_games: Some(finalize_lichess_games(
+                        filtered.recent_games,
+                        &lichess_db,
+                        &blacklist,
+                    )),
+                    top_games: Some(finalize_lichess_games(
+                        filtered.top_games,
+                        &lichess_db,
+                        &blacklist,
+                    )),
                     opening,
                     history,
                     queue_position: None,
@@ -752,6 +772,7 @@ async fn lichess(
 #[axum::debug_handler(state = AppState)]
 async fn lichess_history(
     openings: State<&'static RwLock<Openings>>,
+    blacklist: State<&'static RwLock<HashSet<UserId>>>,
     db: State<Arc<Database>>,
     lichess_cache: State<ExplorerCache<LichessQuery>>,
     metrics: State<&'static Metrics>,
@@ -764,6 +785,7 @@ async fn lichess_history(
     with_source.query.limits.moves = 0;
     lichess(
         openings,
+        blacklist,
         db,
         lichess_cache,
         metrics,
