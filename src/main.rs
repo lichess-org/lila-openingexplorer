@@ -2,8 +2,8 @@
 
 pub mod api;
 pub mod db;
-pub mod importer;
 pub mod indexer;
+pub mod lila;
 pub mod metrics;
 pub mod model;
 pub mod opening;
@@ -39,13 +39,16 @@ use tokio::{net::TcpListener, sync::Semaphore, task, task::JoinSet, time};
 
 use crate::{
     api::{
-        Error, ExplorerGame, ExplorerGameWithUciMove, ExplorerMove, ExplorerResponse, HistoryWanted,
-        LichessQuery, MastersQuery, NdJson, PlayPosition, PlayerLimits, PlayerQuery,
+        Error, ExplorerGame, ExplorerGameWithUciMove, ExplorerMove, ExplorerResponse,
+        HistoryWanted, LichessQuery, MastersQuery, NdJson, PlayPosition, PlayerLimits, PlayerQuery,
         PlayerQueryFilter, WithSource,
     },
     db::{CacheHint, Database, DbOpt, LichessDatabase},
-    importer::{LichessGameImport, LichessImporter, MastersImporter},
-    indexer::{IndexerOpt, IndexerStub, QueueFull, Ticket},
+    indexer::{
+        LichessGameImport, LichessImporter, MastersImporter, PlayerIndexerOpt, PlayerIndexerStub,
+        QueueFull, Ticket,
+    },
+    lila::LilaOpt,
     metrics::Metrics,
     model::{GameId, KeyBuilder, KeyPrefix, MastersGame, MastersGameWithId, PreparedMove, UserId},
     opening::{Opening, Openings},
@@ -73,7 +76,9 @@ struct Opt {
     #[command(flatten)]
     db: DbOpt,
     #[command(flatten)]
-    indexer: IndexerOpt,
+    player_indexer: PlayerIndexerOpt,
+    #[command(flatten)]
+    lila: LilaOpt,
 }
 
 type ExplorerCache<T> = Cache<T, Result<Json<ExplorerResponse>, Error>>;
@@ -87,7 +92,7 @@ struct AppState {
     metrics: &'static Metrics,
     lichess_importer: LichessImporter,
     masters_importer: MastersImporter,
-    indexer: IndexerStub,
+    player_indexer: PlayerIndexerStub,
     semaphore: &'static Semaphore,
 }
 
@@ -120,7 +125,8 @@ async fn serve() {
     join_set.spawn(periodic_openings_import(openings));
 
     let db = task::block_in_place(|| Arc::new(Database::open(opt.db).expect("db")));
-    let indexer = IndexerStub::spawn(&mut join_set, Arc::clone(&db), opt.indexer);
+    let player_indexer =
+        PlayerIndexerStub::spawn(&mut join_set, Arc::clone(&db), opt.player_indexer, opt.lila);
 
     let app = Router::new()
         .route("/monitor/cf/:cf/:prop", get(cf_prop))
@@ -153,7 +159,7 @@ async fn serve() {
             metrics: Box::leak(Box::default()),
             lichess_importer: LichessImporter::new(Arc::clone(&db)),
             masters_importer: MastersImporter::new(Arc::clone(&db)),
-            indexer,
+            player_indexer,
             db,
             semaphore: Box::leak(Box::new(Semaphore::new(128))),
         });
@@ -277,7 +283,7 @@ async fn monitor(
     State(lichess_cache): State<ExplorerCache<LichessQuery>>,
     State(masters_cache): State<ExplorerCache<MastersQuery>>,
     State(metrics): State<&'static Metrics>,
-    State(indexer): State<IndexerStub>,
+    State(player_indexer): State<PlayerIndexerStub>,
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
 ) -> String {
@@ -294,7 +300,7 @@ async fn monitor(
                     // Block cache
                     db.metrics().expect("db metrics").to_influx_string(),
                     // Indexer
-                    format!("indexing={}u", indexer.num_indexing()),
+                    format!("indexing={}u", player_indexer.num_indexing()),
                     // Column families
                     db.masters()
                         .estimate_metrics()
@@ -391,7 +397,7 @@ fn finalize_lichess_games(
 }
 
 struct PlayerStreamState {
-    indexer: IndexerStub,
+    player_indexer: PlayerIndexerStub,
     ticket: Ticket,
     key: KeyPrefix,
     db: Arc<Database>,
@@ -408,14 +414,14 @@ struct PlayerStreamState {
 async fn player(
     State(openings): State<&'static RwLock<Openings>>,
     State(db): State<Arc<Database>>,
-    State(indexer): State<IndexerStub>,
+    State(player_indexer): State<PlayerIndexerStub>,
     State(metrics): State<&'static Metrics>,
     State(semaphore): State<&'static Semaphore>,
     Query(query): Query<PlayerQuery>,
 ) -> Result<NdJson<impl Stream<Item = ExplorerResponse>>, Error> {
     let player = UserId::from(query.player);
     let key_builder = KeyBuilder::player(&player, query.color);
-    let ticket = indexer
+    let ticket = player_indexer
         .index_player(player, semaphore)
         .await
         .map_err(|QueueFull(player)| {
@@ -432,7 +438,7 @@ async fn player(
     let key = key_builder.with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
 
     let state = PlayerStreamState {
-        indexer,
+        player_indexer,
         color: query.color,
         filter: query.filter,
         limits: query.limits,
@@ -459,7 +465,7 @@ async fn player(
                 _ = tokio::time::sleep(Duration::from_millis(if first { 0 } else { 1000 })) => false,
             };
 
-            let preceding_tickets = state.indexer.preceding_tickets(&state.ticket);
+            let preceding_tickets = state.player_indexer.preceding_tickets(&state.ticket);
 
             Some(match state.first_response {
                 Some(ref first_response) if preceding_tickets > 0 => {

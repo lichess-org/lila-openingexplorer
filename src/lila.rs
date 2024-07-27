@@ -1,5 +1,6 @@
 use std::io;
 
+use clap::Parser;
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{
@@ -12,18 +13,28 @@ use tokio_stream::wrappers::LinesStream;
 use tokio_util::io::StreamReader;
 
 use crate::{
-    indexer::IndexerOpt,
     model::{GameId, Speed, UserId, UserName},
     util::ByColorDef,
 };
 
+#[derive(Parser, Clone)]
+pub struct LilaOpt {
+    /// Base url for the lila instance.
+    #[arg(long = "lila", default_value = "https://lichess.org")]
+    lila: String,
+    /// Token of https://lichess.org/@/OpeningExplorer to speed up indexing
+    /// and allow access to internal endpoints.
+    #[arg(long = "bearer", env = "EXPLORER_BEARER")]
+    bearer: Option<String>,
+}
+
 pub struct Lila {
     client: reqwest::Client,
-    opt: IndexerOpt,
+    opt: LilaOpt,
 }
 
 impl Lila {
-    pub fn new(opt: IndexerOpt) -> Lila {
+    pub fn new(opt: LilaOpt) -> Lila {
         Lila {
             client: reqwest::Client::builder()
                 .user_agent("lila-openingexplorer")
