@@ -1,6 +1,6 @@
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr, TryFromInto};
-use shakmaty::{san::SanPlus, uci::Uci, ByColor, Color};
+use shakmaty::{san::SanPlus, uci::UciMove, ByColor, Color};
 
 use crate::{
     model::{
@@ -18,9 +18,9 @@ pub struct ExplorerResponse {
     pub total: Stats,
     pub moves: Vec<ExplorerMove>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recent_games: Option<Vec<ExplorerGameWithUci>>,
+    pub recent_games: Option<Vec<ExplorerGameWithUciMove>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_games: Option<Vec<ExplorerGameWithUci>>,
+    pub top_games: Option<Vec<ExplorerGameWithUciMove>>,
     pub opening: Option<Opening>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub queue_position: Option<u64>,
@@ -33,7 +33,7 @@ pub struct ExplorerResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ExplorerMove {
     #[serde_as(as = "DisplayFromStr")]
-    pub uci: Uci,
+    pub uci: UciMove,
     #[serde_as(as = "DisplayFromStr")]
     pub san: SanPlus,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -49,9 +49,9 @@ pub struct ExplorerMove {
 
 #[serde_as]
 #[derive(Serialize, Clone, Debug)]
-pub struct ExplorerGameWithUci {
+pub struct ExplorerGameWithUciMove {
     #[serde_as(as = "DisplayFromStr")]
-    pub uci: Uci,
+    pub uci: UciMove,
     #[serde(flatten)]
     pub row: ExplorerGame,
 }

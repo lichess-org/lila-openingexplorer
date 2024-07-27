@@ -1,14 +1,14 @@
 use std::{convert::TryFrom, fmt};
 
 use bytes::{Buf, BufMut};
-use shakmaty::{uci::Uci, Role, Square};
+use shakmaty::{uci::UciMove, Role, Square};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct RawUci(u16);
+pub struct RawUciMove(u16);
 
-impl RawUci {
-    pub fn read<B: Buf>(buf: &mut B) -> RawUci {
-        RawUci(buf.get_u16_le())
+impl RawUciMove {
+    pub fn read<B: Buf>(buf: &mut B) -> RawUciMove {
+        RawUciMove(buf.get_u16_le())
     }
 
     pub fn write<B: BufMut>(&self, buf: &mut B) {
@@ -16,26 +16,26 @@ impl RawUci {
     }
 }
 
-impl fmt::Debug for RawUci {
+impl fmt::Debug for RawUciMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "RawUci({})", Uci::from(*self))
+        write!(f, "RawUciMove({})", UciMove::from(*self))
     }
 }
 
-impl nohash_hasher::IsEnabled for RawUci {}
+impl nohash_hasher::IsEnabled for RawUciMove {}
 
-impl From<RawUci> for Uci {
-    fn from(raw: RawUci) -> Uci {
+impl From<RawUciMove> for UciMove {
+    fn from(raw: RawUciMove) -> UciMove {
         let from = Square::new(u32::from(raw.0 & 63));
         let to = Square::new(u32::from((raw.0 >> 6) & 63));
         let role = Role::try_from(raw.0 >> 12).ok();
         if from == to {
             match role {
-                Some(role) => Uci::Put { role, to },
-                None => Uci::Null,
+                Some(role) => UciMove::Put { role, to },
+                None => UciMove::Null,
             }
         } else {
-            Uci::Normal {
+            UciMove::Normal {
                 from,
                 to,
                 promotion: role,
@@ -44,18 +44,18 @@ impl From<RawUci> for Uci {
     }
 }
 
-impl From<Uci> for RawUci {
-    fn from(uci: Uci) -> RawUci {
+impl From<UciMove> for RawUciMove {
+    fn from(uci: UciMove) -> RawUciMove {
         let (from, to, role) = match uci {
-            Uci::Normal {
+            UciMove::Normal {
                 from,
                 to,
                 promotion,
             } => (from, to, promotion),
-            Uci::Put { role, to } => (to, to, Some(role)),
-            Uci::Null => (Square::A1, Square::A1, None),
+            UciMove::Put { role, to } => (to, to, Some(role)),
+            UciMove::Null => (Square::A1, Square::A1, None),
         };
-        RawUci(
+        RawUciMove(
             u16::from(from)
                 | (u16::from(to) << 6)
                 | (role.map(u16::from).unwrap_or_default() << 12),
@@ -68,20 +68,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_uci_roundtrip() {
+    fn test_uci_move_roundtrip() {
         let moves = [
-            Uci::Null,
-            Uci::Normal {
+            UciMove::Null,
+            UciMove::Normal {
                 from: Square::A1,
                 to: Square::H8,
                 promotion: None,
             },
-            Uci::Normal {
+            UciMove::Normal {
                 from: Square::A2,
                 to: Square::A1,
                 promotion: Some(Role::King),
             },
-            Uci::Put {
+            UciMove::Put {
                 to: Square::A1,
                 role: Role::Knight,
             },
@@ -89,12 +89,12 @@ mod tests {
 
         let mut buf = Vec::new();
         for uci in &moves {
-            RawUci::from(uci.clone()).write(&mut buf);
+            RawUciMove::from(uci.clone()).write(&mut buf);
         }
 
         let mut reader = &buf[..];
         for uci in moves {
-            assert_eq!(uci, Uci::from(RawUci::read(&mut reader)));
+            assert_eq!(uci, UciMove::from(RawUciMove::read(&mut reader)));
         }
     }
 }

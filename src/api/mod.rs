@@ -9,4 +9,4 @@ pub use query::{
     HistoryWanted, LichessHistoryQuery, LichessQuery, LichessQueryFilter, Limits, MastersQuery,
     PlayPosition, PlayerLimits, PlayerQuery, PlayerQueryFilter, Source, WithSource,
 };
-pub use response::{ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse};
+pub use response::{ExplorerGame, ExplorerGameWithUciMove, ExplorerMove, ExplorerResponse};

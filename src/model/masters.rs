@@ -12,12 +12,12 @@ use bytes::{Buf, BufMut};
 use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
-use shakmaty::{san::SanPlus, uci::Uci, ByColor, Chess, Color, Outcome};
+use shakmaty::{san::SanPlus, uci::UciMove, ByColor, Chess, Color, Outcome};
 use thin_vec::{thin_vec, ThinVec};
 
 use crate::{
     api::Limits,
-    model::{GameId, GamePlayer, LaxDate, PreparedMove, PreparedResponse, RawUci, Stats},
+    model::{GameId, GamePlayer, LaxDate, PreparedMove, PreparedResponse, RawUciMove, Stats},
     util::{sort_by_key_and_truncate, ByColorDef},
 };
 
@@ -44,8 +44,8 @@ pub struct MastersGame {
     pub players: ByColor<GamePlayer>,
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub winner: Option<Color>,
-    #[serde_as(as = "StringWithSeparator<SpaceSeparator, Uci>")]
-    pub moves: Vec<Uci>,
+    #[serde_as(as = "StringWithSeparator<SpaceSeparator, UciMove>")]
+    pub moves: Vec<UciMove>,
 }
 
 impl MastersGame {
@@ -108,14 +108,14 @@ pub struct MastersGroup {
 
 #[derive(Default, Debug)]
 pub struct MastersEntry {
-    groups: IntMap<RawUci, MastersGroup>,
+    groups: IntMap<RawUciMove, MastersGroup>,
 }
 
 impl MastersEntry {
     pub const SIZE_HINT: usize = 14;
 
     pub fn new_single(
-        uci: Uci,
+        uci: UciMove,
         id: GameId,
         outcome: Outcome,
         mover_rating: u16,
@@ -123,7 +123,7 @@ impl MastersEntry {
     ) -> MastersEntry {
         MastersEntry {
             groups: [(
-                RawUci::from(uci),
+                RawUciMove::from(uci),
                 MastersGroup {
                     stats: Stats::new_single(outcome, mover_rating),
                     games: thin_vec![(mover_rating.saturating_add(opponent_rating), id)],
@@ -136,7 +136,7 @@ impl MastersEntry {
 
     pub fn extend_from_reader<B: Buf>(&mut self, buf: &mut B) {
         while buf.has_remaining() {
-            let uci = RawUci::read(buf);
+            let uci = RawUciMove::read(buf);
             let group = self.groups.entry(uci).or_default();
             group.stats += &Stats::read(buf);
             let num_games = usize::from(buf.get_u8());
@@ -193,7 +193,7 @@ impl MastersEntry {
         for (uci, group) in self.groups {
             total += &group.stats;
 
-            let uci = Uci::from(uci);
+            let uci = UciMove::from(uci);
 
             let single_game = if group.stats.is_single() {
                 group.games.iter().map(|(_, id)| *id).next()
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_masters_entry() {
-        let uci = Uci::Normal {
+        let uci = UciMove::Normal {
             from: Square::E2,
             to: Square::E4,
             promotion: None,
@@ -266,7 +266,7 @@ mod tests {
         let mut deserialized = MastersEntry::default();
         deserialized.extend_from_reader(&mut reader);
 
-        let group = deserialized.groups.get(&RawUci::from(uci)).unwrap();
+        let group = deserialized.groups.get(&RawUciMove::from(uci)).unwrap();
         assert_eq!(group.stats.draws(), 1);
         assert_eq!(group.games[0], (1600 + 1700, game));
     }

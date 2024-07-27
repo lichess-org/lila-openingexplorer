@@ -172,7 +172,7 @@ mod tests {
         formats::SpaceSeparator, serde_as, DisplayFromStr, FromInto, StringWithSeparator,
     };
     use shakmaty::{
-        uci::Uci,
+        uci::UciMove,
         variant::{Crazyhouse, KingOfTheHill, ThreeCheck, Variant, VariantPosition},
         zobrist::ZobristHash as _,
         Chess, EnPassantMode, Position as _,
@@ -187,8 +187,8 @@ mod tests {
         struct Record {
             #[serde_as(as = "DisplayFromStr")]
             variant: Variant,
-            #[serde_as(as = "StringWithSeparator<SpaceSeparator, Uci>")]
-            uci: Vec<Uci>,
+            #[serde_as(as = "StringWithSeparator<SpaceSeparator, UciMove>")]
+            uci: Vec<UciMove>,
             #[serde_as(as = "FromInto<u128>")]
             zobrist: StableZobrist128,
         }

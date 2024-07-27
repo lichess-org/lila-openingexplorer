@@ -11,7 +11,7 @@ use serde_with::{
 use shakmaty::{
     fen::Fen,
     san::San,
-    uci::Uci,
+    uci::UciMove,
     variant::{Variant, VariantPosition},
     zobrist::ZobristHash,
     ByColor, CastlingMode, Chess, Color, EnPassantMode, Outcome, Position,
@@ -74,7 +74,7 @@ impl MastersImporter {
             return Err(Error::DuplicateGame { id: body.id });
         }
 
-        let mut without_loops: IntMap<StableZobrist128, (Uci, Color)> =
+        let mut without_loops: IntMap<StableZobrist128, (UciMove, Color)> =
             HashMap::with_capacity_and_hasher(body.game.moves.len(), Default::default());
         let mut pos = Chess::default();
         let mut final_key = None;
@@ -82,7 +82,7 @@ impl MastersImporter {
             let key = pos.zobrist_hash(EnPassantMode::Legal);
             final_key = Some(key);
             let m = uci.to_move(&pos)?;
-            without_loops.insert(key, (Uci::from_chess960(&m), pos.turn()));
+            without_loops.insert(key, (UciMove::from_chess960(&m), pos.turn()));
             pos.play_unchecked(&m);
         }
 
@@ -194,13 +194,13 @@ impl LichessImporter {
             None => VariantPosition::new(game.variant),
         };
 
-        let mut without_loops: IntMap<StableZobrist128, (Uci, Color)> =
+        let mut without_loops: IntMap<StableZobrist128, (UciMove, Color)> =
             HashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
         for san in game.moves.into_iter().take(MAX_PLIES) {
             let m = san.to_move(&pos)?;
             without_loops.insert(
                 pos.zobrist_hash(EnPassantMode::Legal),
-                (Uci::from_chess960(&m), pos.turn()),
+                (UciMove::from_chess960(&m), pos.turn()),
             );
             pos.play_unchecked(&m);
         }

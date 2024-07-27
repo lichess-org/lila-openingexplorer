@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{http::StatusCode, response::Response};
-use shakmaty::{san::SanError, uci::IllegalUciError, variant::VariantPosition, PositionError};
+use shakmaty::{san::SanError, uci::IllegalUciMoveError, variant::VariantPosition, PositionError};
 use thiserror::Error;
 
 use crate::model::{GameId, LaxDate};
@@ -11,7 +11,7 @@ pub enum Error {
     #[error("bad request: {0}")]
     PositionError(Box<PositionError<VariantPosition>>),
     #[error("bad request: {0}")]
-    IllegalUciError(#[from] IllegalUciError),
+    IllegalUciMoveError(#[from] IllegalUciMoveError),
     #[error("bad request: {0}")]
     SanError(#[from] SanError),
     #[error("duplicate game {id}")]
@@ -54,7 +54,7 @@ impl axum::response::IntoResponse for Error {
             match self {
                 Error::IndexerQueueFull => StatusCode::SERVICE_UNAVAILABLE,
                 Error::PositionError(_)
-                | Error::IllegalUciError(_)
+                | Error::IllegalUciMoveError(_)
                 | Error::SanError(_)
                 | Error::DuplicateGame { .. }
                 | Error::RejectedRating { .. }

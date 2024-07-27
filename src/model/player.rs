@@ -6,14 +6,14 @@ use std::{
 
 use bytes::{Buf, BufMut};
 use nohash_hasher::IntMap;
-use shakmaty::{uci::Uci, Color, Outcome};
+use shakmaty::{uci::UciMove, Color, Outcome};
 use thin_vec::thin_vec;
 
 use crate::{
     api::{PlayerLimits, PlayerQueryFilter},
     model::{
         read_uint, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode, PreparedMove,
-        PreparedResponse, RawUci, Speed, Stats,
+        PreparedResponse, RawUciMove, Speed, Stats,
     },
     util::sort_by_key_and_truncate,
 };
@@ -73,7 +73,7 @@ impl Header {
 
 #[derive(Default, Debug)]
 pub struct PlayerEntry {
-    sub_entries: IntMap<RawUci, BySpeed<ByMode<LichessGroup>>>,
+    sub_entries: IntMap<RawUciMove, BySpeed<ByMode<LichessGroup>>>,
     min_game_idx: Option<u64>,
     max_game_idx: Option<u64>,
 }
@@ -82,7 +82,7 @@ impl PlayerEntry {
     pub const SIZE_HINT: usize = 13;
 
     pub fn new_single(
-        uci: Uci,
+        uci: UciMove,
         speed: Speed,
         mode: Mode,
         game_id: GameId,
@@ -95,7 +95,7 @@ impl PlayerEntry {
             games: thin_vec![(0, game_id)],
         };
         PlayerEntry {
-            sub_entries: [(RawUci::from(uci), sub_entry)].into_iter().collect(),
+            sub_entries: [(RawUciMove::from(uci), sub_entry)].into_iter().collect(),
             min_game_idx: Some(0),
             max_game_idx: Some(0),
         }
@@ -105,7 +105,7 @@ impl PlayerEntry {
         let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
         while buf.has_remaining() {
-            let uci = RawUci::read(buf);
+            let uci = RawUciMove::read(buf);
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
             while buf.has_remaining() {
@@ -172,7 +172,7 @@ impl PlayerEntry {
     ) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(u64, RawUci, GameId)> = Vec::new();
+        let mut recent_games: Vec<(u64, RawUciMove, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
             let mut latest_game: Option<(u64, GameId)> = None;
@@ -215,7 +215,7 @@ impl PlayerEntry {
                 total += &stats;
 
                 moves.push(PreparedMove {
-                    uci: Uci::from(uci),
+                    uci: UciMove::from(uci),
                     average_rating: None,
                     average_opponent_rating: stats.average_rating(),
                     performance: stats.performance(color),
@@ -237,7 +237,7 @@ impl PlayerEntry {
             moves,
             recent_games: recent_games
                 .into_iter()
-                .map(|(_, uci, game)| (Uci::from(uci), game))
+                .map(|(_, uci, game)| (UciMove::from(uci), game))
                 .collect(),
             top_games: Vec::new(),
         }
@@ -389,7 +389,7 @@ mod tests {
     fn test_merge_player() {
         // Merge three entries, two of which are for the same move in the same
         // group.
-        let uci_ab = Uci::Normal {
+        let uci_ab = UciMove::Normal {
             from: Square::E2,
             to: Square::E4,
             promotion: None,
@@ -417,7 +417,7 @@ mod tests {
             1800,
         );
 
-        let uci_c = Uci::Normal {
+        let uci_c = UciMove::Normal {
             from: Square::D2,
             to: Square::D4,
             promotion: None,
@@ -455,7 +455,7 @@ mod tests {
         assert_eq!(deserialized.max_game_idx, Some(2));
         let group = &deserialized
             .sub_entries
-            .get(&RawUci::from(uci_ab))
+            .get(&RawUciMove::from(uci_ab))
             .unwrap()
             .bullet
             .rated;

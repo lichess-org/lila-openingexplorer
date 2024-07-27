@@ -29,7 +29,7 @@ use serde::Deserialize;
 use serde_with::{serde_as, DisplayFromStr};
 use shakmaty::{
     san::{San, SanPlus},
-    uci::Uci,
+    uci::UciMove,
     variant::VariantPosition,
     zobrist::ZobristHash,
     Color, EnPassantMode,
@@ -39,7 +39,7 @@ use tokio::{net::TcpListener, sync::Semaphore, task, task::JoinSet, time};
 
 use crate::{
     api::{
-        Error, ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, HistoryWanted,
+        Error, ExplorerGame, ExplorerGameWithUciMove, ExplorerMove, ExplorerResponse, HistoryWanted,
         LichessQuery, MastersQuery, NdJson, PlayPosition, PlayerLimits, PlayerQuery,
         PlayerQueryFilter, WithSource,
     },
@@ -373,16 +373,16 @@ fn finalize_lichess_moves(
 }
 
 fn finalize_lichess_games(
-    games: Vec<(Uci, GameId)>,
+    games: Vec<(UciMove, GameId)>,
     lichess_db: &LichessDatabase,
-) -> Vec<ExplorerGameWithUci> {
+) -> Vec<ExplorerGameWithUciMove> {
     lichess_db
         .games(games.iter().map(|(_, id)| *id))
         .expect("get games")
         .into_iter()
         .zip(games)
         .filter_map(|(info, (uci, id))| {
-            info.map(|info| ExplorerGameWithUci {
+            info.map(|info| ExplorerGameWithUciMove {
                 uci,
                 row: ExplorerGame::from_lichess(id, info),
             })
@@ -592,7 +592,7 @@ async fn masters(
                             .into_iter()
                             .zip(entry.top_games.into_iter())
                             .filter_map(|(info, (uci, id))| {
-                                info.map(|info| ExplorerGameWithUci {
+                                info.map(|info| ExplorerGameWithUciMove {
                                     uci: uci.clone(),
                                     row: ExplorerGame::from_masters(id, info),
                                 })

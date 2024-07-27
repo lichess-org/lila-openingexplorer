@@ -4,7 +4,7 @@ use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
 use shakmaty::{
     san::San,
-    uci::Uci,
+    uci::UciMove,
     variant::{Variant, VariantPosition},
     zobrist::{Zobrist64, ZobristHash},
     Chess, EnPassantMode, Position,
@@ -101,7 +101,7 @@ impl Openings {
     pub fn classify_and_play(
         &self,
         root: &mut VariantPosition,
-        play: Vec<Uci>,
+        play: Vec<UciMove>,
     ) -> Result<Option<Opening>, Error> {
         let mut opening = self.classify(root);
 

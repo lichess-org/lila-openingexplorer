@@ -6,12 +6,12 @@ use std::{
 
 use bytes::{Buf, BufMut};
 use nohash_hasher::IntMap;
-use shakmaty::{uci::Uci, Outcome};
+use shakmaty::{uci::UciMove, Outcome};
 use thin_vec::{thin_vec, ThinVec};
 
 use crate::{
     api::{LichessQueryFilter, Limits},
-    model::{read_uint, write_uint, BySpeed, GameId, RawUci, Speed, Stats},
+    model::{read_uint, write_uint, BySpeed, GameId, RawUciMove, Speed, Stats},
     util::{midpoint, sort_by_key_and_truncate},
 };
 
@@ -268,7 +268,7 @@ pub struct LichessGroup {
 
 #[derive(Default, Debug)]
 pub struct LichessEntry {
-    sub_entries: IntMap<RawUci, BySpeed<ByRatingGroup<LichessGroup>>>,
+    sub_entries: IntMap<RawUciMove, BySpeed<ByRatingGroup<LichessGroup>>>,
     min_game_idx: Option<u64>,
     max_game_idx: Option<u64>,
 }
@@ -277,7 +277,7 @@ impl LichessEntry {
     pub const SIZE_HINT: usize = 13;
 
     pub fn new_single(
-        uci: Uci,
+        uci: UciMove,
         speed: Speed,
         game_id: GameId,
         outcome: Outcome,
@@ -293,7 +293,7 @@ impl LichessEntry {
                 games: thin_vec![(0, game_id)],
             };
         LichessEntry {
-            sub_entries: [(RawUci::from(uci), sub_entry)].into_iter().collect(),
+            sub_entries: [(RawUciMove::from(uci), sub_entry)].into_iter().collect(),
             min_game_idx: Some(0),
             max_game_idx: Some(0),
         }
@@ -303,7 +303,7 @@ impl LichessEntry {
         let base_game_idx = self.max_game_idx.map_or(0, |idx| idx + 1);
 
         while buf.has_remaining() {
-            let uci = RawUci::read(buf);
+            let uci = RawUciMove::read(buf);
             let sub_entry = self.sub_entries.entry(uci).or_default();
 
             while buf.has_remaining() {
@@ -384,10 +384,10 @@ impl LichessEntry {
     pub fn prepare(self, filter: &LichessQueryFilter, limits: &Limits) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(RatingGroup, Speed, u64, Uci, GameId)> = Vec::new();
+        let mut recent_games: Vec<(RatingGroup, Speed, u64, UciMove, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
-            let uci = Uci::from(uci);
+            let uci = UciMove::from(uci);
 
             let mut latest_game: Option<(u64, GameId)> = None;
             let mut stats = Stats::default();
@@ -486,13 +486,13 @@ impl LichessEntry {
 pub struct PreparedResponse {
     pub total: Stats,
     pub moves: Vec<PreparedMove>,
-    pub recent_games: Vec<(Uci, GameId)>,
-    pub top_games: Vec<(Uci, GameId)>,
+    pub recent_games: Vec<(UciMove, GameId)>,
+    pub top_games: Vec<(UciMove, GameId)>,
 }
 
 #[derive(Debug)]
 pub struct PreparedMove {
-    pub uci: Uci,
+    pub uci: UciMove,
     pub stats: Stats,
     pub game: Option<GameId>,
     pub average_rating: Option<u16>,
@@ -509,7 +509,7 @@ mod tests {
     #[test]
     fn test_lichess_entry() {
         // Roundtrip with a single entry.
-        let uci_a = Uci::Normal {
+        let uci_a = UciMove::Normal {
             from: Square::G1,
             to: Square::F3,
             promotion: None,
@@ -539,7 +539,7 @@ mod tests {
         assert_eq!(deserialized.max_game_idx, Some(0));
 
         // Merge a second entry.
-        let uci_b = Uci::Normal {
+        let uci_b = UciMove::Normal {
             from: Square::D2,
             to: Square::D4,
             promotion: None,

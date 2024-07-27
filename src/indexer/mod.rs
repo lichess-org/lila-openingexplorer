@@ -9,7 +9,7 @@ use futures_util::StreamExt;
 use nohash_hasher::IntMap;
 use reqwest::StatusCode;
 use shakmaty::{
-    uci::Uci, variant::VariantPosition, zobrist::ZobristHash, ByColor, CastlingMode, Outcome,
+    uci::UciMove, variant::VariantPosition, zobrist::ZobristHash, ByColor, CastlingMode, Outcome,
     Position,
 };
 use tokio::{
@@ -352,7 +352,7 @@ impl IndexerActor {
         };
 
         // Build an intermediate table to remove loops (due to repetitions).
-        let mut without_loops: IntMap<StableZobrist128, Uci> =
+        let mut without_loops: IntMap<StableZobrist128, UciMove> =
             HashMap::with_capacity_and_hasher(game.moves.len(), Default::default());
 
         for (ply, san) in game.moves.into_iter().enumerate() {

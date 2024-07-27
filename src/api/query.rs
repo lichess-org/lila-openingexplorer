@@ -10,7 +10,7 @@ use serde_with::{
 };
 use shakmaty::{
     fen::Fen,
-    uci::Uci,
+    uci::UciMove,
     variant::{Variant, VariantPosition},
     CastlingMode, Color, EnPassantMode, Position, PositionError, Setup,
 };
@@ -162,9 +162,9 @@ pub struct Play {
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     fen: Option<Fen>,
-    #[serde_as(as = "StringWithSeparator<CommaSeparator, Uci>")]
+    #[serde_as(as = "StringWithSeparator<CommaSeparator, UciMove>")]
     #[serde(default)]
-    play: Vec<Uci>,
+    play: Vec<UciMove>,
 }
 
 impl Hash for Play {
