@@ -23,6 +23,18 @@ impl Speed {
         Speed::Classical,
         Speed::Correspondence,
     ];
+
+    pub fn highscore(self) -> i32 {
+        // As of 2024-07-27
+        match self {
+            Speed::UltraBullet => 2644,
+            Speed::Bullet => 3352,
+            Speed::Blitz => 2974,
+            Speed::Rapid => 2949,
+            Speed::Classical => 2533,
+            Speed::Correspondence => 4000, // No leaderboard
+        }
+    }
 }
 
 impl FromStr for Speed {

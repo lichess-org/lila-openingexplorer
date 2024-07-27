@@ -75,6 +75,22 @@ impl RatingGroup {
     fn select(mover_rating: u16, opponent_rating: u16) -> RatingGroup {
         RatingGroup::select_avg(midpoint(mover_rating, opponent_rating))
     }
+
+    fn lower_bound(self) -> i32 {
+        match self {
+            RatingGroup::GroupLow => 0,
+            RatingGroup::Group1000 => 1000,
+            RatingGroup::Group1200 => 1200,
+            RatingGroup::Group1400 => 1400,
+            RatingGroup::Group1600 => 1600,
+            RatingGroup::Group1800 => 1800,
+            RatingGroup::Group2000 => 2000,
+            RatingGroup::Group2200 => 2200,
+            RatingGroup::Group2500 => 2500,
+            RatingGroup::Group2800 => 2800,
+            RatingGroup::Group3200 => 3200,
+        }
+    }
 }
 
 impl FromStr for RatingGroup {
@@ -384,7 +400,7 @@ impl LichessEntry {
     pub fn prepare(self, filter: &LichessQueryFilter, limits: &Limits) -> PreparedResponse {
         let mut total = Stats::default();
         let mut moves = Vec::with_capacity(self.sub_entries.len());
-        let mut recent_games: Vec<(RatingGroup, Speed, u64, UciMove, GameId)> = Vec::new();
+        let mut games: Vec<(RatingGroup, Speed, u64, UciMove, GameId)> = Vec::new();
 
         for (uci, sub_entry) in self.sub_entries {
             let uci = UciMove::from(uci);
@@ -407,9 +423,9 @@ impl LichessEntry {
                                     }
                                 }
 
-                                recent_games.extend(group.games.iter().copied().map(
-                                    |(idx, game)| (rating_group, speed, idx, uci.clone(), game),
-                                ));
+                                games.extend(group.games.iter().copied().map(|(idx, game)| {
+                                    (rating_group, speed, idx, uci.clone(), game)
+                                }));
                             }
                         }
                     }
@@ -432,36 +448,36 @@ impl LichessEntry {
 
         sort_by_key_and_truncate(&mut moves, limits.moves, |row| Reverse(row.stats.total()));
 
-        // Split out top games from recent games.
-        let mut top_games = if let Some(top_group) = filter.top_group() {
-            let mut top_games: Vec<_> = recent_games
-                .iter()
-                .filter(|(rating_group, speed, _, _, _)| {
-                    *rating_group >= top_group && *speed != Speed::Correspondence
-                })
-                .cloned()
-                .collect();
+        // Split games into top and recent.
+        let (mut top_games, mut recent_games) = if let Some(top_group) = filter.top_group() {
+            let mut top_games = games.clone();
+            top_games.retain(|(rating_group, _, _, _, _)| *rating_group >= top_group);
             sort_by_key_and_truncate(
                 &mut top_games,
-                MAX_TOP_GAMES * 2,
-                |(rating_group, _, idx, _, _)| (Reverse(*rating_group), Reverse(*idx)),
+                MAX_TOP_GAMES,
+                |(rating_group, speed, idx, _, _)| {
+                    (
+                        speed.highscore() - rating_group.lower_bound(),
+                        Reverse(*idx),
+                    )
+                },
             );
-            sort_by_key_and_truncate(&mut top_games, MAX_TOP_GAMES, |(_, _, idx, _, _)| {
-                Reverse(*idx)
-            });
+            let mut recent_games = games;
             recent_games.retain(|(_, _, _, _, recent_game)| {
                 !top_games
                     .iter()
                     .any(|(_, _, _, _, top_game)| recent_game == top_game)
             });
-            top_games
+            (top_games, recent_games)
         } else {
-            Vec::new()
+            (Vec::new(), games)
         };
+
+        // Limit top games.
         let valid_recent_games = MAX_LICHESS_GAMES - top_games.len();
         top_games.truncate(limits.top_games);
 
-        // Prepare recent games.
+        // Sort and limit recent games.
         sort_by_key_and_truncate(
             &mut recent_games,
             min(valid_recent_games, limits.recent_games),
