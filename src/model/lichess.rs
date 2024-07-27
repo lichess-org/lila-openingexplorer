@@ -398,14 +398,15 @@ impl LichessEntry {
                         if filter.contains_rating_group(rating_group) {
                             stats += &group.stats;
 
-                            for (idx, game) in group.games.iter().copied() {
-                                if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
-                                {
-                                    latest_game = Some((idx, game));
-                                }
-                            }
-
                             if limits.games_wanted() {
+                                for (idx, game) in group.games.iter().copied() {
+                                    if latest_game
+                                        .map_or(true, |(latest_idx, _game)| latest_idx < idx)
+                                    {
+                                        latest_game = Some((idx, game));
+                                    }
+                                }
+
                                 recent_games.extend(group.games.iter().copied().map(
                                     |(idx, game)| (rating_group, speed, idx, uci.clone(), game),
                                 ));
