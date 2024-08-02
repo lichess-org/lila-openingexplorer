@@ -149,7 +149,7 @@ async fn serve() {
         .route("/compact", post(compact))
         .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
-        .route("/import/openings", put(openings_import))
+        .route("/import/openings", post(openings_import))
         .route("/masters/pgn/:id", get(masters_pgn))
         .route("/masters", get(masters))
         .route("/lichess", get(lichess))
