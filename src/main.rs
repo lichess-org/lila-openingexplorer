@@ -214,6 +214,7 @@ async fn periodic_blacklist_update(blacklist: &'static RwLock<HashSet<UserId>>, 
     loop {
         // Request
         let begin = SystemTime::now();
+        let old_blacklist_size = blacklist.read().expect("read blacklist").len();
         let mut users = match timeout(
             Duration::from_secs(60),
             lila.mod_marked_since(
@@ -236,10 +237,9 @@ async fn periodic_blacklist_update(blacklist: &'static RwLock<HashSet<UserId>>, 
             }
         };
 
-        // Collect into vector
-        let mut new_users = Vec::new();
+        // Read stream
         loop {
-            new_users.push(match timeout(Duration::from_secs(60), users.next()).await {
+            let user_id = match timeout(Duration::from_secs(60), users.next()).await {
                 Ok(Some(Ok(user))) => user,
                 Ok(Some(Err(err))) => {
                     log::error!("blacklist: {err}");
@@ -250,20 +250,19 @@ async fn periodic_blacklist_update(blacklist: &'static RwLock<HashSet<UserId>>, 
                     log::error!("blacklist stream from lila: {timed_out}");
                     break;
                 }
-            });
+            };
+
+            blacklist.write().expect("write blacklist").insert(user_id);
         }
 
-        // Add to global hash set
+        // Done
+        let new_blacklist_size = blacklist.read().expect("read blacklist").len();
         log::info!(
-            "blacklist updated in {:.3?}: {} new users (with some overlap), {} users total",
+            "blacklist updated in {:.3?}: {} new users, {} users total",
             begin.elapsed().unwrap_or_default(),
-            new_users.len(),
-            blacklist.read().expect("read blacklist").len()
+            new_blacklist_size.saturating_sub(old_blacklist_size),
+            new_blacklist_size,
         );
-        blacklist
-            .write()
-            .expect("write blacklist")
-            .extend(new_users);
         last_update = begin;
         time::sleep(Duration::from_secs(60 * 173)).await;
     }
