@@ -12,7 +12,7 @@ use shakmaty::{
 use crate::{
     api::Error,
     db::Database,
-    model::{KeyBuilder, MastersEntry, MastersGameWithId, Year},
+    model::{KeyBuilder, LaxDate, MastersEntry, MastersGameWithId},
     util::midpoint,
     zobrist::StableZobrist128,
 };
@@ -43,8 +43,7 @@ impl MastersImporter {
             });
         }
 
-        let year = body.game.date.year();
-        if Year::max_masters() < year {
+        if body.game.date.is_definitely_after(LaxDate::tomorrow()) {
             return Err(Error::RejectedDate {
                 id: body.id,
                 date: body.game.date,
@@ -78,7 +77,7 @@ impl MastersImporter {
                 .has(
                     KeyBuilder::masters()
                         .with_zobrist(Variant::Chess, final_key)
-                        .with_year(year),
+                        .with_year(body.game.date.year()),
                 )
                 .expect("check for masters entry")
             {
@@ -92,7 +91,7 @@ impl MastersImporter {
             batch.merge(
                 KeyBuilder::masters()
                     .with_zobrist(Variant::Chess, key)
-                    .with_year(year),
+                    .with_year(body.game.date.year()),
                 MastersEntry::new_single(
                     uci,
                     body.id,

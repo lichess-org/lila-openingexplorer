@@ -1,7 +1,7 @@
 use std::{cmp::min, convert::TryFrom, fmt, str::FromStr};
 
 use thiserror::Error;
-use time::PrimitiveDateTime;
+use time::{OffsetDateTime, PrimitiveDateTime};
 
 #[derive(Error, Debug)]
 pub enum InvalidDate {
@@ -26,6 +26,40 @@ impl LaxDate {
     pub fn month(self) -> Option<Month> {
         self.month
             .map(|m| Month(self.year.0 * 12 + u16::from(m) - 1))
+    }
+
+    pub fn tomorrow() -> LaxDate {
+        let utc_date = OffsetDateTime::now_utc()
+            .date()
+            .next_day()
+            .expect("before max date");
+        LaxDate {
+            year: Year::try_from(u16::try_from(utc_date.year()).expect("not after u16::MAX"))
+                .expect("not after MAX_YEAR"),
+            month: Some(u8::from(utc_date.month()) - 1),
+            day: Some(utc_date.day()),
+        }
+    }
+
+    pub fn is_definitely_after(self, other: LaxDate) -> bool {
+        // Year
+        if self.year > other.year {
+            return true;
+        }
+
+        // Month
+        let (Some(month), Some(other_month)) = (self.month, other.month) else {
+            return false;
+        };
+        if month > other_month {
+            return true;
+        }
+
+        // Day
+        let (Some(day), Some(other_day)) = (self.day, other.day) else {
+            return false;
+        };
+        day > other_day
     }
 }
 
@@ -78,10 +112,6 @@ impl Year {
 
     pub fn max_value() -> Year {
         Year(MAX_YEAR)
-    }
-
-    pub fn max_masters() -> Year {
-        Year(2024)
     }
 
     #[must_use]
