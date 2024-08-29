@@ -68,7 +68,7 @@ impl PlayerIndexerStub {
     }
 
     pub fn num_indexing(&self) -> usize {
-        self.queue.len()
+        self.queue.estimate_len()
     }
 
     pub fn preceding_tickets(&self, ticket: &Ticket) -> u64 {

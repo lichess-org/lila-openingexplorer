@@ -22,7 +22,7 @@ impl<T: Eq + Hash + Clone> Queue<T> {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn estimate_len(&self) -> usize {
         self.state.lock().unwrap().len()
     }
 
