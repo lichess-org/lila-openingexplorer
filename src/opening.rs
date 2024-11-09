@@ -12,7 +12,7 @@ use shakmaty::{
 
 use crate::api::Error;
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct Opening {
     eco: String,
     name: String,
@@ -103,19 +103,19 @@ impl Openings {
         root: &mut VariantPosition,
         play: Vec<UciMove>,
     ) -> Result<Option<Opening>, Error> {
-        let mut opening = self.classify(root);
+        let mut opening = self.classify_exact(root);
 
         for uci in play {
             let m = uci.to_move(root)?;
             root.play_unchecked(&m);
 
-            opening = self.classify(root).or(opening);
+            opening = self.classify_exact(root).or(opening);
         }
 
         Ok(opening.cloned())
     }
 
-    fn classify(&self, pos: &VariantPosition) -> Option<&Opening> {
+    pub fn classify_exact(&self, pos: &VariantPosition) -> Option<&Opening> {
         if opening_sensible(pos.variant()) {
             self.data.get(&pos.zobrist_hash(EnPassantMode::Legal))
         } else {

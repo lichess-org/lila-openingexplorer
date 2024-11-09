@@ -45,6 +45,7 @@ pub struct ExplorerMove {
     #[serde(flatten)]
     pub stats: Stats,
     pub game: Option<ExplorerGame>,
+    pub opening: Option<Opening>,
 }
 
 #[serde_as]

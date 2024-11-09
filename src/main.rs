@@ -434,28 +434,34 @@ fn finalize_lichess_moves(
     moves: Vec<PreparedMove>,
     pos: &VariantPosition,
     lichess_db: &LichessDatabase,
+    openings: &Openings,
 ) -> Vec<ExplorerMove> {
     moves
         .into_iter()
-        .map(|p| ExplorerMove {
-            stats: p.stats,
-            san: p.uci.to_move(pos).map_or(
+        .map(|p| {
+            let mut pos_after = pos.clone();
+            let san = p.uci.to_move(pos).map_or(
                 SanPlus {
                     san: San::Null,
                     suffix: None,
                 },
-                |m| SanPlus::from_move(pos.clone(), &m),
-            ),
-            uci: p.uci,
-            average_rating: p.average_rating,
-            average_opponent_rating: p.average_opponent_rating,
-            performance: p.performance,
-            game: p.game.and_then(|id| {
-                lichess_db
-                    .game(id)
-                    .expect("get game")
-                    .map(|info| ExplorerGame::from_lichess(id, info))
-            }),
+                |m| SanPlus::from_move_and_play_unchecked(&mut pos_after, &m),
+            );
+            ExplorerMove {
+                stats: p.stats,
+                san,
+                uci: p.uci,
+                average_rating: p.average_rating,
+                average_opponent_rating: p.average_opponent_rating,
+                performance: p.performance,
+                game: p.game.and_then(|id| {
+                    lichess_db
+                        .game(id)
+                        .expect("get game")
+                        .map(|info| ExplorerGame::from_lichess(id, info))
+                }),
+                opening: openings.classify_exact(&pos_after).cloned(),
+            }
         })
         .collect()
 }
@@ -578,7 +584,7 @@ async fn player(
 
                         let response = ExplorerResponse {
                             total: filtered.total,
-                            moves: finalize_lichess_moves(filtered.moves, &state.pos, &lichess_db),
+                            moves: finalize_lichess_moves(filtered.moves, &state.pos, &lichess_db, &openings.read().expect("read openings")),
                             recent_games: Some(finalize_lichess_games(filtered.recent_games, &lichess_db, &HashSet::new())),
                             top_games: None,
                             history: None,
@@ -640,10 +646,8 @@ async fn masters(
         .get_with(query.clone(), async move {
             spawn_blocking(semaphore, move || {
                 let started_at = Instant::now();
-
-                let PlayPosition { pos, opening } = query
-                    .play
-                    .position(&openings.read().expect("read openings"))?;
+                let openings = openings.read().expect("read openings");
+                let PlayPosition { pos, opening } = query.play.position(&openings)?;
 
                 let key = KeyBuilder::masters()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
@@ -659,25 +663,30 @@ async fn masters(
                     moves: entry
                         .moves
                         .into_iter()
-                        .map(|p| ExplorerMove {
-                            san: p.uci.to_move(&pos).map_or(
+                        .map(|p| {
+                            let mut pos_after = pos.clone();
+                            let san = p.uci.to_move(&pos).map_or(
                                 SanPlus {
                                     san: San::Null,
                                     suffix: None,
                                 },
-                                |m| SanPlus::from_move(pos.clone(), &m),
-                            ),
-                            uci: p.uci,
-                            average_rating: p.average_rating,
-                            average_opponent_rating: p.average_opponent_rating,
-                            performance: p.performance,
-                            stats: p.stats,
-                            game: p.game.and_then(|id| {
-                                masters_db
-                                    .game(id)
-                                    .expect("get masters game")
-                                    .map(|info| ExplorerGame::from_masters(id, info))
-                            }),
+                                |m| SanPlus::from_move_and_play_unchecked(&mut pos_after, &m),
+                            );
+                            ExplorerMove {
+                                san,
+                                uci: p.uci,
+                                average_rating: p.average_rating,
+                                average_opponent_rating: p.average_opponent_rating,
+                                performance: p.performance,
+                                stats: p.stats,
+                                game: p.game.and_then(|id| {
+                                    masters_db
+                                        .game(id)
+                                        .expect("get masters game")
+                                        .map(|info| ExplorerGame::from_masters(id, info))
+                                }),
+                                opening: openings.classify_exact(&pos_after).cloned(),
+                            }
                         })
                         .collect(),
                     top_games: Some(
@@ -732,9 +741,8 @@ async fn lichess(
             spawn_blocking(semaphore, move || {
                 let started_at = Instant::now();
 
-                let PlayPosition { pos, opening } = query
-                    .play
-                    .position(&openings.read().expect("read openings"))?;
+                let openings = openings.read().expect("read openings");
+                let PlayPosition { pos, opening } = query.play.position(&openings)?;
 
                 let key = KeyBuilder::lichess()
                     .with_zobrist(pos.variant(), pos.zobrist_hash(EnPassantMode::Legal));
@@ -753,7 +761,7 @@ async fn lichess(
                 let blacklist = blacklist.read().expect("read blacklist");
                 let response = Ok(Json(ExplorerResponse {
                     total: filtered.total,
-                    moves: finalize_lichess_moves(filtered.moves, &pos, &lichess_db),
+                    moves: finalize_lichess_moves(filtered.moves, &pos, &lichess_db, &openings),
                     recent_games: Some(finalize_lichess_games(
                         filtered.recent_games,
                         &lichess_db,
