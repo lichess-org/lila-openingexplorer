@@ -165,89 +165,6 @@ impl Hash for StableZobrist128 {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use serde::Deserialize;
-    use serde_with::{
-        formats::SpaceSeparator, serde_as, DisplayFromStr, FromInto, StringWithSeparator,
-    };
-    use shakmaty::{
-        uci::UciMove,
-        variant::{Crazyhouse, KingOfTheHill, ThreeCheck, Variant, VariantPosition},
-        zobrist::ZobristHash as _,
-        Chess, EnPassantMode, Position as _,
-    };
-
-    use super::*;
-
-    #[test]
-    fn test_stable_zobrist_reference() {
-        #[serde_as]
-        #[derive(Deserialize)]
-        struct Record {
-            #[serde_as(as = "DisplayFromStr")]
-            variant: Variant,
-            #[serde_as(as = "StringWithSeparator<SpaceSeparator, UciMove>")]
-            uci: Vec<UciMove>,
-            #[serde_as(as = "FromInto<u128>")]
-            zobrist: StableZobrist128,
-        }
-
-        let mut reader = csv::Reader::from_path("tests/zobrist.csv").expect("reader");
-
-        for (i, record) in reader.deserialize().enumerate() {
-            let record: Record = record.expect("record");
-
-            let mut pos = VariantPosition::new(record.variant);
-
-            for uci in record.uci {
-                let m = uci.to_move(&pos).expect("legal uci");
-                pos.play_unchecked(&m);
-            }
-
-            assert_eq!(
-                pos.zobrist_hash::<StableZobrist128>(EnPassantMode::Legal),
-                record.zobrist,
-                "line {}",
-                i + 1
-            )
-        }
-    }
-
-    #[test]
-    fn test_stable_zobrist_variants_not_distinguished() {
-        let chess: StableZobrist128 = Chess::default().zobrist_hash(EnPassantMode::Legal);
-        let crazyhouse = Crazyhouse::default().zobrist_hash(EnPassantMode::Legal);
-        let three_check = ThreeCheck::default().zobrist_hash(EnPassantMode::Legal);
-        let king_of_the_hill = KingOfTheHill::default().zobrist_hash(EnPassantMode::Legal);
-        assert_eq!(chess, crazyhouse);
-        assert_eq!(chess, three_check);
-        assert_eq!(chess, king_of_the_hill);
-    }
-
-    #[test]
-    fn test_stable_zobrist_full_pockets() {
-        // 8/8/8/7k/8/8/3K4/8[ppppppppppppppppnnnnbbbbrrrrqq] w - - 0 54
-        for color in Color::ALL {
-            assert_ne!(
-                StableZobrist128::zobrist_for_pocket(color, Role::Pawn, 16),
-                StableZobrist128::zobrist_for_pocket(color, Role::Pawn, 15)
-            );
-            assert_ne!(
-                StableZobrist128::zobrist_for_pocket(color, Role::Queen, 2),
-                StableZobrist128::zobrist_for_pocket(color, Role::Queen, 1)
-            );
-        }
-    }
-
-    #[test]
-    fn test_stable_zobrist_nohash_hasher() {
-        let mut hasher = nohash_hasher::NoHashHasher::<StableZobrist128>::default();
-        StableZobrist128(128).hash(&mut hasher);
-        assert_eq!(hasher.finish(), 128);
-    }
-}
-
 const PIECE_MASKS: [u128; 64 * 6 * 2] = [
     0x52b3_75aa_7c0d_7bac_9d39_247e_3377_6d41,
     0x208d_169a_534f_2cf5_2af7_3980_05aa_a5c7,
@@ -1309,3 +1226,86 @@ const POCKET_MASKS: [u128; 2 * 6 * 16] = [
     0xb4e0_aff4_e90c_cb0d_22c3_ce12_1986_d762,
     0x484e_a0a4_8998_be25_fa2c_98ac_27e2_e5b3,
 ];
+
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize;
+    use serde_with::{
+        formats::SpaceSeparator, serde_as, DisplayFromStr, FromInto, StringWithSeparator,
+    };
+    use shakmaty::{
+        uci::UciMove,
+        variant::{Crazyhouse, KingOfTheHill, ThreeCheck, Variant, VariantPosition},
+        zobrist::ZobristHash as _,
+        Chess, EnPassantMode, Position as _,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_stable_zobrist_reference() {
+        #[serde_as]
+        #[derive(Deserialize)]
+        struct Record {
+            #[serde_as(as = "DisplayFromStr")]
+            variant: Variant,
+            #[serde_as(as = "StringWithSeparator<SpaceSeparator, UciMove>")]
+            uci: Vec<UciMove>,
+            #[serde_as(as = "FromInto<u128>")]
+            zobrist: StableZobrist128,
+        }
+
+        let mut reader = csv::Reader::from_path("tests/zobrist.csv").expect("reader");
+
+        for (i, record) in reader.deserialize().enumerate() {
+            let record: Record = record.expect("record");
+
+            let mut pos = VariantPosition::new(record.variant);
+
+            for uci in record.uci {
+                let m = uci.to_move(&pos).expect("legal uci");
+                pos.play_unchecked(&m);
+            }
+
+            assert_eq!(
+                pos.zobrist_hash::<StableZobrist128>(EnPassantMode::Legal),
+                record.zobrist,
+                "line {}",
+                i + 1
+            )
+        }
+    }
+
+    #[test]
+    fn test_stable_zobrist_variants_not_distinguished() {
+        let chess: StableZobrist128 = Chess::default().zobrist_hash(EnPassantMode::Legal);
+        let crazyhouse = Crazyhouse::default().zobrist_hash(EnPassantMode::Legal);
+        let three_check = ThreeCheck::default().zobrist_hash(EnPassantMode::Legal);
+        let king_of_the_hill = KingOfTheHill::default().zobrist_hash(EnPassantMode::Legal);
+        assert_eq!(chess, crazyhouse);
+        assert_eq!(chess, three_check);
+        assert_eq!(chess, king_of_the_hill);
+    }
+
+    #[test]
+    fn test_stable_zobrist_full_pockets() {
+        // 8/8/8/7k/8/8/3K4/8[ppppppppppppppppnnnnbbbbrrrrqq] w - - 0 54
+        for color in Color::ALL {
+            assert_ne!(
+                StableZobrist128::zobrist_for_pocket(color, Role::Pawn, 16),
+                StableZobrist128::zobrist_for_pocket(color, Role::Pawn, 15)
+            );
+            assert_ne!(
+                StableZobrist128::zobrist_for_pocket(color, Role::Queen, 2),
+                StableZobrist128::zobrist_for_pocket(color, Role::Queen, 1)
+            );
+        }
+    }
+
+    #[test]
+    fn test_stable_zobrist_nohash_hasher() {
+        let mut hasher = nohash_hasher::NoHashHasher::<StableZobrist128>::default();
+        StableZobrist128(128).hash(&mut hasher);
+        assert_eq!(hasher.finish(), 128);
+    }
+}

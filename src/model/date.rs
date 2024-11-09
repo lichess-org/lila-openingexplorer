@@ -202,7 +202,7 @@ impl FromStr for Month {
     type Err = InvalidDate;
 
     fn from_str(s: &str) -> Result<Month, InvalidDate> {
-        match s.split_once(|ch| ch == '-' || ch == '/') {
+        match s.split_once(['-', '/']) {
             Some((year_part, month_part)) => {
                 let year: u16 = year_part.parse().map_err(|_| InvalidDate::InvalidMonth)?;
                 let month_plus_one: u16 =
