@@ -35,13 +35,13 @@ sha-1 = "0.10"
 shakmaty = { version = "0.27", features = ["variant", "nohash-hasher"] }
 sync_wrapper = "1"
 thin-vec = "0.2"
-thiserror = "1"
+thiserror = "2"
 tikv-jemallocator = "0.5" # matching rocksdb
 time = "0.3"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 tokio-util = { version = "0.7", features = ["io"] }
-tower-http = { version = "0.5", features = ["set-header"] }
+tower-http = { version = "0.6", features = ["set-header"] }
 
 [dev-dependencies]
 quickcheck = "1"
