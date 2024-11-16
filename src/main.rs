@@ -364,49 +364,41 @@ async fn monitor(
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
 ) -> String {
-    if metrics.fetch_set_deploy_event_sent() {
-        spawn_blocking(semaphore, move || {
-            format!(
-                "opening_explorer {}",
-                [
-                    // Cache entries
-                    format!("lichess_cache={}u", lichess_cache.entry_count()),
-                    format!("masters_cache={}u", masters_cache.entry_count()),
-                    // Request metrics
-                    metrics.to_influx_string(),
-                    // Block cache
-                    db.metrics().expect("db metrics").to_influx_string(),
-                    // Indexer
-                    format!("indexing={}u", player_indexer.num_indexing()),
-                    // Blacklist
-                    format!(
-                        "blacklist={}u",
-                        blacklist.read().expect("read blacklist").len()
-                    ),
-                    // Column families
-                    db.masters()
-                        .estimate_metrics()
-                        .expect("masters metrics")
-                        .to_influx_string(),
-                    db.lichess()
-                        .estimate_metrics()
-                        .expect("lichess metrics")
-                        .to_influx_string(),
-                    // Tokio
-                    #[cfg(tokio_unstable)]
-                    tokio_metrics_to_influx_string(),
-                ]
-                .join(",")
-            )
-        })
-        .await
-    } else {
+    spawn_blocking(semaphore, move || {
         format!(
-            "event,program=lila-openingexplorer commit={:?},text={:?}",
-            env!("VERGEN_GIT_SHA"),
-            env!("VERGEN_GIT_COMMIT_MESSAGE")
+            "opening_explorer {}",
+            [
+                // Cache entries
+                format!("lichess_cache={}u", lichess_cache.entry_count()),
+                format!("masters_cache={}u", masters_cache.entry_count()),
+                // Request metrics
+                metrics.to_influx_string(),
+                // Block cache
+                db.metrics().expect("db metrics").to_influx_string(),
+                // Indexer
+                format!("indexing={}u", player_indexer.num_indexing()),
+                // Blacklist
+                format!(
+                    "blacklist={}u",
+                    blacklist.read().expect("read blacklist").len()
+                ),
+                // Column families
+                db.masters()
+                    .estimate_metrics()
+                    .expect("masters metrics")
+                    .to_influx_string(),
+                db.lichess()
+                    .estimate_metrics()
+                    .expect("lichess metrics")
+                    .to_influx_string(),
+                // Tokio
+                #[cfg(tokio_unstable)]
+                tokio_metrics_to_influx_string(),
+            ]
+            .join(",")
         )
-    }
+    })
+    .await
 }
 
 #[axum::debug_handler(state = AppState)]

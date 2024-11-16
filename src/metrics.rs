@@ -1,5 +1,5 @@
 use std::{
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
 
@@ -7,17 +7,12 @@ use crate::api::Source;
 
 #[derive(Default)]
 pub struct Metrics {
-    deploy_event_sent: AtomicBool,
     hit: HitMetrics,
     slow_hit: HitMetrics,
 }
 
 impl Metrics {
     const SLOW_DURATION: Duration = Duration::from_millis(500);
-
-    pub fn fetch_set_deploy_event_sent(&self) -> bool {
-        self.deploy_event_sent.fetch_or(true, Ordering::Relaxed)
-    }
 
     pub fn to_influx_string(&self) -> String {
         [
