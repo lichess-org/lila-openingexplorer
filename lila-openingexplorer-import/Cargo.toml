@@ -1,8 +1,8 @@
 [package]
-name = "import-pgn"
-version = "0.0.0"
+name = "lila-openingexplorer-import"
 publish = false
 edition = "2021"
+license = "AGPL-3.0-or-later"
 
 [dependencies]
 pgn-reader = "0.26"

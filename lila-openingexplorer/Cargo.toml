@@ -1,0 +1,50 @@
+[package]
+name = "lila-openingexplorer"
+publish = false
+description = "An opening explorer for lichess.org"
+homepage = "https://explorer.lichess.ovh"
+license = "AGPL-3.0-or-later"
+categories = ["games"]
+keywords = ["chess", "lichess"]
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.7", features = ["macros", "multipart"] }
+bytes = "1"
+clap = { version = "4", features = ["derive", "env", "deprecated"] }
+csv = "1"
+env_logger = "0.11"
+fastrand = "2"
+futures-util = "0.3"
+log = "0.4"
+moka = { version = "0.12", features = ["future"] }
+nohash-hasher = "0.2"
+partial_sort = "1"
+pin-project-lite = "0.2"
+reqwest = { version = "0.12", features = ["stream"] }
+rocksdb = { git = "https://github.com/rust-rocksdb/rust-rocksdb", features = ["io-uring", "lz4", "zstd", "jemalloc", "bindgen-runtime"], default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_with = { version = "3", features = ["time_0_3"] }
+sha-1 = "0.10"
+shakmaty = { version = "0.27", features = ["variant", "nohash-hasher"] }
+sync_wrapper = "1"
+thin-vec = "0.2"
+thiserror = "2"
+tikv-jemallocator = "0.6" # matching rocksdb
+time = "0.3"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["io-util"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tower-http = { version = "0.6", features = ["set-header"] }
+
+[dev-dependencies]
+quickcheck = "1"
+iai = "0.1"
+
+[[bench]]
+name = "benches"
+harness = false
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tokio_unstable)"] }

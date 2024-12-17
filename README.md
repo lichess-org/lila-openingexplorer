@@ -23,7 +23,7 @@ Usage
 3. Build the server and view available options:
 
    ```
-   cargo run --release -- --help
+   cargo run --release --bin lila-openingexplorer -- --help
    ```
 
    Strongly consider adjusting `--db-compaction-readahead`, `--db-cache`, and
@@ -32,12 +32,13 @@ Usage
 4. Run the server with the chosen options:
 
    ```
-   ulimit -n 131072 && EXPLORER_LOG=lila_openingexplorer=info cargo run --release -- --db-compaction-readahead
+   ulimit -n 131072 && EXPLORER_LOG=lila_openingexplorer=info cargo run --release --bin lila-openingexplorer -- --db-compaction-readahead
    ```
 
-:warning: In a production environment, administrative endpoints must be
-protected using a reverse proxy.
-It's best to whitelist only `/masters`, `/lichess`, and `/player`.
+> [!WARNING]
+> In a production environment, administrative endpoints must be
+> protected using a reverse proxy.
+> It's best to whitelist only `/masters`, `/lichess`, and `/player`.
 
 ### Import games
 
@@ -46,8 +47,7 @@ It's best to whitelist only `/masters`, `/lichess`, and `/player`.
 2. Import (optionally works directly with compressed files):
 
    ```
-   cd import-pgn
-   cargo run --release -- *.pgn.zst
+   cargo run --release --bin lila-openingexplorer-import -- *.pgn.zst
    ```
 
    The database size will be well below 3x the compressed PGN size.
