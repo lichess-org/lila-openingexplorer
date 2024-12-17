@@ -16,9 +16,9 @@ Usage
 
 ### Run server
 
-1. Install recent stable Rust ([rustup](https://rustup.rs/) recommended).
+1. Install Rust ([rustup](https://rustup.rs/) recommended).
 
-2. Set some environment variables used at build time: `set -a && source .env && set +a`
+2. Optionally set some environment variables used at build time: `set -a && source .env && set +a`
 
 3. Build the server and view available options:
 

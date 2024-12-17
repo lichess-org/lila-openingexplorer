@@ -6,4 +6,5 @@ members = [
 resolver = "2"
 
 [profile.release]
-lto = true
+lto = "fat"
+strip = "debuginfo"
