@@ -23,7 +23,7 @@ futures-util = "0.3"
 log = "0.4"
 moka = { version = "0.12", features = ["future"] }
 nohash-hasher = "0.2"
-partial_sort = "0.2"
+partial_sort = "1"
 pin-project-lite = "0.2"
 reqwest = { version = "0.12", features = ["stream"] }
 rocksdb = { git = "https://github.com/rust-rocksdb/rust-rocksdb", features = ["io-uring", "lz4", "zstd", "jemalloc", "bindgen-runtime"], default-features = false }

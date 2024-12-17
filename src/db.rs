@@ -172,6 +172,7 @@ impl Database {
         db_opts.set_max_background_jobs(if opt.db_compaction_readahead { 2 } else { 4 });
         db_opts.set_ratelimiter(opt.db_rate_limit, 100_000, 10);
         db_opts.set_write_buffer_size(128 * 1024 * 1024); // bulk loads
+        db_opts.set_track_and_verify_wals_in_manifest(true);
 
         db_opts.set_use_direct_io_for_flush_and_compaction(true);
 
