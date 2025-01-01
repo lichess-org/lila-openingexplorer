@@ -13,7 +13,7 @@ keywords = ["chess", "lichess"]
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.7", features = ["macros", "multipart"] }
+axum = { version = "0.8", features = ["macros", "multipart"] }
 bytes = "1"
 clap = { version = "4", features = ["derive", "env", "deprecated"] }
 csv = "1"
