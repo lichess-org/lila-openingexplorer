@@ -1192,13 +1192,12 @@ dependencies = [
 
 [[package]]
 name = "librocksdb-sys"
-version = "0.17.1+9.7.4"
-source = "git+https://github.com/rust-rocksdb/rust-rocksdb#858ce719df19ac440ff6803c620a998e9a2445cc"
+version = "0.17.1+9.9.3"
+source = "git+https://github.com/rust-rocksdb/rust-rocksdb#d6aec5ae5a4b5e6e837565176aa3d1ce32d68c4d"
 dependencies = [
  "bindgen",
  "bzip2-sys",
  "cc",
- "glob",
  "libc",
  "libz-sys",
  "lz4-sys",
@@ -1720,8 +1719,8 @@ dependencies = [
 
 [[package]]
 name = "rocksdb"
-version = "0.22.0"
-source = "git+https://github.com/rust-rocksdb/rust-rocksdb#858ce719df19ac440ff6803c620a998e9a2445cc"
+version = "0.23.0"
+source = "git+https://github.com/rust-rocksdb/rust-rocksdb#d6aec5ae5a4b5e6e837565176aa3d1ce32d68c4d"
 dependencies = [
  "libc",
  "librocksdb-sys",
