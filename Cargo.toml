@@ -44,7 +44,7 @@ tower-http = { version = "0.6", features = ["set-header"] }
 
 [dev-dependencies]
 quickcheck = "1"
-iai = "0.1"
+iai = { version = "0.1", git = "https://github.com/sigaloid/iai", rev = "d56a5971f6d5556cd9e9b92e7e0f753c9ce9cdc7" }
 
 [profile.release]
 lto = true

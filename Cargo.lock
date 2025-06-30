@@ -943,8 +943,10 @@ dependencies = [
 [[package]]
 name = "iai"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71a816c97c42258aa5834d07590b718b4c9a598944cd39a52dc25b351185d678"
+source = "git+https://github.com/sigaloid/iai?rev=d56a5971f6d5556cd9e9b92e7e0f753c9ce9cdc7#d56a5971f6d5556cd9e9b92e7e0f753c9ce9cdc7"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "iana-time-zone"
