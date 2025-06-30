@@ -1,19 +1,19 @@
 use std::{
-    cmp::{max, min, Reverse},
+    cmp::{Reverse, max, min},
     fmt,
     time::{Duration, SystemTime},
 };
 
 use bytes::{Buf, BufMut};
 use nohash_hasher::IntMap;
-use shakmaty::{uci::UciMove, Color, Outcome};
+use shakmaty::{Color, Outcome, uci::UciMove};
 use thin_vec::thin_vec;
 
 use crate::{
     api::{PlayerLimits, PlayerQueryFilter},
     model::{
-        read_uint, write_uint, ByMode, BySpeed, GameId, LichessGroup, Mode, PreparedMove,
-        PreparedResponse, RawUciMove, Speed, Stats,
+        ByMode, BySpeed, GameId, LichessGroup, Mode, PreparedMove, PreparedResponse, RawUciMove,
+        Speed, Stats, read_uint, write_uint,
     },
     util::sort_by_key_and_truncate,
 };
@@ -182,19 +182,18 @@ impl PlayerEntry {
                 if filter
                     .speeds
                     .as_ref()
-                    .map_or(true, |speeds| speeds.contains(&speed))
+                    .is_none_or(|speeds| speeds.contains(&speed))
                 {
                     for (mode, group) in group.as_ref().zip_mode() {
                         if filter
                             .modes
                             .as_ref()
-                            .map_or(true, |modes| modes.contains(&mode))
+                            .is_none_or(|modes| modes.contains(&mode))
                         {
                             stats += &group.stats;
 
                             for (idx, game) in group.games.iter().copied() {
-                                if latest_game.map_or(true, |(latest_idx, _game)| latest_idx < idx)
-                                {
+                                if latest_game.is_none_or(|(latest_idx, _game)| latest_idx < idx) {
                                     latest_game = Some((idx, game));
                                 }
                             }
@@ -286,7 +285,7 @@ impl PlayerStatus {
     fn maybe_index(&self) -> Option<IndexRun> {
         SystemTime::now()
             .duration_since(self.indexed_at)
-            .map_or(false, |cooldown| cooldown > Duration::from_secs(2 * 60))
+            .is_ok_and(|cooldown| cooldown > Duration::from_secs(2 * 60))
             .then_some(IndexRun::Index {
                 after: self.latest_created_at,
             })
@@ -396,7 +395,7 @@ mod tests {
         };
 
         let a = PlayerEntry::new_single(
-            uci_ab.clone(),
+            uci_ab,
             Speed::Bullet,
             Mode::Rated,
             "aaaaaaaa".parse().unwrap(),
@@ -407,7 +406,7 @@ mod tests {
         );
 
         let b = PlayerEntry::new_single(
-            uci_ab.clone(),
+            uci_ab,
             Speed::Bullet,
             Mode::Rated,
             "bbbbbbbb".parse().unwrap(),

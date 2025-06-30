@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{http::StatusCode, response::Response};
-use shakmaty::{san::SanError, uci::IllegalUciMoveError, variant::VariantPosition, PositionError};
+use shakmaty::{PositionError, san::SanError, uci::IllegalUciMoveError, variant::VariantPosition};
 use thiserror::Error;
 
 use crate::model::{GameId, LaxDate};

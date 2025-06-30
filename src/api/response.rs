@@ -1,6 +1,6 @@
 use serde::Serialize;
-use serde_with::{serde_as, DisplayFromStr, TryFromInto};
-use shakmaty::{san::SanPlus, uci::UciMove, ByColor, Color};
+use serde_with::{DisplayFromStr, TryFromInto, serde_as};
+use shakmaty::{ByColor, Color, san::SanPlus, uci::UciMove};
 
 use crate::{
     model::{

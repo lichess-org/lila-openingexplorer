@@ -1,6 +1,6 @@
 use iai::black_box;
 use lila_openingexplorer::model::{LichessEntry, Speed};
-use shakmaty::{uci::UciMove, Color, Outcome, Square};
+use shakmaty::{Color, Outcome, Square, uci::UciMove};
 
 fn bench_lichess_write_single() -> Vec<u8> {
     let entry = LichessEntry::new_single(

@@ -1,5 +1,5 @@
 use std::{
-    cmp::{min, Reverse},
+    cmp::{Reverse, min},
     io,
     io::{Cursor, Write},
 };
@@ -11,14 +11,14 @@ use axum::{
 use bytes::{Buf, BufMut};
 use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
-use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
-use shakmaty::{san::SanPlus, uci::UciMove, ByColor, Chess, Color, Outcome};
-use thin_vec::{thin_vec, ThinVec};
+use serde_with::{DisplayFromStr, StringWithSeparator, formats::SpaceSeparator, serde_as};
+use shakmaty::{ByColor, Chess, Color, Outcome, san::SanPlus, uci::UciMove};
+use thin_vec::{ThinVec, thin_vec};
 
 use crate::{
     api::Limits,
     model::{GameId, GamePlayer, LaxDate, PreparedMove, PreparedResponse, RawUciMove, Stats},
-    util::{sort_by_key_and_truncate, ByColorDef},
+    util::{ByColorDef, sort_by_key_and_truncate},
 };
 
 const MAX_MASTERS_GAMES: usize = 15;
@@ -77,7 +77,7 @@ impl MastersGame {
                 }
                 write!(writer, "{}.", i / 2 + 1)?;
             }
-            let san = SanPlus::from_move_and_play_unchecked(&mut pos, &m);
+            let san = SanPlus::from_move_and_play_unchecked(&mut pos, m);
             write!(writer, " {san}")?;
         }
 
@@ -201,7 +201,7 @@ impl MastersEntry {
                 None
             };
             moves.push(PreparedMove {
-                uci: uci.clone(),
+                uci,
                 average_rating: group.stats.average_rating(),
                 average_opponent_rating: None,
                 performance: None,
@@ -214,7 +214,7 @@ impl MastersEntry {
                     .games
                     .iter()
                     .copied()
-                    .map(|(sort_key, game)| (sort_key, uci.clone(), game)),
+                    .map(|(sort_key, game)| (sort_key, uci, game)),
             );
         }
 
@@ -252,7 +252,7 @@ mod tests {
             promotion: None,
         };
         let game = "aaaaaaaa".parse().unwrap();
-        let a = MastersEntry::new_single(uci.clone(), game, Outcome::Draw, 1600, 1700);
+        let a = MastersEntry::new_single(uci, game, Outcome::Draw, 1600, 1700);
 
         let mut buf = Vec::with_capacity(MastersEntry::SIZE_HINT);
         a.write(&mut buf);

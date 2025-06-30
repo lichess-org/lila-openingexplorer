@@ -5,7 +5,7 @@ use std::{
 };
 
 use shakmaty::{
-    zobrist::ZobristValue, CastlingSide, Color, File, Piece, RemainingChecks, Role, Square,
+    CastlingSide, Color, File, Piece, RemainingChecks, Role, Square, zobrist::ZobristValue,
 };
 
 #[derive(Default, Copy, Clone, Eq)]
@@ -1231,13 +1231,13 @@ const POCKET_MASKS: [u128; 2 * 6 * 16] = [
 mod tests {
     use serde::Deserialize;
     use serde_with::{
-        formats::SpaceSeparator, serde_as, DisplayFromStr, FromInto, StringWithSeparator,
+        DisplayFromStr, FromInto, StringWithSeparator, formats::SpaceSeparator, serde_as,
     };
     use shakmaty::{
+        Chess, EnPassantMode, Position as _,
         uci::UciMove,
         variant::{Crazyhouse, KingOfTheHill, ThreeCheck, Variant, VariantPosition},
         zobrist::ZobristHash as _,
-        Chess, EnPassantMode, Position as _,
     };
 
     use super::*;
@@ -1264,7 +1264,7 @@ mod tests {
 
             for uci in record.uci {
                 let m = uci.to_move(&pos).expect("legal uci");
-                pos.play_unchecked(&m);
+                pos.play_unchecked(m);
             }
 
             assert_eq!(

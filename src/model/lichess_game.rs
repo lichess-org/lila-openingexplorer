@@ -4,7 +4,7 @@ use bytes::{Buf, BufMut};
 use serde::{Deserialize, Serialize};
 use shakmaty::{ByColor, Color, Outcome};
 
-use crate::model::{read_uint, write_uint, Mode, Month, Speed};
+use crate::model::{Mode, Month, Speed, read_uint, write_uint};
 
 #[derive(Debug)]
 pub struct LichessGame {

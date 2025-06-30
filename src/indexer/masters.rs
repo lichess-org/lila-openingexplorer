@@ -5,8 +5,8 @@ use std::{
 
 use nohash_hasher::IntMap;
 use shakmaty::{
-    uci::UciMove, variant::Variant, zobrist::ZobristHash, Chess, Color, EnPassantMode, Outcome,
-    Position,
+    Chess, Color, EnPassantMode, Outcome, Position, uci::UciMove, variant::Variant,
+    zobrist::ZobristHash,
 };
 
 use crate::{
@@ -68,8 +68,8 @@ impl MastersImporter {
             let key = pos.zobrist_hash(EnPassantMode::Legal);
             final_key = Some(key);
             let m = uci.to_move(&pos)?;
-            without_loops.insert(key, (UciMove::from_chess960(&m), pos.turn()));
-            pos.play_unchecked(&m);
+            without_loops.insert(key, (UciMove::from_chess960(m), pos.turn()));
+            pos.play_unchecked(m);
         }
 
         if let Some(final_key) = final_key {

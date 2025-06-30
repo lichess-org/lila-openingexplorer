@@ -18,22 +18,22 @@ use std::{
 };
 
 use axum::{
+    Json, Router,
     extract::{FromRef, Path, Query, State},
     http::StatusCode,
     routing::{get, post, put},
-    Json, Router,
 };
 use clap::Parser;
-use futures_util::{stream::Stream, StreamExt};
+use futures_util::{StreamExt, stream::Stream};
 use moka::future::Cache;
 use serde::Deserialize;
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use shakmaty::{
+    Color, EnPassantMode,
     san::{San, SanPlus},
     uci::UciMove,
     variant::VariantPosition,
     zobrist::ZobristHash,
-    Color, EnPassantMode,
 };
 use tikv_jemallocator::Jemalloc;
 use tokio::{
@@ -63,7 +63,7 @@ use crate::{
         UserName,
     },
     opening::{Opening, Openings},
-    util::{ply, spawn_blocking, DedupStreamExt as _},
+    util::{DedupStreamExt as _, ply, spawn_blocking},
 };
 
 #[global_allocator]
@@ -143,19 +143,19 @@ async fn serve() {
         PlayerIndexerStub::spawn(&mut join_set, Arc::clone(&db), opt.player_indexer, opt.lila);
 
     let app = Router::new()
-        .route("/monitor/cf/:cf/:prop", get(cf_prop))
-        .route("/monitor/db/:prop", get(db_prop))
+        .route("/monitor/cf/{cf}/{prop}", get(cf_prop))
+        .route("/monitor/db/{prop}", get(db_prop))
         .route("/monitor", get(monitor))
         .route("/compact", post(compact))
         .route("/import/masters", put(masters_import))
         .route("/import/lichess", put(lichess_import))
         .route("/import/openings", post(openings_import))
-        .route("/masters/pgn/:id", get(masters_pgn))
+        .route("/masters/pgn/{id}", get(masters_pgn))
         .route("/masters", get(masters))
         .route("/lichess", get(lichess))
         .route("/lichess/history", get(lichess_history)) // bc
         .route("/player", get(player))
-        .route("/master/pgn/:id", get(masters_pgn)) // bc
+        .route("/master/pgn/{id}", get(masters_pgn)) // bc
         .route("/master", get(masters)) // bc
         .route("/personal", get(player)) // bc
         .with_state(AppState {
@@ -437,7 +437,7 @@ fn finalize_lichess_moves(
                     san: San::Null,
                     suffix: None,
                 },
-                |m| SanPlus::from_move_and_play_unchecked(&mut pos_after, &m),
+                |m| SanPlus::from_move_and_play_unchecked(&mut pos_after, m),
             );
             ExplorerMove {
                 stats: p.stats,
@@ -662,7 +662,7 @@ async fn masters(
                                     san: San::Null,
                                     suffix: None,
                                 },
-                                |m| SanPlus::from_move_and_play_unchecked(&mut pos_after, &m),
+                                |m| SanPlus::from_move_and_play_unchecked(&mut pos_after, m),
                             );
                             ExplorerMove {
                                 san,
@@ -689,7 +689,7 @@ async fn masters(
                             .zip(entry.top_games.into_iter())
                             .filter_map(|(info, (uci, id))| {
                                 info.map(|info| ExplorerGameWithUciMove {
-                                    uci: uci.clone(),
+                                    uci,
                                     row: ExplorerGame::from_masters(id, info),
                                 })
                             })

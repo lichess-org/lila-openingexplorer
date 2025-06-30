@@ -9,11 +9,11 @@ use futures_util::StreamExt;
 use nohash_hasher::IntMap;
 use reqwest::StatusCode;
 use shakmaty::{
-    uci::UciMove, variant::VariantPosition, zobrist::ZobristHash, ByColor, CastlingMode, Outcome,
-    Position,
+    ByColor, CastlingMode, Outcome, Position, uci::UciMove, variant::VariantPosition,
+    zobrist::ZobristHash,
 };
 use tokio::{
-    sync::{mpsc, Semaphore},
+    sync::{Semaphore, mpsc},
     task,
     task::JoinSet,
     time::{sleep, timeout},
@@ -287,7 +287,7 @@ impl PlayerIndexerActor {
 
         let color = match game
             .players
-            .find(|p| p.user.as_ref().map_or(false, |user| user.name == *player))
+            .find(|p| p.user.as_ref().is_some_and(|user| user.name == *player))
         {
             Some(color) => color,
             None => {
@@ -308,7 +308,7 @@ impl PlayerIndexerActor {
         if lichess_db
             .game(game.id)
             .expect("get game info")
-            .map_or(false, |info| *info.indexed_player.get(color))
+            .is_some_and(|info| *info.indexed_player.get(color))
         {
             log::debug!("indexer {:02}: {}/{} already indexed", idx, game.id, color);
             return;
@@ -372,7 +372,7 @@ impl PlayerIndexerActor {
             let uci = m.to_uci(CastlingMode::Chess960);
             without_loops.insert(pos.zobrist_hash(shakmaty::EnPassantMode::Legal), uci);
 
-            pos.play_unchecked(&m);
+            pos.play_unchecked(m);
         }
 
         // Write to database. All writes regarding this game are batched and
@@ -402,7 +402,7 @@ impl PlayerIndexerActor {
                     .with_zobrist(game.variant, zobrist)
                     .with_month(month),
                 PlayerEntry::new_single(
-                    uci.clone(),
+                    uci,
                     game.speed,
                     Mode::from_rated(game.rated),
                     game.id,

@@ -1,7 +1,7 @@
 use std::{convert::TryFrom, fmt};
 
 use bytes::{Buf, BufMut};
-use shakmaty::{uci::UciMove, Role, Square};
+use shakmaty::{Role, Square, uci::UciMove};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RawUciMove(u16);
@@ -88,8 +88,8 @@ mod tests {
         ];
 
         let mut buf = Vec::new();
-        for uci in &moves {
-            RawUciMove::from(uci.clone()).write(&mut buf);
+        for uci in moves {
+            RawUciMove::from(uci).write(&mut buf);
         }
 
         let mut reader = &buf[..];

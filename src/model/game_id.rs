@@ -81,7 +81,7 @@ impl fmt::Debug for GameId {
 
 #[cfg(test)]
 mod tests {
-    use quickcheck::{quickcheck, Arbitrary, Gen};
+    use quickcheck::{Arbitrary, Gen, quickcheck};
 
     use super::*;
 

@@ -3,11 +3,11 @@ use std::time::Duration;
 use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
 use shakmaty::{
+    Chess, EnPassantMode, Position,
     san::San,
     uci::UciMove,
     variant::{Variant, VariantPosition},
     zobrist::{Zobrist64, ZobristHash},
-    Chess, EnPassantMode, Position,
 };
 
 use crate::api::Error;
@@ -76,7 +76,7 @@ impl Openings {
             let mut pos = Chess::default();
             for token in record.pgn.split(' ') {
                 if let Ok(san) = token.parse::<San>() {
-                    pos.play_unchecked(&san.to_move(&pos)?);
+                    pos.play_unchecked(san.to_move(&pos)?);
                 }
             }
 
@@ -107,7 +107,7 @@ impl Openings {
 
         for uci in play {
             let m = uci.to_move(root)?;
-            root.play_unchecked(&m);
+            root.play_unchecked(m);
 
             opening = self.classify_exact(root).or(opening);
         }

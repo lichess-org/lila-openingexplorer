@@ -8,7 +8,7 @@ use futures_util::{ready, stream::Stream};
 use partial_sort::partial_sort;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
-use shakmaty::{variant::VariantPosition, ByColor, Position};
+use shakmaty::{ByColor, Position, variant::VariantPosition};
 use tokio::{sync::Semaphore, task};
 
 #[derive(Serialize, Deserialize)]

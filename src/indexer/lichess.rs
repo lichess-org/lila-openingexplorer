@@ -6,15 +6,15 @@ use std::{
 use nohash_hasher::IntMap;
 use serde::Deserialize;
 use serde_with::{
-    formats::SpaceSeparator, serde_as, DefaultOnNull, DisplayFromStr, StringWithSeparator,
+    DefaultOnNull, DisplayFromStr, StringWithSeparator, formats::SpaceSeparator, serde_as,
 };
 use shakmaty::{
+    ByColor, CastlingMode, Color, EnPassantMode, Outcome, Position,
     fen::Fen,
     san::San,
     uci::UciMove,
     variant::{Variant, VariantPosition},
     zobrist::ZobristHash,
-    ByColor, CastlingMode, Color, EnPassantMode, Outcome, Position,
 };
 
 use crate::{
@@ -75,7 +75,7 @@ impl LichessImporter {
         if lichess_db
             .game(game.id)
             .expect("get game info")
-            .map_or(false, |info| info.indexed_lichess)
+            .is_some_and(|info| info.indexed_lichess)
         {
             log::debug!("lichess game {} already imported", game.id);
             return Ok(());
@@ -106,9 +106,9 @@ impl LichessImporter {
             let m = san.to_move(&pos)?;
             without_loops.insert(
                 pos.zobrist_hash(EnPassantMode::Legal),
-                (UciMove::from_chess960(&m), pos.turn()),
+                (UciMove::from_chess960(m), pos.turn()),
             );
-            pos.play_unchecked(&m);
+            pos.play_unchecked(m);
         }
 
         let mut batch = lichess_db.batch();

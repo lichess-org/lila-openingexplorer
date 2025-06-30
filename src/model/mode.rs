@@ -14,11 +14,7 @@ impl Mode {
     pub const ALL: [Mode; 2] = [Mode::Rated, Mode::Casual];
 
     pub fn from_rated(rated: bool) -> Mode {
-        if rated {
-            Mode::Rated
-        } else {
-            Mode::Casual
-        }
+        if rated { Mode::Rated } else { Mode::Casual }
     }
 
     pub fn is_rated(self) -> bool {

@@ -2,9 +2,9 @@ use std::{path::PathBuf, time::Instant};
 
 use clap::Parser;
 use rocksdb::{
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DB, DBCompressionType,
+    MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch,
     properties::{ESTIMATE_NUM_KEYS, OPTIONS_STATISTICS},
-    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
-    MergeOperands, Options, ReadOptions, SliceTransform, WriteBatch, DB,
 };
 
 use crate::{
@@ -344,14 +344,11 @@ impl MastersDatabase<'_> {
         &self,
         ids: I,
     ) -> Result<Vec<Option<MastersGame>>, rocksdb::Error> {
-        let mut opt = ReadOptions::default();
-        opt.set_ignore_range_deletions(true);
         self.inner
-            .batched_multi_get_cf_opt(
+            .batched_multi_get_cf(
                 self.cf_masters_game,
                 &ids.into_iter().map(|id| id.to_bytes()).collect::<Vec<_>>(),
                 false,
-                &opt,
             )
             .into_iter()
             .map(|maybe_buf_or_err| {
@@ -380,7 +377,6 @@ impl MastersDatabase<'_> {
 
         let mut opt = ReadOptions::default();
         opt.fill_cache(cache_hint.should_fill_cache());
-        opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_year(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_year(until.add_years_saturating(1)).into_bytes());
@@ -503,14 +499,11 @@ impl LichessDatabase<'_> {
         &self,
         ids: I,
     ) -> Result<Vec<Option<LichessGame>>, rocksdb::Error> {
-        let mut opt = ReadOptions::default();
-        opt.set_ignore_range_deletions(true);
         self.inner
-            .batched_multi_get_cf_opt(
+            .batched_multi_get_cf(
                 self.cf_lichess_game,
                 &ids.into_iter().map(|id| id.to_bytes()).collect::<Vec<_>>(),
                 false,
-                &opt,
             )
             .into_iter()
             .map(|maybe_buf_or_err| {
@@ -536,7 +529,6 @@ impl LichessDatabase<'_> {
 
         let mut opt = ReadOptions::default();
         opt.fill_cache(cache_hint.should_fill_cache());
-        opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(
             key.with_month(filter.since.unwrap_or_else(Month::min_value))
@@ -589,7 +581,6 @@ impl LichessDatabase<'_> {
 
         let mut opt = ReadOptions::default();
         opt.fill_cache(cache_hint.should_fill_cache());
-        opt.set_ignore_range_deletions(true);
         opt.set_prefix_same_as_start(true);
         opt.set_iterate_lower_bound(key.with_month(since).into_bytes());
         opt.set_iterate_upper_bound(key.with_month(until.add_months_saturating(1)).into_bytes());

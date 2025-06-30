@@ -6,13 +6,13 @@ use std::{
 
 use serde::Deserialize;
 use serde_with::{
-    formats::CommaSeparator, serde_as, DefaultOnError, DisplayFromStr, StringWithSeparator,
+    DefaultOnError, DisplayFromStr, StringWithSeparator, formats::CommaSeparator, serde_as,
 };
 use shakmaty::{
+    CastlingMode, Color, EnPassantMode, Position, PositionError, Setup,
     fen::Fen,
     uci::UciMove,
     variant::{Variant, VariantPosition},
-    CastlingMode, Color, EnPassantMode, Position, PositionError, Setup,
 };
 
 use crate::{
@@ -88,13 +88,13 @@ impl LichessQueryFilter {
     pub fn contains_speed(&self, speed: Speed) -> bool {
         self.speeds
             .as_ref()
-            .map_or(true, |speeds| speeds.contains(&speed))
+            .is_none_or(|speeds| speeds.contains(&speed))
     }
 
     pub fn contains_rating_group(&self, rating_group: RatingGroup) -> bool {
-        self.ratings.as_ref().map_or(true, |ratings| {
-            ratings.contains(&min(rating_group, RatingGroup::Group2500))
-        })
+        self.ratings
+            .as_ref()
+            .is_none_or(|ratings| ratings.contains(&min(rating_group, RatingGroup::Group2500)))
     }
 
     pub fn top_group(&self) -> Option<RatingGroup> {
@@ -193,7 +193,7 @@ impl Play {
     fn setup(&self) -> Setup {
         match self.fen {
             Some(ref fen) => fen.as_setup().to_owned(),
-            None => VariantPosition::new(self.variant).into_setup(EnPassantMode::Always),
+            None => VariantPosition::new(self.variant).to_setup(EnPassantMode::Always),
         }
     }
 

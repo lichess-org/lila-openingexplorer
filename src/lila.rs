@@ -4,9 +4,9 @@ use clap::Parser;
 use futures_util::stream::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::Deserialize;
 use serde_with::{
-    formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator, TimestampMilliSeconds,
+    DisplayFromStr, StringWithSeparator, TimestampMilliSeconds, formats::SpaceSeparator, serde_as,
 };
-use shakmaty::{fen::Fen, san::San, variant::Variant, ByColor, Color};
+use shakmaty::{ByColor, Color, fen::Fen, san::San, variant::Variant};
 use time::PrimitiveDateTime;
 use tokio::io::AsyncBufReadExt as _;
 use tokio_stream::wrappers::LinesStream;
@@ -69,7 +69,7 @@ impl Lila {
             .await
             .and_then(|r| r.error_for_status())?
             .bytes_stream()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+            .map_err(io::Error::other);
 
         Ok(Box::pin(
             LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {
@@ -108,7 +108,7 @@ impl Lila {
             .await
             .and_then(|r| r.error_for_status())?
             .bytes_stream()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+            .map_err(io::Error::other);
 
         Ok(Box::pin(
             LinesStream::new(StreamReader::new(stream).lines()).filter_map(|line| async move {

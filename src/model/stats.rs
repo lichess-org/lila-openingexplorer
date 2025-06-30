@@ -35,7 +35,7 @@ impl AddAssign<&Stats> for Stats {
     }
 }
 
-impl<'a, 'b> Sub<&'a Stats> for &'b Stats {
+impl<'a> Sub<&'a Stats> for &Stats {
     type Output = Stats;
 
     fn sub(self, other: &'a Stats) -> Stats {
@@ -177,7 +177,7 @@ impl Stats {
 
 #[cfg(test)]
 mod tests {
-    use quickcheck::{quickcheck, Arbitrary, Gen};
+    use quickcheck::{Arbitrary, Gen, quickcheck};
 
     use super::*;
 

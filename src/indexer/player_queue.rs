@@ -1,13 +1,13 @@
 use std::{
     collections::{
-        hash_map::{Entry, HashMap},
         VecDeque,
+        hash_map::{Entry, HashMap},
     },
     hash::Hash,
     sync::Mutex,
 };
 
-use tokio::sync::{watch, Notify};
+use tokio::sync::{Notify, watch};
 
 pub struct Queue<T> {
     state: Mutex<QueueState<T>>,
@@ -44,7 +44,7 @@ impl<T: Eq + Hash + Clone> Queue<T> {
         result
     }
 
-    pub async fn acquire(&self) -> QueueItem<T> {
+    pub async fn acquire(&self) -> QueueItem<'_, T> {
         loop {
             if let Some(task) = self.state.lock().unwrap().acquire() {
                 return QueueItem { task, queue: self };

@@ -2,7 +2,7 @@ use std::{ffi::OsStr, fs::File, io, mem, path::PathBuf, thread, time::Duration};
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-use pgn_reader::{BufferedReader, Color, Outcome, RawHeader, SanPlus, Skip, Visitor};
+use pgn_reader::{BufferedReader, Color, Outcome, RawTag, SanPlus, Skip, Visitor};
 use serde::Serialize;
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
 use time::OffsetDateTime;
@@ -132,30 +132,30 @@ impl Visitor for Importer<'_> {
         self.current = Game::default();
     }
 
-    fn header(&mut self, key: &[u8], value: RawHeader<'_>) {
-        if key == b"White" {
+    fn tag(&mut self, name: &[u8], value: RawTag<'_>) {
+        if name == b"White" {
             self.current.white.name = Some(value.decode_utf8().expect("White").into_owned());
-        } else if key == b"Black" {
+        } else if name == b"Black" {
             self.current.black.name = Some(value.decode_utf8().expect("Black").into_owned());
-        } else if key == b"WhiteElo" {
+        } else if name == b"WhiteElo" {
             if value.as_bytes() != b"?" {
                 self.current.white.rating = Some(btoi::btoi(value.as_bytes()).expect("WhiteElo"));
             }
-        } else if key == b"BlackElo" {
+        } else if name == b"BlackElo" {
             if value.as_bytes() != b"?" {
                 self.current.black.rating = Some(btoi::btoi(value.as_bytes()).expect("BlackElo"));
             }
-        } else if key == b"TimeControl" {
+        } else if name == b"TimeControl" {
             self.current.speed = Some(Speed::from_bytes(value.as_bytes()).expect("TimeControl"));
-        } else if key == b"Variant" {
+        } else if name == b"Variant" {
             self.current.variant = Some(value.decode_utf8().expect("Variant").into_owned());
-        } else if key == b"Date" || key == b"UTCDate" {
+        } else if name == b"Date" || name == b"UTCDate" {
             self.current.date = Some(value.decode_utf8().expect("Date").into_owned());
-        } else if key == b"WhiteTitle" || key == b"BlackTitle" {
+        } else if name == b"WhiteTitle" || name == b"BlackTitle" {
             if value.as_bytes() == b"BOT" {
                 self.skip = true;
             }
-        } else if key == b"Site" {
+        } else if name == b"Site" {
             self.current.id = Some(
                 String::from_utf8(
                     value
@@ -167,12 +167,12 @@ impl Visitor for Importer<'_> {
                 )
                 .expect("Site"),
             );
-        } else if key == b"Result" {
+        } else if name == b"Result" {
             match Outcome::from_ascii(value.as_bytes()) {
                 Ok(outcome) => self.current.winner = outcome.winner(),
                 Err(_) => self.skip = true,
             }
-        } else if key == b"FEN" {
+        } else if name == b"FEN" {
             if value.as_bytes() == b"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" {
                 // https://github.com/ornicar/lichess-db/issues/40
                 self.current.fen = None;
@@ -182,7 +182,7 @@ impl Visitor for Importer<'_> {
         }
     }
 
-    fn end_headers(&mut self) -> Skip {
+    fn end_tags(&mut self) -> Skip {
         self.skip |= self.current.white.rating.is_none() || self.current.black.rating.is_none();
         Skip(self.skip)
     }

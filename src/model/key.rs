@@ -2,7 +2,7 @@ use std::array::TryFromSliceError;
 
 use bytes::{Buf, BufMut};
 use sha1::{Digest, Sha1};
-use shakmaty::{variant::Variant, Color};
+use shakmaty::{Color, variant::Variant};
 
 use crate::{
     model::{InvalidDate, Month, UserId, Year},
@@ -107,7 +107,7 @@ impl TryFrom<&'_ [u8]> for Key {
 #[cfg(test)]
 mod tests {
     use quickcheck::quickcheck;
-    use shakmaty::{variant::Variant, Color};
+    use shakmaty::{Color, variant::Variant};
 
     use super::*;
     use crate::model::UserName;

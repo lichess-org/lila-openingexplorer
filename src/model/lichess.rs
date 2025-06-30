@@ -1,17 +1,17 @@
 use std::{
     array,
-    cmp::{max, min, Reverse},
+    cmp::{Reverse, max, min},
     str::FromStr,
 };
 
 use bytes::{Buf, BufMut};
 use nohash_hasher::IntMap;
-use shakmaty::{uci::UciMove, Outcome};
-use thin_vec::{thin_vec, ThinVec};
+use shakmaty::{Outcome, uci::UciMove};
+use thin_vec::{ThinVec, thin_vec};
 
 use crate::{
     api::{LichessQueryFilter, Limits},
-    model::{read_uint, write_uint, BySpeed, GameId, RawUciMove, Speed, Stats},
+    model::{BySpeed, GameId, RawUciMove, Speed, Stats, read_uint, write_uint},
     util::{midpoint, sort_by_key_and_truncate},
 };
 
@@ -417,15 +417,19 @@ impl LichessEntry {
                             if limits.games_wanted() {
                                 for (idx, game) in group.games.iter().copied() {
                                     if latest_game
-                                        .map_or(true, |(latest_idx, _game)| latest_idx < idx)
+                                        .is_none_or(|(latest_idx, _game)| latest_idx < idx)
                                     {
                                         latest_game = Some((idx, game));
                                     }
                                 }
 
-                                games.extend(group.games.iter().copied().map(|(idx, game)| {
-                                    (rating_group, speed, idx, uci.clone(), game)
-                                }));
+                                games.extend(
+                                    group
+                                        .games
+                                        .iter()
+                                        .copied()
+                                        .map(|(idx, game)| (rating_group, speed, idx, uci, game)),
+                                );
                             }
                         }
                     }
@@ -533,7 +537,7 @@ mod tests {
         };
 
         let a = LichessEntry::new_single(
-            uci_a.clone(),
+            uci_a,
             Speed::Blitz,
             "aaaaaaaa".parse().unwrap(),
             Outcome::Draw,
@@ -563,7 +567,7 @@ mod tests {
         };
 
         let b = LichessEntry::new_single(
-            uci_b.clone(),
+            uci_b,
             Speed::Blitz,
             "bbbbbbbb".parse().unwrap(),
             Outcome::Decisive {
