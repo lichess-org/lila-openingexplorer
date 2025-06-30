@@ -331,8 +331,8 @@ fn tokio_metrics_to_influx_string() -> String {
             rt_metrics.budget_forced_yield_count()
         ),
         format!(
-            "tokio_injection_queue_depth={}u",
-            rt_metrics.injection_queue_depth()
+            "tokio_global_queue_depth={}u",
+            rt_metrics.global_queue_depth()
         ),
         format!(
             "tokio_blocking_queue_depth={}u",

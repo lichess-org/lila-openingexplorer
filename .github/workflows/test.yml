@@ -10,5 +10,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test
+        env:
+          RUSTFLAGS: --cfg tokio_unstable
       - run: cargo bench
       - run: cargo test --manifest-path import-pgn/Cargo.toml
