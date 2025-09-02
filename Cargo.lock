@@ -2084,9 +2084,9 @@ dependencies = [
 
 [[package]]
 name = "shakmaty"
-version = "0.28.0"
+version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3065bdba026d0a3a6eb452ff174dbbd258452643a71383153abb91a8a4fc1abc"
+checksum = "334bb41280a79854707d79c117c9818ddeaead15108e951c0b082ba2acedd0d1"
 dependencies = [
  "arrayvec",
  "bitflags",
