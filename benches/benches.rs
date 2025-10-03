@@ -1,6 +1,6 @@
 use iai::black_box;
 use lila_openingexplorer::model::{LichessEntry, Speed};
-use shakmaty::{Color, Outcome, Square, uci::UciMove};
+use shakmaty::{Color, KnownOutcome, Square, uci::UciMove};
 
 fn bench_lichess_write_single() -> Vec<u8> {
     let entry = LichessEntry::new_single(
@@ -11,7 +11,7 @@ fn bench_lichess_write_single() -> Vec<u8> {
         }),
         black_box(Speed::Classical),
         black_box("abcdefgh".parse().expect("game id")),
-        black_box(Outcome::Decisive {
+        black_box(KnownOutcome::Decisive {
             winner: Color::White,
         }),
         black_box(1610),

@@ -2,7 +2,7 @@ use std::ops::{AddAssign, Sub};
 
 use bytes::{Buf, BufMut};
 use serde::Serialize;
-use shakmaty::{Color, Outcome};
+use shakmaty::{Color, KnownOutcome};
 
 use crate::model::{read_uint, write_uint};
 
@@ -16,7 +16,7 @@ pub struct Stats {
 }
 
 impl Stats {
-    pub fn new_single(outcome: Outcome, rating: u16) -> Stats {
+    pub fn new_single(outcome: KnownOutcome, rating: u16) -> Stats {
         Stats {
             rating_sum: u64::from(rating),
             white: u64::from(outcome.winner() == Some(Color::White)),

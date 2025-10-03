@@ -9,7 +9,7 @@ use futures_util::StreamExt;
 use nohash_hasher::IntMap;
 use reqwest::StatusCode;
 use shakmaty::{
-    ByColor, CastlingMode, Outcome, Position, uci::UciMove, variant::VariantPosition,
+    ByColor, CastlingMode, KnownOutcome, Position, uci::UciMove, variant::VariantPosition,
     zobrist::ZobristHash,
 };
 use tokio::{
@@ -316,7 +316,7 @@ impl PlayerIndexerActor {
 
         // Prepare basic information and setup initial position.
         let month = Month::from_time_saturating(game.last_move_at);
-        let outcome = Outcome::from_winner(game.winner);
+        let outcome = KnownOutcome::from_winner(game.winner);
         let mut pos = match game.initial_fen {
             Some(fen) => {
                 match VariantPosition::from_setup(

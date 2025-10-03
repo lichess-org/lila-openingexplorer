@@ -2,13 +2,13 @@ use std::convert::{TryFrom, TryInto};
 
 use bytes::{Buf, BufMut};
 use serde::{Deserialize, Serialize};
-use shakmaty::{ByColor, Color, Outcome};
+use shakmaty::{ByColor, Color, KnownOutcome};
 
 use crate::model::{Mode, Month, Speed, read_uint, write_uint};
 
 #[derive(Debug)]
 pub struct LichessGame {
-    pub outcome: Outcome,
+    pub outcome: KnownOutcome,
     pub speed: Speed,
     pub mode: Mode,
     pub players: ByColor<GamePlayer>,
@@ -30,13 +30,13 @@ impl LichessGame {
                 Speed::Classical => 4,
                 Speed::Correspondence => 5,
             } | (match self.outcome {
-                Outcome::Decisive {
+                KnownOutcome::Decisive {
                     winner: Color::Black,
                 } => 0,
-                Outcome::Decisive {
+                KnownOutcome::Decisive {
                     winner: Color::White,
                 } => 1,
-                Outcome::Draw => 2,
+                KnownOutcome::Draw => 2,
             } << 3)
                 | (u8::from(self.mode.is_rated()) << 5)
                 | (u8::from(self.indexed_player.white) << 6)
@@ -60,13 +60,13 @@ impl LichessGame {
             _ => panic!("invalid speed"),
         };
         let outcome = match (byte >> 3) & 3 {
-            0 => Outcome::Decisive {
+            0 => KnownOutcome::Decisive {
                 winner: Color::Black,
             },
-            1 => Outcome::Decisive {
+            1 => KnownOutcome::Decisive {
                 winner: Color::White,
             },
-            2 => Outcome::Draw,
+            2 => KnownOutcome::Draw,
             _ => panic!("invalid outcome"),
         };
         let mode = Mode::from_rated((byte >> 5) & 1 == 1);

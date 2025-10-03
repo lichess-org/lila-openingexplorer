@@ -1,10 +1,11 @@
-use std::{ffi::OsStr, fs::File, io, mem, path::PathBuf, thread, time::Duration};
+use std::{ffi::OsStr, fs::File, io, mem, ops::ControlFlow, path::PathBuf, thread, time::Duration};
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-use pgn_reader::{BufferedReader, Color, Outcome, RawTag, SanPlus, Skip, Visitor};
+use pgn_reader::{KnownOutcome, RawTag, Reader, SanPlus, Skip, Visitor};
 use serde::Serialize;
 use serde_with::{formats::SpaceSeparator, serde_as, DisplayFromStr, StringWithSeparator};
+use shakmaty::Color;
 use time::OffsetDateTime;
 
 #[derive(Debug, Serialize, Copy, Clone)]
@@ -69,8 +70,6 @@ struct Importer<'a> {
     batch_size: usize,
     progress: &'a ProgressBar,
 
-    current: Game,
-    skip: bool,
     batch: Vec<Game>,
 }
 
@@ -107,8 +106,6 @@ impl Importer<'_> {
             tx,
             filename,
             batch_size,
-            current: Game::default(),
-            skip: false,
             batch: Vec::with_capacity(batch_size),
             progress,
         }
@@ -125,38 +122,44 @@ impl Importer<'_> {
 }
 
 impl Visitor for Importer<'_> {
-    type Result = ();
+    type Tags = Game;
+    type Movetext = Game;
+    type Output = ();
 
-    fn begin_game(&mut self) {
-        self.skip = false;
-        self.current = Game::default();
+    fn begin_tags(&mut self) -> ControlFlow<Self::Output, Self::Tags> {
+        ControlFlow::Continue(Game::default())
     }
 
-    fn tag(&mut self, name: &[u8], value: RawTag<'_>) {
+    fn tag(
+        &mut self,
+        game: &mut Game,
+        name: &[u8],
+        value: RawTag<'_>,
+    ) -> ControlFlow<Self::Output> {
         if name == b"White" {
-            self.current.white.name = Some(value.decode_utf8().expect("White").into_owned());
+            game.white.name = Some(value.decode_utf8().expect("White").into_owned());
         } else if name == b"Black" {
-            self.current.black.name = Some(value.decode_utf8().expect("Black").into_owned());
+            game.black.name = Some(value.decode_utf8().expect("Black").into_owned());
         } else if name == b"WhiteElo" {
             if value.as_bytes() != b"?" {
-                self.current.white.rating = Some(btoi::btoi(value.as_bytes()).expect("WhiteElo"));
+                game.white.rating = Some(btoi::btoi(value.as_bytes()).expect("WhiteElo"));
             }
         } else if name == b"BlackElo" {
             if value.as_bytes() != b"?" {
-                self.current.black.rating = Some(btoi::btoi(value.as_bytes()).expect("BlackElo"));
+                game.black.rating = Some(btoi::btoi(value.as_bytes()).expect("BlackElo"));
             }
         } else if name == b"TimeControl" {
-            self.current.speed = Some(Speed::from_bytes(value.as_bytes()).expect("TimeControl"));
+            game.speed = Some(Speed::from_bytes(value.as_bytes()).expect("TimeControl"));
         } else if name == b"Variant" {
-            self.current.variant = Some(value.decode_utf8().expect("Variant").into_owned());
+            game.variant = Some(value.decode_utf8().expect("Variant").into_owned());
         } else if name == b"Date" || name == b"UTCDate" {
-            self.current.date = Some(value.decode_utf8().expect("Date").into_owned());
+            game.date = Some(value.decode_utf8().expect("Date").into_owned());
         } else if name == b"WhiteTitle" || name == b"BlackTitle" {
             if value.as_bytes() == b"BOT" {
-                self.skip = true;
+                return ControlFlow::Break(());
             }
         } else if name == b"Site" {
-            self.current.id = Some(
+            game.id = Some(
                 String::from_utf8(
                     value
                         .as_bytes()
@@ -168,38 +171,40 @@ impl Visitor for Importer<'_> {
                 .expect("Site"),
             );
         } else if name == b"Result" {
-            match Outcome::from_ascii(value.as_bytes()) {
-                Ok(outcome) => self.current.winner = outcome.winner(),
-                Err(_) => self.skip = true,
+            match KnownOutcome::from_ascii(value.as_bytes()) {
+                Ok(outcome) => game.winner = outcome.winner(),
+                Err(_) => return ControlFlow::Break(()),
             }
         } else if name == b"FEN" {
             if value.as_bytes() == b"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" {
                 // https://github.com/ornicar/lichess-db/issues/40
-                self.current.fen = None;
+                game.fen = None;
             } else {
-                self.current.fen = Some(value.decode_utf8().expect("FEN").into_owned());
+                game.fen = Some(value.decode_utf8().expect("FEN").into_owned());
             }
         }
+        ControlFlow::Continue(())
     }
 
-    fn end_tags(&mut self) -> Skip {
-        self.skip |= self.current.white.rating.is_none() || self.current.black.rating.is_none();
-        Skip(self.skip)
-    }
-
-    fn san(&mut self, san: SanPlus) {
-        self.current.moves.push(san);
-    }
-
-    fn begin_variation(&mut self) -> Skip {
-        Skip(true) // stay in the mainline
-    }
-
-    fn end_game(&mut self) {
-        if !self.skip {
-            self.batch.push(mem::take(&mut self.current));
+    fn begin_movetext(&mut self, game: Game) -> ControlFlow<Self::Output, Self::Movetext> {
+        if game.white.rating.is_none() || game.black.rating.is_none() {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(game)
         }
+    }
 
+    fn san(&mut self, game: &mut Game, san: SanPlus) -> ControlFlow<Self::Output> {
+        game.moves.push(san);
+        ControlFlow::Continue(())
+    }
+
+    fn begin_variation(&mut self, _game: &mut Game) -> ControlFlow<Self::Output, Skip> {
+        ControlFlow::Continue(Skip(true)) // stay in the mainline
+    }
+
+    fn end_game(&mut self, game: Game) -> Self::Output {
+        self.batch.push(game);
         if self.batch.len() >= self.batch_size {
             self.send();
         }
@@ -278,9 +283,9 @@ fn main() -> Result<(), io::Error> {
             Box::new(file)
         };
 
-        let mut reader = BufferedReader::new(uncompressed);
+        let mut reader = Reader::new(uncompressed);
         let mut importer = Importer::new(tx.clone(), arg, args.batch_size, &progress);
-        reader.read_all(&mut importer)?;
+        reader.visit_all_games(&mut importer)?;
         importer.send();
 
         progress.finish();

@@ -9,7 +9,7 @@ use serde_with::{
     DefaultOnNull, DisplayFromStr, StringWithSeparator, formats::SpaceSeparator, serde_as,
 };
 use shakmaty::{
-    ByColor, CastlingMode, Color, EnPassantMode, Outcome, Position,
+    ByColor, CastlingMode, Color, EnPassantMode, KnownOutcome, Position,
     fen::Fen,
     san::San,
     uci::UciMove,
@@ -91,7 +91,7 @@ impl LichessImporter {
                 });
             }
         };
-        let outcome = Outcome::from_winner(game.winner);
+        let outcome = KnownOutcome::from_winner(game.winner);
 
         let mut pos = match game.fen {
             Some(fen) => {

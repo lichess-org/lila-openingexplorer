@@ -5,7 +5,7 @@ use std::{
 
 use nohash_hasher::IntMap;
 use shakmaty::{
-    Chess, Color, EnPassantMode, Outcome, Position, uci::UciMove, variant::Variant,
+    Chess, Color, EnPassantMode, KnownOutcome, Position, uci::UciMove, variant::Variant,
     zobrist::ZobristHash,
 };
 
@@ -72,17 +72,16 @@ impl MastersImporter {
             pos.play_unchecked(m);
         }
 
-        if let Some(final_key) = final_key {
-            if masters_db
+        if let Some(final_key) = final_key
+            && masters_db
                 .has(
                     KeyBuilder::masters()
                         .with_zobrist(Variant::Chess, final_key)
                         .with_year(body.game.date.year()),
                 )
                 .expect("check for masters entry")
-            {
-                return Err(Error::DuplicateGame { id: body.id });
-            }
+        {
+            return Err(Error::DuplicateGame { id: body.id });
         }
 
         let mut batch = masters_db.batch();
@@ -95,7 +94,7 @@ impl MastersImporter {
                 MastersEntry::new_single(
                     uci,
                     body.id,
-                    Outcome::from_winner(body.game.winner),
+                    KnownOutcome::from_winner(body.game.winner),
                     body.game.players.get(turn).rating,
                     body.game.players.get(!turn).rating,
                 ),

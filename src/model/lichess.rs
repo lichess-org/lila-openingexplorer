@@ -6,7 +6,7 @@ use std::{
 
 use bytes::{Buf, BufMut};
 use nohash_hasher::IntMap;
-use shakmaty::{Outcome, uci::UciMove};
+use shakmaty::{KnownOutcome, uci::UciMove};
 use thin_vec::{ThinVec, thin_vec};
 
 use crate::{
@@ -296,7 +296,7 @@ impl LichessEntry {
         uci: UciMove,
         speed: Speed,
         game_id: GameId,
-        outcome: Outcome,
+        outcome: KnownOutcome,
         mover_rating: u16,
         opponent_rating: u16,
     ) -> LichessEntry {
@@ -540,7 +540,7 @@ mod tests {
             uci_a,
             Speed::Blitz,
             "aaaaaaaa".parse().unwrap(),
-            Outcome::Draw,
+            KnownOutcome::Draw,
             2000,
             2200,
         );
@@ -570,7 +570,7 @@ mod tests {
             uci_b,
             Speed::Blitz,
             "bbbbbbbb".parse().unwrap(),
-            Outcome::Decisive {
+            KnownOutcome::Decisive {
                 winner: Color::White,
             },
             2000,

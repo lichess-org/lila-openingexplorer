@@ -12,7 +12,7 @@ use bytes::{Buf, BufMut};
 use nohash_hasher::IntMap;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, StringWithSeparator, formats::SpaceSeparator, serde_as};
-use shakmaty::{ByColor, Chess, Color, Outcome, san::SanPlus, uci::UciMove};
+use shakmaty::{ByColor, Chess, Color, KnownOutcome, san::SanPlus, uci::UciMove};
 use thin_vec::{ThinVec, thin_vec};
 
 use crate::{
@@ -49,8 +49,8 @@ pub struct MastersGame {
 }
 
 impl MastersGame {
-    fn outcome(&self) -> Outcome {
-        Outcome::from_winner(self.winner)
+    fn outcome(&self) -> KnownOutcome {
+        KnownOutcome::from_winner(self.winner)
     }
 
     fn write_pgn<W: Write>(&self, writer: &mut W) -> io::Result<()> {
@@ -117,7 +117,7 @@ impl MastersEntry {
     pub fn new_single(
         uci: UciMove,
         id: GameId,
-        outcome: Outcome,
+        outcome: KnownOutcome,
         mover_rating: u16,
         opponent_rating: u16,
     ) -> MastersEntry {
@@ -252,7 +252,7 @@ mod tests {
             promotion: None,
         };
         let game = "aaaaaaaa".parse().unwrap();
-        let a = MastersEntry::new_single(uci, game, Outcome::Draw, 1600, 1700);
+        let a = MastersEntry::new_single(uci, game, KnownOutcome::Draw, 1600, 1700);
 
         let mut buf = Vec::with_capacity(MastersEntry::SIZE_HINT);
         a.write(&mut buf);
