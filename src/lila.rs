@@ -20,7 +20,7 @@ use crate::{
 #[derive(Parser, Clone)]
 pub struct LilaOpt {
     /// Base url for the lila instance.
-    #[arg(long = "lila", default_value = "https://lichess.org")]
+    #[arg(long = "lila", env = "LILA_URL", default_value = "http://localhost:9663")]
     lila: String,
     /// Token of https://lichess.org/@/OpeningExplorer to speed up indexing
     /// and allow access to internal endpoints.

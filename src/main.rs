@@ -72,7 +72,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 struct Opt {
     /// Binding address. Note that administrative endpoints must be protected
     /// using a reverse proxy.
-    #[arg(long, default_value = "127.0.0.1:9002")]
+    #[arg(long, default_value = "0.0.0.0:9002")]
     bind: SocketAddr,
     /// Allow access from all origins.
     #[arg(long)]
