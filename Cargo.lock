@@ -1254,6 +1254,7 @@ dependencies = [
  "sha-1",
  "shakmaty",
  "sync_wrapper",
+ "tempfile",
  "thin-vec",
  "thiserror",
  "tikv-jemallocator",
