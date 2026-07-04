@@ -150,6 +150,7 @@ async fn serve() {
         .route("/import/lichess", put(lichess_import))
         .route("/import/openings", post(openings_import))
         .route("/masters/pgn/{id}", get(masters_pgn))
+        .route("/masters/game/{id}", put(masters_game_update))
         .route("/masters", get(masters))
         .route("/lichess", get(lichess))
         .route("/lichess/history", get(lichess_history)) // bc
@@ -620,6 +621,30 @@ async fn masters_pgn(
             Some(game) => Ok(game),
             None => Err(StatusCode::NOT_FOUND),
         }
+    })
+    .await
+}
+
+#[axum::debug_handler(state = AppState)]
+async fn masters_game_update(
+    Path(MastersGameId(id)): Path<MastersGameId>,
+    State(db): State<Arc<Database>>,
+    State(semaphore): State<&'static Semaphore>,
+    Json(patch): Json<serde_json::Value>,
+) -> Result<(), StatusCode> {
+    spawn_blocking(semaphore, move || {
+        let masters_db = db.masters();
+        let game = masters_db
+            .game(id)
+            .expect("get masters game")
+            .ok_or(StatusCode::NOT_FOUND)?;
+        let mut value = serde_json::to_value(game).expect("serialize masters game");
+        json_patch::merge(&mut value, &patch);
+        let updated: MastersGame =
+            serde_json::from_value(value).map_err(|_| StatusCode::BAD_REQUEST)?;
+        masters_db.put_game(id, &updated).expect("put masters game");
+        log::info!("updated masters game {id}");
+        Ok(())
     })
     .await
 }

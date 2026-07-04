@@ -20,6 +20,7 @@ csv = "1"
 env_logger = "0.11"
 fastrand = "2"
 futures-util = "0.3"
+json-patch ="4"
 log = "0.4"
 moka = { version = "0.12", features = ["future"] }
 nohash-hasher = "0.2"

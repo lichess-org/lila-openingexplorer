@@ -360,6 +360,14 @@ impl MastersDatabase<'_> {
             .collect()
     }
 
+    pub fn put_game(&self, id: GameId, game: &MastersGame) -> Result<(), rocksdb::Error> {
+        self.inner.put_cf(
+            self.cf_masters_game,
+            id.to_bytes(),
+            serde_json::to_vec(game).expect("serialize masters game"),
+        )
+    }
+
     pub fn has(&self, key: Key) -> Result<bool, rocksdb::Error> {
         self.inner
             .get_pinned_cf(self.cf_masters, key.into_bytes())
