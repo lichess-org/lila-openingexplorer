@@ -21,7 +21,7 @@ use axum::{
     Json, Router,
     extract::{FromRef, Path, Query, State},
     http::StatusCode,
-    routing::{get, post, put},
+    routing::{get, patch, post, put},
 };
 use clap::Parser;
 use futures_util::{StreamExt, stream::Stream};
@@ -147,10 +147,10 @@ async fn serve() {
         .route("/monitor", get(monitor))
         .route("/compact", post(compact))
         .route("/import/masters", put(masters_import))
+        .route("/import/masters/{id}", patch(masters_game_update))
         .route("/import/lichess", put(lichess_import))
         .route("/import/openings", post(openings_import))
         .route("/masters/pgn/{id}", get(masters_pgn))
-        .route("/masters/game/{id}", put(masters_game_update))
         .route("/masters", get(masters))
         .route("/lichess", get(lichess))
         .route("/lichess/history", get(lichess_history)) // bc
