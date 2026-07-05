@@ -630,9 +630,10 @@ async fn masters_game_update(
     Path(MastersGameId(id)): Path<MastersGameId>,
     State(db): State<Arc<Database>>,
     State(semaphore): State<&'static Semaphore>,
+    State(masters_cache): State<ExplorerCache<MastersQuery>>,
     Json(patch): Json<serde_json::Value>,
 ) -> Result<(), StatusCode> {
-    spawn_blocking(semaphore, move || {
+    let response = spawn_blocking(semaphore, move || {
         let masters_db = db.masters();
         let game = masters_db
             .game(id)
@@ -646,7 +647,9 @@ async fn masters_game_update(
         log::info!("updated masters game {id}");
         Ok(())
     })
-    .await
+    .await;
+    masters_cache.invalidate_all();
+    response
 }
 
 #[axum::debug_handler(state = AppState)]
