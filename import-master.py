@@ -17,6 +17,11 @@ def main(pgn):
         if game is None:
             break
 
+        white_elo = game.headers.get("WhiteElo")
+        black_elo = game.headers.get("BlackElo")
+        if not white_elo or not black_elo:
+            continue
+
         obj = {
             "event": game.headers["Event"],
             "site": game.headers["Site"],
@@ -24,11 +29,11 @@ def main(pgn):
             "round": game.headers["Round"],
             "white": {
                 "name": game.headers["White"],
-                "rating": int(game.headers["WhiteElo"]),
+                "rating": int(white_elo),
             },
             "black": {
                 "name": game.headers["Black"],
-                "rating": int(game.headers["BlackElo"]),
+                "rating": int(black_elo),
             },
             "winner": winner(game),
             "moves": " ".join(m.uci() for m in game.end().board().move_stack)

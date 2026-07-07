@@ -20,12 +20,14 @@ use crate::{
 #[derive(Parser, Clone)]
 pub struct LilaOpt {
     /// Base url for the lila instance.
-    #[arg(long = "lila", default_value = "https://lichess.org")]
+    #[arg(long = "lila", env = "LILA_URL", default_value = "https://lichess.org")]
     lila: String,
     /// Token of https://lichess.org/@/OpeningExplorer to speed up indexing
     /// and allow access to internal endpoints.
     #[arg(long = "bearer", env = "EXPLORER_BEARER")]
     bearer: Option<String>,
+    #[arg(long = "bearer_file", env = "EXPLORER_BEARER_FILE")]
+    bearer_file: Option<String>,
 }
 
 pub struct Lila {
@@ -60,9 +62,11 @@ impl Lila {
             .query(&[("since", since_created_at)])
             .header("Accept", "application/x-ndjson");
 
-        if let Some(ref bearer) = self.opt.bearer {
-            builder = builder.bearer_auth(bearer);
-        }
+        builder = Self::add_bearer_auth(
+            builder,
+            self.opt.bearer.as_deref(),
+            self.opt.bearer_file.as_deref(),
+        );
 
         let stream = builder
             .send()
@@ -85,6 +89,24 @@ impl Lila {
         ))
     }
 
+    pub fn add_bearer_auth(
+        builder: reqwest::RequestBuilder,
+        bearer: Option<&str>,
+        bearer_file: Option<&str>,
+    ) -> reqwest::RequestBuilder {
+        if let Some(bearer) = bearer {
+            builder.bearer_auth(bearer)
+        } else if let Some(bearer_file) = bearer_file {
+            builder.bearer_auth(
+                std::fs::read_to_string(bearer_file)
+                    .map(|s| s.trim().to_owned())
+                    .expect("read bearer token"),
+            )
+        } else {
+            builder
+        }
+    }
+
     pub async fn mod_marked_since(
         &self,
         since: SystemTime,
@@ -99,9 +121,11 @@ impl Lila {
                     .map_or(0, |d| d.as_millis()),
             )]);
 
-        if let Some(ref bearer) = self.opt.bearer {
-            builder = builder.bearer_auth(bearer);
-        }
+        builder = Self::add_bearer_auth(
+            builder,
+            self.opt.bearer.as_deref(),
+            self.opt.bearer_file.as_deref(),
+        );
 
         let stream = builder
             .send()
@@ -204,6 +228,33 @@ impl Status {
 mod tests {
     use super::*;
     use crate::model::Month;
+    use std::io::Write as _;
+
+    #[test]
+    fn test_add_bearer_auth() {
+        let client = reqwest::Client::new();
+        let builder = client.get("http://localhost");
+        let request = Lila::add_bearer_auth(builder, Some("mytoken"), None)
+            .build()
+            .unwrap();
+        assert_eq!(request.headers()["Authorization"], "Bearer mytoken");
+    }
+
+    #[test]
+    fn test_add_bearer_auth_from_file() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        write!(tmp, "  contents-of-file\n").unwrap();
+        let path = tmp.path().to_str().unwrap().to_owned();
+        let client = reqwest::Client::new();
+        let builder = client.get("http://localhost");
+        let request = Lila::add_bearer_auth(builder, None, Some(&path))
+            .build()
+            .unwrap();
+        assert_eq!(
+            request.headers()["Authorization"],
+            "Bearer contents-of-file"
+        );
+    }
 
     #[test]
     fn test_deserialize_game() {
