@@ -20,6 +20,7 @@ csv = "1"
 env_logger = "0.11"
 fastrand = "2"
 futures-util = "0.3"
+json-patch = "4"
 log = "0.4"
 moka = { version = "0.12", features = ["future"] }
 nohash-hasher = "0.2"
@@ -40,7 +41,7 @@ time = "0.3"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 tokio-util = { version = "0.7", features = ["io"] }
-tower-http = { version = "0.6", features = ["set-header"] }
+tower-http = { version = "0.7", features = ["set-header"] }
 
 [dev-dependencies]
 quickcheck = "1"
