@@ -18,7 +18,7 @@ use crate::{
 #[derive(Parser)]
 pub struct DbOpt {
     /// Path to RocksDB database.
-    #[arg(long, default_value = "_db")]
+    #[arg(long, env = "DB_PATH", default_value = "_db")]
     db: PathBuf,
     /// Tune compaction readahead for spinning disks.
     #[arg(long)]
