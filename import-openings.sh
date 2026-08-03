@@ -1,3 +1,3 @@
 #!/bin/sh -e
 
-curl -v -X PUT http://localhost:9002/import/openings
+curl -v -X POST http://localhost:9002/import/openings
