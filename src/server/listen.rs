@@ -1,4 +1,4 @@
-use std::{io, net::SocketAddr};
+use std::{io, net::SocketAddr, time::Duration};
 
 use axum::{
     Router,
@@ -10,7 +10,7 @@ use tokio::{
     signal::unix::{SignalKind, signal},
 };
 use tokio_util::sync::CancellationToken;
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
 
 use crate::util::{Exposition, METRICS_CONTENT_TYPE};
 
@@ -23,6 +23,8 @@ pub fn cors() -> CorsLayer {
         .allow_origin(AllowOrigin::mirror_request())
         .allow_credentials(true)
         .allow_methods([Method::GET])
+        .allow_headers(AllowHeaders::mirror_request())
+        .max_age(Duration::from_secs(24 * 60 * 60))
 }
 
 async fn shutdown_signal() {
