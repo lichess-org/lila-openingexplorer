@@ -157,7 +157,7 @@ $B/parquet_to_games lichess/lichess_db_rated.parquet --out lichess/sst/games
 * [ ] Broadcast games
 * [ ] Unify masters/lichess API
 * [ ] Upstream RocksDB PerfStatsLevel mismatch
-* [ ] Document title on GamePlayer
+* [ ] Document and use title on GamePlayer
 * [ ] Record provenance in SST file meta data
 * [x] Delta-encoding for intermediate entries
 * [ ] Consider introducing player ids

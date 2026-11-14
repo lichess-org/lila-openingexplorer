@@ -23,7 +23,7 @@ use tokio::{runtime::Handle, sync::Semaphore, task};
 use crate::{
     packed::{
         CellKey, GameId, GameIndex, GroupHeader, InvalidGameId, LichessEntry, PositionKey, Rating,
-        RatingGroup, unpack_game_value,
+        unpack_game_value,
     },
     server::{
         blacklist::{self, Blacklist, LilaConfig},
@@ -169,17 +169,16 @@ impl AppState {
             };
             let (_, game) = unpack_game_value(&game);
             if let Some(visit) = find_visit(&game, &hash) {
-                let rating = game.players[visit.turn].rating.unwrap_or_default();
                 entry.add_game(
                     CellKey::new(
                         visit.m,
                         GroupHeader {
                             speed: game.speed,
-                            rating_group: RatingGroup::select(rating),
+                            rating_group: game.rating_group(),
                         },
                         game.date.earliest_month(),
                     ),
-                    rating,
+                    game.ratings_or_default()[visit.turn],
                     game.outcome,
                     *id,
                 );

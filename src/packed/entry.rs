@@ -382,8 +382,8 @@ impl<H: CellGroupHeader> Entry<H> {
         self.cells.is_empty()
     }
 
-    /// Adds a game to the cell of the key. For a `LichessEntry`, the rating
-    /// group of the key must match the rating.
+    /// Adds a game to the cell of the key, with the rating of the side to
+    /// move.
     pub fn add_game(
         &mut self,
         key: CellKey,

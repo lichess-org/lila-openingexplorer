@@ -4,8 +4,8 @@ use bytes::{Buf, BufMut};
 use shakmaty::{KnownOutcome, packed::PackedUciMove};
 
 use crate::packed::{
-    CellGroupHeader, CellKey, GameIndex, GroupHeader, Month, PositionKey, Rating, RatingGroup,
-    Speed, outcome_bits, outcome_from_bits,
+    CellGroupHeader, CellKey, GameIndex, GroupHeader, Month, PositionKey, Rating, outcome_bits,
+    outcome_from_bits,
 };
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -22,7 +22,7 @@ impl IntermediateEntry {
         hash: PositionKey,
         month: Month,
         m: PackedUciMove,
-        speed: Option<Speed>,
+        header: GroupHeader,
         rating: Rating,
         outcome: KnownOutcome,
         game: GameIndex,
@@ -32,10 +32,6 @@ impl IntermediateEntry {
             "game index {game} exceeds {} bits",
             Self::GAME_INDEX_BITS
         );
-        let header = GroupHeader {
-            speed,
-            rating_group: RatingGroup::select(rating),
-        };
         let mut bytes = [0; Self::SIZE];
         let mut buf = &mut bytes[..];
         hash.pack(&mut buf);
@@ -139,23 +135,19 @@ mod tests {
             let hash: PositionKey = u.arbitrary()?;
             let month: Month = u.arbitrary()?;
             let m = PackedUciMove::pack(u.arbitrary()?);
-            let speed: Option<Speed> = u.arbitrary()?;
+            let header: GroupHeader = u.arbitrary()?;
             let rating: Rating = u.arbitrary()?;
             let outcome: KnownOutcome = u.arbitrary()?;
             let game =
                 GameIndex::new(u.int_in_range(0..=(1 << IntermediateEntry::GAME_INDEX_BITS) - 1)?)
                     .unwrap();
 
-            let entry = IntermediateEntry::new(hash, month, m, speed, rating, outcome, game);
+            let entry = IntermediateEntry::new(hash, month, m, header, rating, outcome, game);
 
             assert_eq!(entry.hash(), hash);
             assert_eq!(entry.month(), month);
             assert_eq!(entry.uci_move(), m);
-            assert_eq!(entry.group_header().speed, speed);
-            assert_eq!(
-                entry.group_header().rating_group,
-                RatingGroup::select(rating)
-            );
+            assert_eq!(entry.group_header(), header);
             assert_eq!(entry.game_index(), game);
             assert_eq!(entry.outcome(), outcome);
             assert_eq!(entry.rating(), rating);

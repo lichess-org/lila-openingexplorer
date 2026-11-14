@@ -11,7 +11,9 @@ use shakmaty::{
 
 use crate::{
     lila_variant::LilaVariant,
-    packed::{GameId, GamePlayer, LaxDate, LichessGame, PackedMoves, Rating, RatingMode, Speed},
+    packed::{
+        BOT_TITLE, GameId, GamePlayer, LaxDate, LichessGame, PackedMoves, Rating, RatingMode, Speed,
+    },
 };
 
 /// Parses games, keeping only the first `max_ply` moves.
@@ -22,14 +24,16 @@ pub struct GameVisitor {
 }
 
 #[derive(Default)]
+struct ParsedPlayer {
+    name: Option<String>,
+    title: Option<String>,
+    rating: Option<Rating>,
+}
+
+#[derive(Default)]
 pub struct ParsedGame {
     game_id: Option<GameId>,
-    white: Option<String>,
-    black: Option<String>,
-    white_elo: Option<Rating>,
-    black_elo: Option<Rating>,
-    white_title: Option<String>,
-    black_title: Option<String>,
+    players: ByColor<ParsedPlayer>,
     speed: Option<Speed>,
     date: Option<LaxDate>,
     variant: Option<LilaVariant>,
@@ -39,6 +43,30 @@ pub struct ParsedGame {
 }
 
 impl ParsedGame {
+    fn utf8_tag(&self, name: &str, value: RawTag<'_>) -> io::Result<String> {
+        String::from_utf8(value.as_bytes().to_owned()).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid {} tag: {} @ {:?}", name, err, self.game_id),
+            )
+        })
+    }
+
+    fn rating_tag(&self, name: &str, value: RawTag<'_>) -> io::Result<Rating> {
+        Rating::from_ascii(value.as_bytes()).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "invalid {} tag {:?}: {} @ {:?}",
+                    name,
+                    value.decode_utf8_lossy(),
+                    err,
+                    self.game_id
+                ),
+            )
+        })
+    }
+
     fn visit_tag(&mut self, name: &[u8], value: RawTag<'_>) -> io::Result<()> {
         match name {
             b"Site" => {
@@ -61,71 +89,19 @@ impl ParsedGame {
                         )
                     })?;
             }
-            b"White" => {
-                self.white = Some(String::from_utf8(value.as_bytes().to_owned()).map_err(
-                    |err| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("invalid White tag: {} @ {:?}", err, self.game_id),
-                        )
-                    },
-                )?);
-            }
-            b"Black" => {
-                self.black = Some(String::from_utf8(value.as_bytes().to_owned()).map_err(
-                    |err| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("invalid Black tag: {} @ {:?}", err, self.game_id),
-                        )
-                    },
-                )?);
-            }
+            b"White" => self.players.white.name = Some(self.utf8_tag("White", value)?),
+            b"Black" => self.players.black.name = Some(self.utf8_tag("Black", value)?),
             b"WhiteElo" if value.as_bytes() != b"?" => {
-                self.white_elo = Some(Rating::from_ascii(value.as_bytes()).map_err(|err| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!(
-                            "invalid WhiteElo tag {:?}: {} @ {:?}",
-                            value.decode_utf8_lossy(),
-                            err,
-                            self.game_id
-                        ),
-                    )
-                })?);
+                self.players.white.rating = Some(self.rating_tag("WhiteElo", value)?);
             }
             b"BlackElo" if value.as_bytes() != b"?" => {
-                self.black_elo = Some(Rating::from_ascii(value.as_bytes()).map_err(|err| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!(
-                            "invalid BlackElo tag {:?}: {} @ {:?}",
-                            value.decode_utf8_lossy(),
-                            err,
-                            self.game_id
-                        ),
-                    )
-                })?);
+                self.players.black.rating = Some(self.rating_tag("BlackElo", value)?);
             }
             b"WhiteTitle" if !value.as_bytes().is_empty() => {
-                self.white_title = Some(String::from_utf8(value.as_bytes().to_owned()).map_err(
-                    |err| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("invalid WhiteTitle tag: {} @ {:?}", err, self.game_id),
-                        )
-                    },
-                )?);
+                self.players.white.title = Some(self.utf8_tag("WhiteTitle", value)?);
             }
             b"BlackTitle" if !value.as_bytes().is_empty() => {
-                self.black_title = Some(String::from_utf8(value.as_bytes().to_owned()).map_err(
-                    |err| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("invalid BlackTitle tag: {} @ {:?}", err, self.game_id),
-                        )
-                    },
-                )?);
+                self.players.black.title = Some(self.utf8_tag("BlackTitle", value)?);
             }
             b"UTCDate" => {
                 self.date = Some(LaxDate::from_ascii(value.as_bytes()).map_err(|err| {
@@ -213,6 +189,16 @@ impl ParsedGame {
         self.outcome.unwrap_or(Outcome::Unknown)
     }
 
+    pub fn has_bot(&self) -> bool {
+        self.players
+            .iter()
+            .any(|player| player.title.as_deref() == Some(BOT_TITLE))
+    }
+
+    pub fn has_ratings(&self) -> bool {
+        self.players.iter().all(|player| player.rating.is_some())
+    }
+
     fn initial_position(&self) -> io::Result<(VariantPosition, Option<PackedSetup>)> {
         let variant = self.lila_variant().variant();
 
@@ -279,28 +265,18 @@ impl ParsedGame {
         let moves = encoder.finish();
 
         let game = LichessGame {
-            players: ByColor {
-                white: GamePlayer {
-                    title: self.white_title,
-                    name: self.white.ok_or_else(|| {
+            players: self.players.zip_color().try_map(|(color, player)| {
+                Ok::<_, io::Error>(GamePlayer {
+                    title: player.title,
+                    name: player.name.ok_or_else(|| {
                         io::Error::new(
                             io::ErrorKind::InvalidData,
-                            format!("missing white name @ {:?}", game_id),
+                            format!("missing {} name @ {:?}", color, game_id),
                         )
                     })?,
-                    rating: self.white_elo,
-                },
-                black: GamePlayer {
-                    title: self.black_title,
-                    name: self.black.ok_or_else(|| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("missing black name @ {:?}", game_id),
-                        )
-                    })?,
-                    rating: self.black_elo,
-                },
-            },
+                    rating: player.rating,
+                })
+            })?,
             date: self.date.ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -393,6 +369,35 @@ mod tests {
                     .to_string()
             })
             .collect()
+    }
+
+    #[test]
+    fn test_has_bot() {
+        let pgn = "[Site \"https://lichess.org/aaaaaaaa\"]\n[WhiteTitle \"BOT\"]\n\n1. e4 e5 0-1\n\n\
+                   [Site \"https://lichess.org/bbbbbbbb\"]\n[BlackTitle \"BOT\"]\n\n1. e4 e5 0-1\n\n\
+                   [Site \"https://lichess.org/cccccccc\"]\n[WhiteTitle \"GM\"]\n[BlackTitle \"\"]\n\n1. e4 e5 0-1\n\n\
+                   [Site \"https://lichess.org/dddddddd\"]\n[White \"BOT\"]\n\n1. e4 e5 0-1\n";
+        let bots: Vec<bool> = Reader::new(pgn.as_bytes())
+            .read_games(&mut GameVisitor {
+                max_ply: usize::MAX,
+            })
+            .map(|game| game.expect("io").expect("valid game").has_bot())
+            .collect();
+        assert_eq!(bots, [true, true, false, false]);
+    }
+
+    #[test]
+    fn test_has_ratings() {
+        let pgn = "[Site \"https://lichess.org/aaaaaaaa\"]\n[WhiteElo \"1500\"]\n[BlackElo \"1600\"]\n\n1. e4 e5 0-1\n\n\
+                   [Site \"https://lichess.org/bbbbbbbb\"]\n[WhiteElo \"?\"]\n[BlackElo \"1600\"]\n\n1. e4 e5 0-1\n\n\
+                   [Site \"https://lichess.org/cccccccc\"]\n[WhiteElo \"1500\"]\n\n1. e4 e5 0-1\n";
+        let ratings: Vec<bool> = Reader::new(pgn.as_bytes())
+            .read_games(&mut GameVisitor {
+                max_ply: usize::MAX,
+            })
+            .map(|game| game.expect("io").expect("valid game").has_ratings())
+            .collect();
+        assert_eq!(ratings, [true, false, false]);
     }
 
     #[test]

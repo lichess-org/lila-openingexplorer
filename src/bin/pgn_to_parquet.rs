@@ -18,7 +18,9 @@ static ALLOC: Jemalloc = Jemalloc;
 /// chronological by month within each variant.
 ///
 /// Unplayed games (fewer than two plies), unfinished games (without a known
-/// outcome), and games that cannot be parsed are skipped.
+/// outcome), games of bot accounts (`WhiteTitle` or `BlackTitle` is `BOT`),
+/// games where a player has no rating, and games that cannot be parsed are
+/// skipped.
 ///
 /// Only the first --max-ply moves of each game are processed.
 ///
@@ -99,7 +101,13 @@ fn main() {
     };
 
     println!(
-        "{} games, {} unplayed skipped, {} unfinished skipped, {} duplicates skipped, {} invalid skipped",
-        stats.games, stats.unplayed, stats.unfinished, stats.duplicates, stats.invalid
+        "{} games, {} unplayed skipped, {} unfinished skipped, {} bots skipped, {} without ratings skipped, {} duplicates skipped, {} invalid skipped",
+        stats.games,
+        stats.unplayed,
+        stats.unfinished,
+        stats.bots,
+        stats.unrated_players,
+        stats.duplicates,
+        stats.invalid
     );
 }

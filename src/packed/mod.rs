@@ -22,7 +22,7 @@ pub use entry::{
     PlayerEntry, PlayerGroupHeader, SUBTOTAL_MIN_MONTHS, SubStats,
 };
 pub use game::{
-    BorrowedEventInfo, BorrowedGamePlayer, BorrowedLichessGame, EventInfo, GamePlayer,
+    BOT_TITLE, BorrowedEventInfo, BorrowedGamePlayer, BorrowedLichessGame, EventInfo, GamePlayer,
     InvalidRatingMode, InvalidSpeed, LichessGame, RatingMode, RatingModes, Speed, Speeds,
     initial_position, outcome_bits, outcome_from_bits, pack_game_flags, pack_game_value,
     unpack_game_flags, unpack_game_value, unpack_uci_move,

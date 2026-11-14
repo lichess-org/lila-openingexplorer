@@ -91,20 +91,20 @@ mod tests {
                 let m = PackedUciMove::pack(*u.choose(&moves)?);
                 let speed = *u.choose(&[Some(Speed::Blitz), Some(Speed::Rapid), None])?;
                 let rating = Rating::try_from(u.int_in_range(900..=1300)?).unwrap();
+                let header = GroupHeader {
+                    speed,
+                    rating_group: *u.choose(&[RatingGroup::Group1000, RatingGroup::Group1200])?,
+                };
                 let outcome: KnownOutcome = u.arbitrary()?;
                 records.push(IntermediateEntry::new(
                     hash,
                     month,
                     m,
-                    speed,
+                    header,
                     rating,
                     outcome,
                     GameIndex::new(seq).unwrap(),
                 ));
-                let header = GroupHeader {
-                    speed,
-                    rating_group: RatingGroup::select(rating),
-                };
                 expected.add_game(
                     CellKey::new(m, header, month),
                     rating,

@@ -14,7 +14,8 @@ use shakmaty::{
 use thiserror::Error;
 
 use crate::packed::{
-    GameId, LaxDate, PackedMoves, Rating, pack_bytes, pack_string, unpack_bytes, unpack_string,
+    GameId, LaxDate, PackedMoves, Rating, RatingGroup, pack_bytes, pack_string, unpack_bytes,
+    unpack_string,
 };
 
 pub fn unpack_uci_move<B: Buf>(buf: &mut B) -> PackedUciMove {
@@ -440,6 +441,8 @@ impl Arbitrary<'_> for LichessGame {
     }
 }
 
+pub const BOT_TITLE: &str = "BOT";
+
 /// A player of a `BorrowedLichessGame`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct BorrowedGamePlayer<'a> {
@@ -531,6 +534,20 @@ impl<'a> BorrowedLichessGame<'a> {
             .setup
             .map(|bytes| PackedSetup::try_from_bytes(bytes).expect("valid setup"));
         initial_position(setup.as_ref())
+    }
+
+    pub fn has_bot(&self) -> bool {
+        self.players
+            .iter()
+            .any(|player| player.title == Some(BOT_TITLE))
+    }
+
+    pub fn ratings_or_default(&self) -> ByColor<Rating> {
+        self.players.map(|player| player.rating.unwrap_or_default())
+    }
+
+    pub fn rating_group(&self) -> RatingGroup {
+        RatingGroup::select_game(self.ratings_or_default())
     }
 
     pub fn pack_entire<B: BufMut>(&self, buf: &mut B) {

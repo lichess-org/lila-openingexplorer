@@ -9,7 +9,8 @@ use shakmaty::{
 use crate::{
     intermediate::IntermediateEntry,
     packed::{
-        BorrowedLichessGame, GameIndex, Month, PackedMovesDecoder, PositionKey, Rating, Speed,
+        BorrowedLichessGame, GameIndex, GroupHeader, Month, PackedMovesDecoder, PositionKey,
+        Rating, RatingGroup, Speed,
     },
 };
 
@@ -30,6 +31,7 @@ pub struct GameInfo {
     pub month: Month,
     pub speed: Option<Speed>,
     pub ratings: ByColor<Rating>,
+    pub rating_group: RatingGroup,
     pub outcome: KnownOutcome,
 }
 
@@ -66,7 +68,8 @@ impl Replayer {
             variant: pos.variant(),
             month: game.date.earliest_month(),
             speed: game.speed,
-            ratings: game.players.map(|player| player.rating.unwrap_or_default()),
+            ratings: game.ratings_or_default(),
+            rating_group: game.rating_group(),
             outcome: game.outcome,
         };
         self.replay(pos, game.moves);
@@ -127,12 +130,16 @@ impl Replayer {
     /// The records of the last replayed game.
     pub fn entries(&self, info: &GameInfo) -> impl Iterator<Item = IntermediateEntry> + '_ {
         let info = *info;
+        let header = GroupHeader {
+            speed: info.speed,
+            rating_group: info.rating_group,
+        };
         self.visits.iter().map(move |(&hash, visit)| {
             IntermediateEntry::new(
                 PositionKey::from_zobrist(hash, info.variant),
                 info.month,
                 visit.m,
-                info.speed,
+                header,
                 info.ratings[self.turn_at(visit.ply)],
                 info.outcome,
                 info.game_index,
@@ -155,7 +162,7 @@ mod tests {
     use shakmaty::{Chess, san::San, uci::UciMove};
 
     use super::*;
-    use crate::packed::PackedMoves;
+    use crate::packed::{GamePlayer, LaxDate, LichessGame, PackedMoves, RatingMode};
 
     fn replay_san(sans: &str) -> Vec<(Zobrist128, String)> {
         let mut pos = VariantPosition::Chess(Chess::default());
@@ -226,6 +233,60 @@ mod tests {
         assert_eq!(
             moves,
             ["d2d4", "g8f6", "f3g1", "b8c6", "c3b1", "c6b8", "f6g8"]
+        );
+    }
+
+    #[test]
+    fn test_game_rating_group() {
+        let mut pos = Chess::default();
+        let mut encoder = PackedMoves::encoder();
+        for san in "e4 e5 Nf3 Nc6 Bb5".split_whitespace() {
+            let m = san.parse::<San>().unwrap().to_move(&pos).unwrap();
+            encoder.encode_next(&VariantPosition::Chess(pos.clone()), m);
+            pos.play_unchecked(m);
+        }
+        let player = |name: &str, rating: i32| GamePlayer {
+            title: None,
+            name: name.to_owned(),
+            rating: Some(Rating::try_from(rating).unwrap()),
+        };
+        let game = LichessGame {
+            players: ByColor {
+                white: player("white", 2600),
+                black: player("black", 2300),
+            },
+            date: LaxDate::from_ymd(2026, Some(11), Some(14)).unwrap(),
+            outcome: KnownOutcome::Draw,
+            speed: Some(Speed::Blitz),
+            rating_mode: RatingMode::Rated,
+            setup: None,
+            event: None,
+            moves: encoder.finish(),
+        };
+
+        let mut replayer = Replayer::default();
+        let info = replayer.replay_game(&game.as_borrowed(), GameIndex::new(7).unwrap());
+        let mut entries: Vec<_> = replayer
+            .entries(&info)
+            .map(|entry| {
+                (
+                    entry.uci_move().unpack().to_string(),
+                    entry.group_header().rating_group,
+                    i32::from(entry.rating()),
+                )
+            })
+            .collect();
+        entries.sort();
+
+        assert_eq!(
+            entries,
+            [
+                ("b8c6".to_owned(), RatingGroup::Group2200, 2300),
+                ("e2e4".to_owned(), RatingGroup::Group2200, 2600),
+                ("e7e5".to_owned(), RatingGroup::Group2200, 2300),
+                ("f1b5".to_owned(), RatingGroup::Group2200, 2600),
+                ("g1f3".to_owned(), RatingGroup::Group2200, 2600),
+            ]
         );
     }
 

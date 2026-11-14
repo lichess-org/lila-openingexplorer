@@ -4,6 +4,7 @@ use arbitrary::Arbitrary;
 use bitflags::bitflags;
 use btoi::btoi;
 use bytes::{Buf, BufMut};
+use shakmaty::ByColor;
 use thiserror::Error;
 
 use crate::packed::{pack_int, unpack_int};
@@ -159,9 +160,17 @@ impl RatingGroup {
         })
     }
 
-    pub fn select(rating: Rating) -> RatingGroup {
-        let rating = i32::from(rating);
+    /// By the average rating of both players, so that all positions of a
+    /// game are in the same group.
+    pub fn select_game(ratings: ByColor<Rating>) -> RatingGroup {
+        RatingGroup::select_i32(i32::midpoint(ratings.white.into(), ratings.black.into()))
+    }
 
+    pub fn select(rating: Rating) -> RatingGroup {
+        RatingGroup::select_i32(rating.into())
+    }
+
+    fn select_i32(rating: i32) -> RatingGroup {
         if rating < 1000 {
             RatingGroup::Low
         } else if rating < 1200 {
@@ -283,6 +292,23 @@ mod tests {
             assert_eq!(Rating::unpack_optional(&mut &buf[..]), rating);
             Ok(())
         });
+    }
+
+    #[test]
+    fn test_select_game() {
+        let group = |white: i32, black: i32| {
+            RatingGroup::select_game(ByColor {
+                white: Rating::try_from(white).unwrap(),
+                black: Rating::try_from(black).unwrap(),
+            })
+        };
+        assert_eq!(group(2600, 2300), RatingGroup::Group2200);
+        assert_eq!(group(2300, 2600), RatingGroup::Group2200);
+        assert_eq!(group(2700, 2300), RatingGroup::Group2500);
+        assert_eq!(group(2499, 2500), RatingGroup::Group2200);
+        assert_eq!(group(2500, 2501), RatingGroup::Group2500);
+        assert_eq!(group(999, 1000), RatingGroup::Low);
+        assert_eq!(group(600, 3400), RatingGroup::Group2000);
     }
 
     #[test]
