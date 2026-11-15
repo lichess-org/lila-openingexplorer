@@ -32,31 +32,67 @@ impl Counter {
     }
 }
 
-/// Upper bounds of the latency buckets in microseconds (plus `+Inf`),
-/// covering cached NVMe reads up to slow HDD reads.
-const BUCKETS: [u64; 15] = [
-    250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
-    2_500_000, 5_000_000, 10_000_000,
-];
-
 /// Latency histogram, exposed in seconds.
-#[derive(Default)]
 pub struct Histogram {
     /// Non-cumulative counts, the last one for `+Inf`.
-    counts: [Counter; BUCKETS.len() + 1],
-    sum_micros: Counter,
+    counts: [Counter; Histogram::LEN + 1],
+    sum_nanos: Counter,
+}
+
+impl Default for Histogram {
+    fn default() -> Histogram {
+        Histogram {
+            counts: std::array::from_fn(|_| Counter::default()),
+            sum_nanos: Counter::default(),
+        }
+    }
 }
 
 impl Histogram {
+    /// 2^SCHEMA buckets per octave, like native histograms.
+    const SCHEMA: u32 = 3;
+    const PER_OCTAVE: u32 = 1 << Histogram::SCHEMA;
+    const MIN_OCTAVE: u32 = 10;
+    const MAX_OCTAVE: u32 = 34;
+    const LEN: usize =
+        (Histogram::PER_OCTAVE * (Histogram::MAX_OCTAVE - Histogram::MIN_OCTAVE)) as usize + 1;
+
+    /// Upper bounds of the buckets in nanoseconds (plus `+Inf`): 2^(k/8),
+    /// rounded, from 2^10 ns (1 µs, cached responses) to 2^34 ns (17 s,
+    /// slow HDD reads). `histogram_quantile` interpolates within a bucket,
+    /// so its error is below 9%.
+    const BOUNDS: [u64; Histogram::LEN] = {
+        // Fixed point: before each root, the mantissa (< 2^PER_OCTAVE) is
+        // shifted again, so i + 2 * FRACTION_BITS has to stay below 128.
+        const FRACTION_BITS: u32 = 60;
+        let mut bounds = [0; Histogram::LEN];
+        let mut k = 0;
+        while k < bounds.len() {
+            let i = k as u32 % Histogram::PER_OCTAVE;
+            let octave = Histogram::MIN_OCTAVE + k as u32 / Histogram::PER_OCTAVE;
+            // 2^(i/2^SCHEMA) by taking SCHEMA square roots of 2^i.
+            let mut mantissa = 1u128 << (i + FRACTION_BITS);
+            let mut s = 0;
+            while s < Histogram::SCHEMA {
+                mantissa = (mantissa << FRACTION_BITS).isqrt();
+                s += 1;
+            }
+            bounds[k] =
+                (((mantissa << octave) + (1 << (FRACTION_BITS - 1))) >> FRACTION_BITS) as u64;
+            k += 1;
+        }
+        bounds
+    };
+
     pub fn record(&self, duration: Duration) {
-        let micros = u64::try_from(duration.as_micros()).unwrap_or(u64::MAX);
-        let bucket = BUCKETS
-            .iter()
-            .position(|&max| micros <= max)
-            .unwrap_or(BUCKETS.len());
-        self.counts[bucket].inc();
-        self.sum_micros.add(micros);
+        let nanos = u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX);
+        self.counts[Histogram::BOUNDS.partition_point(|&max| max < nanos)].inc();
+        self.sum_nanos.add(nanos);
     }
+}
+
+fn nanos_to_seconds(nanos: u64) -> f64 {
+    nanos as f64 / 1e9
 }
 
 pub fn micros_to_seconds(micros: u64) -> f64 {
@@ -174,24 +210,44 @@ impl Exposition {
 
     /// A latency histogram. The name should end in `_seconds`.
     pub fn histogram(&mut self, name: &str, help: &str, histogram: &Histogram) {
+        self.histogram_family(name, help, [(&[][..], histogram)]);
+    }
+
+    /// Latency histograms with arbitrary labels (other than `le`), one per
+    /// set of labels. The name should end in `_seconds`.
+    pub fn histogram_family<'a>(
+        &mut self,
+        name: &str,
+        help: &str,
+        histograms: impl IntoIterator<Item = (&'a [(&'a str, &'a str)], &'a Histogram)>,
+    ) {
         debug_assert!(name.ends_with("_seconds"));
         self.header(name, "histogram", help);
         let bucket_name = format!("{name}_bucket");
-        let mut count = 0;
-        for (i, counter) in histogram.counts.iter().enumerate() {
-            count += counter.get();
-            let le = match BUCKETS.get(i) {
-                Some(&max) => micros_to_seconds(max).to_string(),
-                None => "+Inf".to_owned(),
-            };
-            self.sample(&bucket_name, &[("le", &le)], count);
+        let sum_name = format!("{name}_sum");
+        let count_name = format!("{name}_count");
+        let les: Vec<String> = Histogram::BOUNDS
+            .iter()
+            .map(|&max| nanos_to_seconds(max).to_string())
+            .chain(["+Inf".to_owned()])
+            .collect();
+        for (labels, histogram) in histograms {
+            debug_assert!(labels.iter().all(|&(label, _)| label != "le"));
+            let mut bucket_labels = labels.to_vec();
+            let mut count = 0;
+            for (counter, le) in histogram.counts.iter().zip(&les) {
+                count += counter.get();
+                bucket_labels.push(("le", le));
+                self.sample(&bucket_name, &bucket_labels, count);
+                bucket_labels.pop();
+            }
+            self.sample(
+                &sum_name,
+                labels,
+                nanos_to_seconds(histogram.sum_nanos.get()),
+            );
+            self.sample(&count_name, labels, count);
         }
-        self.sample(
-            &format!("{name}_sum"),
-            &[],
-            micros_to_seconds(histogram.sum_micros.get()),
-        );
-        self.sample(&format!("{name}_count"), &[], count);
     }
 }
 
@@ -200,16 +256,44 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_histogram_bounds() {
+        let bounds = Histogram::BOUNDS;
+        assert_eq!(bounds[0], 1 << Histogram::MIN_OCTAVE);
+        assert_eq!(bounds[bounds.len() - 1], 1 << Histogram::MAX_OCTAVE);
+        for (k, &max) in bounds.iter().enumerate() {
+            let exponent = (Histogram::PER_OCTAVE * Histogram::MIN_OCTAVE) as usize + k;
+            let exact = (exponent as f64 / Histogram::PER_OCTAVE as f64).exp2();
+            assert_eq!(max, exact.round() as u64, "{k}");
+        }
+    }
+
+    #[test]
+    fn test_histogram_record() {
+        let histogram = Histogram::default();
+        histogram.record(Duration::ZERO);
+        histogram.record(Duration::from_nanos(1024));
+        histogram.record(Duration::from_nanos(1025));
+        histogram.record(Duration::from_secs(60));
+        assert_eq!(histogram.counts[0].get(), 2);
+        assert_eq!(histogram.counts[1].get(), 1);
+        assert_eq!(histogram.counts[Histogram::BOUNDS.len()].get(), 1);
+        assert_eq!(histogram.sum_nanos.get(), 60_000_002_049);
+    }
+
+    #[test]
     fn test_exposition() {
         let histogram = Histogram::default();
-        histogram.record(Duration::from_micros(100));
-        histogram.record(Duration::from_millis(3));
+        histogram.record(Duration::from_micros(3));
         histogram.record(Duration::from_secs(60));
         let mut out = Exposition::new();
         out.counter("requests_total", "Requests.", 7);
         out.labeled_gauge("keys", "Keys.", "cf", [("a\"b", 1), ("c", 2)]);
         out.labeled_gauge("empty", "Not written.", "cf", Vec::<(&str, u64)>::new());
-        out.histogram("read_seconds", "Reads.", &histogram);
+        out.histogram_family(
+            "read_seconds",
+            "Reads.",
+            [(&[("cache", "hit")][..], &histogram)],
+        );
         let out = out.finish();
         assert!(out.starts_with(
             "# HELP opening_explorer_requests_total Requests.\n\
@@ -221,17 +305,18 @@ mod tests {
              opening_explorer_keys{cf=\"c\"} 2\n\
              # HELP opening_explorer_read_seconds Reads.\n\
              # TYPE opening_explorer_read_seconds histogram\n\
-             opening_explorer_read_seconds_bucket{le=\"0.00025\"} 1\n\
-             opening_explorer_read_seconds_bucket{le=\"0.0005\"} 1\n\
-             opening_explorer_read_seconds_bucket{le=\"0.001\"} 1\n\
-             opening_explorer_read_seconds_bucket{le=\"0.0025\"} 1\n\
-             opening_explorer_read_seconds_bucket{le=\"0.005\"} 2\n"
+             opening_explorer_read_seconds_bucket{cache=\"hit\",le=\"0.000001024\"} 0\n\
+             opening_explorer_read_seconds_bucket{cache=\"hit\",le=\"0.000001117\"} 0\n"
+        ));
+        assert!(out.contains(
+            "opening_explorer_read_seconds_bucket{cache=\"hit\",le=\"0.000002896\"} 0\n\
+             opening_explorer_read_seconds_bucket{cache=\"hit\",le=\"0.000003158\"} 1\n"
         ));
         assert!(out.ends_with(
-            "opening_explorer_read_seconds_bucket{le=\"10\"} 2\n\
-             opening_explorer_read_seconds_bucket{le=\"+Inf\"} 3\n\
-             opening_explorer_read_seconds_sum 60.0031\n\
-             opening_explorer_read_seconds_count 3\n"
+            "opening_explorer_read_seconds_bucket{cache=\"hit\",le=\"17.179869184\"} 1\n\
+             opening_explorer_read_seconds_bucket{cache=\"hit\",le=\"+Inf\"} 2\n\
+             opening_explorer_read_seconds_sum{cache=\"hit\"} 60.000003\n\
+             opening_explorer_read_seconds_count{cache=\"hit\"} 2\n"
         ));
     }
 }

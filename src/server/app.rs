@@ -564,23 +564,28 @@ async fn explore(
     state.metrics.requests.inc();
     state.metrics.sources.inc(source);
     let state2 = Arc::clone(&state);
-    let bytes = state
+    let entry = state
         .cache
-        .try_get_with(query.clone(), async move {
+        .entry(query.clone())
+        .or_try_insert_with(async move {
             state2.metrics.computed.inc();
-            let bytes = blocking(&state2, move |state| {
+            blocking(&state2, move |state| {
                 let started = Instant::now();
                 let bytes = state.explore(&query, play);
                 state.metrics.compute.record(started.elapsed());
                 bytes
             })
-            .await;
-            state2.metrics.request.record(started.elapsed());
-            bytes
+            .await
         })
         .await
         .map_err(|err| Error::Db((*err).clone()))?;
-    Ok(json(bytes))
+    let histogram = if entry.is_fresh() {
+        &state.metrics.request_computed
+    } else {
+        &state.metrics.request_not_computed
+    };
+    histogram.record(started.elapsed());
+    Ok(json(entry.into_value()))
 }
 
 async fn masters_pgn_handler(

@@ -31,7 +31,8 @@ pub struct Metrics {
     /// computed.
     pub requests: Counter,
     pub sources: SourceCounters,
-    /// Explorer requests that computed their response.
+    /// Explorer requests that computed their response, once for concurrent
+    /// identical requests.
     pub computed: Counter,
     pub bad_requests: Counter,
     /// Positions found in the positions column family.
@@ -53,9 +54,13 @@ pub struct Metrics {
     pub pgn_requests: Counter,
     /// Computed responses: time spent computing on the blocking pool.
     pub compute: Histogram,
-    /// Computed responses: time from receiving the request to the response
-    /// (including queueing for the blocking pool).
-    pub request: Histogram,
+    /// Successful explorer requests that computed their response: time
+    /// from receiving the request to the response (including queueing for
+    /// the blocking pool).
+    pub request_computed: Histogram,
+    /// Successful explorer requests that got their response from the cache,
+    /// or from a concurrent identical request that computed it.
+    pub request_not_computed: Histogram,
 }
 
 impl Metrics {
@@ -69,7 +74,7 @@ impl Metrics {
         self.sources.write(out);
         out.counter(
             "responses_computed_total",
-            "Explorer requests that computed their response (response cache misses).",
+            "Explorer requests that computed their response (response cache misses), once for concurrent identical requests.",
             self.computed.get(),
         );
         out.counter(
@@ -120,10 +125,13 @@ impl Metrics {
             "Computed responses: time spent computing on the blocking pool.",
             &self.compute,
         );
-        out.histogram(
+        out.histogram_family(
             "request_duration_seconds",
-            "Computed responses: time from receiving the request to the response, including queueing for the blocking pool.",
-            &self.request,
+            "Successful explorer requests: time from receiving the request to the response, by whether the request computed it (including queueing for the blocking pool), or got it from the cache or a concurrent identical request.",
+            [
+                (&[("computed", "true")][..], &self.request_computed),
+                (&[("computed", "false")][..], &self.request_not_computed),
+            ],
         );
     }
 }
