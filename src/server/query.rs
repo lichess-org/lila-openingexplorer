@@ -1,6 +1,8 @@
+use axum::extract::{Query, rejection::QueryRejection};
 use serde::Deserialize;
 use serde_with::{
-    DisplayFromStr, NoneAsEmptyString, StringWithSeparator, formats::CommaSeparator, serde_as,
+    DefaultOnError, DisplayFromStr, NoneAsEmptyString, StringWithSeparator,
+    formats::CommaSeparator, serde_as,
 };
 use shakmaty::{
     CastlingMode, EnPassantMode, Position, PositionError, Setup,
@@ -52,6 +54,53 @@ enum HistoryWanted {
     No,
     #[serde(alias = "true", alias = "True", alias = "on", alias = "1")]
     Yes,
+}
+
+/// Known clients, as given by the `source` query parameter.
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum Source {
+    Analysis,
+    Fishnet,
+    Opening,
+    OpeningCrawler,
+    Mobile,
+}
+
+impl Source {
+    pub const ALL: [Source; 5] = [
+        Source::Analysis,
+        Source::Fishnet,
+        Source::Opening,
+        Source::OpeningCrawler,
+        Source::Mobile,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Source::Analysis => "analysis",
+            Source::Fishnet => "fishnet",
+            Source::Opening => "opening",
+            Source::OpeningCrawler => "openingCrawler",
+            Source::Mobile => "mobile",
+        }
+    }
+}
+
+/// The `source` query parameter, separate from the query itself, so that it
+/// does not split the response cache.
+#[serde_as]
+#[derive(Deserialize)]
+pub struct SourceParam {
+    #[serde_as(as = "DefaultOnError")]
+    #[serde(default)]
+    source: Option<Source>,
+}
+
+/// The source of a request, if it is a known one. Unknown, repeated or
+/// absent sources are not rejected.
+pub fn source(query: Result<Query<SourceParam>, QueryRejection>) -> Option<Source> {
+    query.ok().and_then(|Query(param)| param.source)
 }
 
 #[derive(Debug, Error)]
@@ -428,6 +477,23 @@ mod tests {
         assert!(lichess("history=maybe").is_err());
         assert!(lichess("speeds=blitz,hyperBullet").is_err());
         assert!(lichess("moves=-1").is_err());
+    }
+
+    #[test]
+    fn test_source() {
+        let source_of = |query: &str| {
+            source(Query::try_from_uri(
+                &format!("/lichess?{query}").parse().unwrap(),
+            ))
+        };
+        assert_eq!(source_of("source=fishnet"), Some(Source::Fishnet));
+        assert_eq!(
+            source_of("play=e2e4&source=openingCrawler"),
+            Some(Source::OpeningCrawler)
+        );
+        assert_eq!(source_of(""), None);
+        assert_eq!(source_of("source="), None);
+        assert_eq!(source_of("source=foo"), None);
     }
 
     #[test]

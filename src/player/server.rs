@@ -34,8 +34,9 @@ use crate::{
     },
     server::{
         listen,
+        metrics::SourceCounters,
         openings::{self, Opening, Openings},
-        query::PlayError,
+        query::{PlayError, SourceParam, source},
         response::Stats,
     },
     util::{Counter, Exposition, Histogram, micros_to_seconds},
@@ -109,6 +110,7 @@ const PLY_BUCKETS: usize = MAX_PLY / 10 + 1;
 #[derive(Default)]
 pub struct ServerMetrics {
     pub requests: Counter,
+    pub sources: SourceCounters,
     pub bad_requests: Counter,
     pub queue_full: Counter,
     /// Streams that ended (final snapshot sent).
@@ -136,6 +138,7 @@ impl ServerMetrics {
             "Valid player requests.",
             self.requests.get(),
         );
+        self.sources.write(out);
         out.counter(
             "bad_requests_total",
             "Rejected player requests.",
@@ -491,6 +494,7 @@ fn merge_progress(waited: Progress, now: Progress) -> Progress {
 async fn player(
     State(state): State<Shared>,
     query: Result<Query<PlayerQuery>, QueryRejection>,
+    source_param: Result<Query<SourceParam>, QueryRejection>,
 ) -> Result<Response, Error> {
     let query = match query {
         Ok(Query(query)) => query,
@@ -504,6 +508,7 @@ async fn player(
         .position(&state.openings.read().expect("read openings"))
         .inspect_err(|_| state.metrics.bad_requests.inc())?;
     state.metrics.requests.inc();
+    state.metrics.sources.inc(source(source_param));
     let ticket = state.indexer.request(&query.player).await.map_err(|_| {
         state.metrics.queue_full.inc();
         log::error!("not indexing {} because the queue is full", query.player);

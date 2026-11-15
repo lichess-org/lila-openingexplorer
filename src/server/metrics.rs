@@ -1,7 +1,28 @@
 use crate::{
-    server::app::Kind,
+    server::{app::Kind, query::Source},
     util::{Counter, Exposition, Histogram},
 };
+
+/// Valid requests by known source.
+#[derive(Default)]
+pub struct SourceCounters([Counter; Source::ALL.len()]);
+
+impl SourceCounters {
+    pub fn inc(&self, source: Option<Source>) {
+        if let Some(source) = source {
+            self.0[source as usize].inc();
+        }
+    }
+
+    pub fn write(&self, out: &mut Exposition) {
+        out.labeled_counter(
+            "requests_by_source_total",
+            "Valid requests by source query parameter, if it is a known one.",
+            "source",
+            Source::ALL.map(|source| (source.as_str(), self.0[source as usize].get())),
+        );
+    }
+}
 
 /// Request metrics for `/metrics`.
 #[derive(Default)]
@@ -9,6 +30,7 @@ pub struct Metrics {
     /// Valid explorer requests, answered from the response cache or
     /// computed.
     pub requests: Counter,
+    pub sources: SourceCounters,
     /// Explorer requests that computed their response.
     pub computed: Counter,
     pub bad_requests: Counter,
@@ -44,6 +66,7 @@ impl Metrics {
             "Valid explorer requests, answered from the response cache or computed.",
             self.requests.get(),
         );
+        self.sources.write(out);
         out.counter(
             "responses_computed_total",
             "Explorer requests that computed their response (response cache misses).",

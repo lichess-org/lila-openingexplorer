@@ -36,7 +36,9 @@ use crate::{
         metrics::Metrics,
         openings::{self, Openings},
         pgn::masters_pgn,
-        query::{LichessQuery, MastersQuery, Play, PlayError, PlayPosition},
+        query::{
+            LichessQuery, MastersQuery, Play, PlayError, PlayPosition, Source, SourceParam, source,
+        },
         replay::find_visit,
         response::{
             ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, HistoryEntry, Stats,
@@ -534,26 +536,33 @@ fn parse_query<T>(state: &AppState, query: Result<Query<T>, QueryRejection>) -> 
 async fn lichess(
     State(state): State<Shared>,
     query: Result<Query<LichessQuery>, QueryRejection>,
+    source_param: Result<Query<SourceParam>, QueryRejection>,
 ) -> Result<Response, Error> {
     let query = parse_query(&state, query)?;
-    explore(state, ExploreQuery::Lichess(query)).await
+    explore(state, ExploreQuery::Lichess(query), source(source_param)).await
 }
 
 async fn masters(
     State(state): State<Shared>,
     query: Result<Query<MastersQuery>, QueryRejection>,
+    source_param: Result<Query<SourceParam>, QueryRejection>,
 ) -> Result<Response, Error> {
     let query = parse_query(&state, query)?;
-    explore(state, ExploreQuery::Masters(query)).await
+    explore(state, ExploreQuery::Masters(query), source(source_param)).await
 }
 
-async fn explore(state: Shared, query: ExploreQuery) -> Result<Response, Error> {
+async fn explore(
+    state: Shared,
+    query: ExploreQuery,
+    source: Option<Source>,
+) -> Result<Response, Error> {
     let started = Instant::now();
     let play = query
         .play()
         .position(&state.openings.read().expect("read openings"))
         .inspect_err(|_| state.metrics.bad_requests.inc())?;
     state.metrics.requests.inc();
+    state.metrics.sources.inc(source);
     let state2 = Arc::clone(&state);
     let bytes = state
         .cache
