@@ -39,6 +39,7 @@ properties:
       required:
         - uci
         - san
+        - averageRating
         - white
         - draws
         - black

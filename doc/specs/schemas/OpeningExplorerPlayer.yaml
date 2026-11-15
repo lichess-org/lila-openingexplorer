@@ -44,6 +44,8 @@ properties:
       required:
         - uci
         - san
+        - averageOpponentRating
+        - performance
         - white
         - draws
         - black

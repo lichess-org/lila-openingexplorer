@@ -7,7 +7,7 @@ properties:
     type: string
     description: Title of the player, if any
   rating:
-    type: [integer, "null"]
+    type: integer
 
 required:
   - name
