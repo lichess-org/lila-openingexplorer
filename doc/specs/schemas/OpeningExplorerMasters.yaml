@@ -1,0 +1,65 @@
+type: object
+
+properties:
+  opening:
+    oneOf:
+      - $ref: "./OpeningExplorerOpening.yaml"
+      - type: "null"
+  white:
+    type: integer
+  draws:
+    type: integer
+  black:
+    type: integer
+  moves:
+    type: array
+    items:
+      properties:
+        uci:
+          type: string
+        san:
+          type: string
+        averageRating:
+          type: integer
+        white:
+          type: integer
+        draws:
+          type: integer
+        black:
+          type: integer
+        game:
+          oneOf:
+            - $ref: "./OpeningExplorerMastersGame.yaml"
+            - type: "null"
+        opening:
+          oneOf:
+            - $ref: "./OpeningExplorerOpening.yaml"
+            - type: "null"
+      required:
+        - uci
+        - san
+        - averageRating
+        - white
+        - draws
+        - black
+        - game
+        - opening
+  topGames:
+    type: array
+    items:
+      allOf:
+        - type: object
+          properties:
+            uci:
+              type: string
+          required:
+            - uci
+        - $ref: "./OpeningExplorerMastersGame.yaml"
+
+required:
+  - opening
+  - white
+  - draws
+  - black
+  - moves
+  - topGames

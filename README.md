@@ -1,250 +1,200 @@
-lila-openingexplorer
-====================
+# lila-openingexplorer
 
-[![Test](https://github.com/lichess-org/lila-openingexplorer/actions/workflows/test.yml/badge.svg)](https://github.com/lichess-org/lila-openingexplorer/actions/workflows/test.yml)
+Opening explorer for lichess.org, indexing billions of
+chess games (currently ~500 billion positions from rated games across all
+variants, and growing). Featuring:
 
-[Opening explorer](https://lichess.org/blog/Vs0xMTAAAD4We4Ey/opening-explorer)
-for lichess.org, capable of handling trillions of positions, featuring:
-
-* A database of master games
-* [Rated games from Lichess itself](https://database.lichess.org/)
-* An on-demand database of [openings by player](https://lichess.org/blog/YXMPxxMAACEAy3g4/announcing-the-personal-opening-explorer)
+* `/masters`, a database of master games
+* `/lichess`, [rated games from Lichess itself](https://database.lichess.org/)
+* `/player`, an on-demand database of [openings by player](https://lichess.org/@/lichess/blog/announcing-the-personal-opening-explorer/YXMPxxMA)
 * [Curated opening names](https://github.com/lichess-org/chess-openings)
 
-Usage
------
+## API
 
-### Run server
+See the [Lichess API reference](https://lichess.org/api#tag/opening-explorer).
 
-1. Install recent stable Rust ([rustup](https://rustup.rs/) recommended).
+## Serving
 
-2. Set some environment variables used at build time: `set -a && source .env && set +a`
+### What to expect?
 
-3. Build the server and view available options:
+Production easily handles the current peak usage of ~150 requests per second
+split across `/lichess`, `/masters` and `/player` on this hardware:
 
-   ```
-   cargo run --release -- --help
-   ```
+* AMD Ryzen 5 PRO 3600 (12 threads @ 3.6 GHz)
+* 128 GiB RAM
+* 4x HGST HUS726T6TAL (5.46 TiB) in RAID 10
+* 2x WDC CL SN720 SDAQNTW-512G-2000 (477 GiB) in RAID 1
 
-   Strongly consider adjusting `--db-compaction-readahead`, `--db-cache`, and
-   `--db-rate-limit` depending on your setup.
+### Preparation
 
-4. Run the server with the chosen options:
+Build the [Rust](https://rust-lang.org/tools/install/) binaries:
 
-   ```
-   ulimit -n 131072 && EXPLORER_LOG=lila_openingexplorer=info cargo run --release -- --db-compaction-readahead
-   ```
+```sh
+cargo build --release
+B=target/release
+```
 
-:warning: In a production environment, administrative endpoints must be
-protected using a reverse proxy.
-It's best to whitelist only `/masters`, `/lichess`, and `/player`.
+Use the [Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/guides/cli)
+to download prepared SSTs (~2.5 TiB) or see indexing instructions below. Example:
 
-### Import games
+```sh
+hf sync hf://buckets/nfiekas/opening-explorer-lichess/2026-11-v2 /data/hdd/lichess/bucket/2026-11-v2 --exclude "*.parquet"
+```
 
-1. Download database dumps from https://database.lichess.org/.
+### Start servers
 
-2. Import (optionally works directly with compressed files):
+Create the database directories. The SST files are hard-linked, so each
+database must be on the same file system as its SSTs:
 
-   ```
-   cd import-pgn
-   cargo run --release -- *.pgn.zst
-   ```
+```sh
+$B/explorer ingest --if-missing --db /data/hdd/lichess/db/2026-11-v2 --sst /data/hdd/lichess/bucket/2026-11-v2
+$B/explorer ingest --if-missing --db /data/hdd/masters/db/2026-11 --sst /data/hdd/masters/sst/2026-11
+```
 
-   The database size will be well below 3x the compressed PGN size.
+Serve them:
 
-   If you can fit this on SSDs, read and compaction performance, especially
-   tail latencies, will benefit significantly. All else equal, RAIDs with
-   multiple small disks are preferable to RAIDs with few larger disks.
-   Block and page cache will take advantage of large amounts of available RAM.
+```sh
+$B/explorer lichess --db /data/hdd/lichess/db/2026-11-v2 \
+    --bind 127.0.0.1:9002 --admin-bind 127.0.0.1:9102 \
+    --cors \
+    --cache 16g --pin-metadata \
+    --parallel-fetch --blocking-threads 16 \
+    --no-blacklist
 
-   As of February 2023, Lichess handles around 12k requests/minute, using:
+$B/explorer masters --db /data/hdd/masters/db/2026-11 \
+    --bind 127.0.0.1:9003 --admin-bind 127.0.0.1:9103 \
+    --cors \
+    --cache 4g \
+    --blocking-threads 12
 
-   * 4 spinning disks in RAID10
-   * 128 GiB RAM, of which 100 GiB are used for the block cache
-   * Compressed PGN import rate of around 100 KiB/s on the live system,
-     paused at peak hours.
+$B/explorer player --db /data/ssd/player/db \
+    --bind 127.0.0.1:9004 --admin-bind 127.0.0.1:9104 \
+    --cors \
+    --db-path /data/ssd/player/sst:64g --db-path /data/hdd/player/sst:4t \
+    --cache 4g \
+    --lila-bearer-file /etc/explorer-bearer
+```
 
-   Importing is currently very slow, but good enough to index faster
-   than games are played. Initially, the database was prepared
-   offline, with speed dropping as the database grew, averaging 1 MiB/s
-   compressed indexing speed (so effectively 7 MiB/s uncompressed PGN data).
+* `--cache`: block caches total only 24 GiB, so that most RAM is page cache.
+  As long as meta data is cached, the page cache (compressed blocks) saves
+  about as many disk reads per GiB as the block cache, survives restarts,
+  and leaves room for a second lichess instance during the monthly switch.
+  No `--direct-reads` to use page cache.
+* `--pin-metadata`: Loads and pins all index and filter blocks at startup
+  (~1 min on the HDDs, 10.2 GiB as of 2026-11, growing with the number of
+  games), so that a lookup needs at most one data block read. +30%
+  throughput from a cold start. `--cache` must exceed the metadata with
+  some room for data blocks.
+* `--parallel-fetch`: Reads the games of a response concurrently. Useful for
+  improved I/O scheduling on HDD.
+* `--blocking-threads`: It can be useful to oversubscribe as configured here.
+* `--response-cache`: The default of 100000 had a 28% hit rate in 2026-11.
+  More gains little.
+* `--no-blacklist` / `--lila-bearer-file`: The official Lichess instance
+  gets to use a blacklist with players marked by moderators and relaxed
+  internal rate limits for personal explorer indexing.
+* `--admin-bind`: Prometheus metrics at `/metrics` (and
+  `DELETE /player/{id}` for the personal explorer). Keep private.
+* `--db-path` for the personal explorer: The write ahead log stays in
+  `--db`, upper levels go to the NVMe and the last level (about 10x
+  larger, see `--level-ratio`) to the HDDs. Each column family places its
+  levels against the whole size of a path, so a young database can put up
+  to about 3x the first path's size on it.
+* `--rate-limit`: Defaults to 16 MiB/s, so player database compactions do not
+  disturb the other servers too much.
 
-Monitoring
-----------
+### Testing
 
-### `/monitor`
+Replay an nginx request log (tab separated `$msec`, `$status`,
+`$request_time`, `$upstream_response_time`, `$request_uri`) against the
+servers:
+
+```sh
+$B/stress_explorer samples/requests/explorer-2026-11-06T1520Z-1h.tsv.zst \
+    --lichess-url http://127.0.0.1:9002 \
+    --masters-url http://127.0.0.1:9003 \
+    --player-url http://127.0.0.1:9004
+```
+
+## Indexing
+
+### What to expect?
+
+Indexing run of ~2.4 TiB input PGNs
+
+| Step | Time | Peak RSS |
+| --- | --- | --- |
+| `pgn_to_parquet` | 2 h 08 min | 28 GiB |
+| `parquet_to_positions` (3 passes, `--scratch-budget 2863g`) | 2 h 40 min | 80 GiB |
+| `parquet_to_games` | 15 min | 2 GiB |
+| `ingest` | 8 s | |
+
+on this development hardware:
+
+* AMD Ryzen 9 9950X (16 cores, 32 threads), `--threads 30`
+* 192 GiB RAM, `--memory-budget 100g`
+* Input PGNs on HDD readable at ~330 MiB/s sequential
+* Output and scratch space on 7.3 TiB NVMe, sustaining ~2.6 GiB/s reads +
+  2.7 GiB/s writes concurrently.
+
+### `pgn_to_parquet`
+
+Prepare a parquet file from PGNs for further processing.
+
+**Input:** ~2.4 TiB of monthly game dumps from https://database.lichess.org \
+**Output:** ~470 GiB parquet file \
+**Typical bottleneck:** sequential reads of the dumps (from HDDs) > CPU
+
+Inputs must be in chronological order by month.
 
 Example:
 
-```
-curl http://localhost:9002/monitor
-```
-
-Response in InfluxDB line protocol:
-
-```
-opening_explorer block_index_miss=2271815u,block_index_hit=44204637u,block_filter_miss=2272244u,block_filter_hit=81741291u,block_data_miss=31540587u,block_data_hit=33327789u,indexing=5u,lichess_cache=31038u,lichess_miss=2993390u,lichess_history_cache=2112u,lichess_history_miss=19558u,masters_cache=38276u,masters_miss=3430066u,masters=158629555u,masters_game=2519908u,lichess=121970833029u,lichess_game=4331746117u,player=18693470276u,player_status=182129u
+```sh
+pgns=$(ls samples/lichess_db/*/lichess_db_*_rated_*.pgn.zst | awk -F_ '{print $NF, $0}' | sort -s -k1,1 | cut -d' ' -f2)
+$B/pgn_to_parquet --out lichess/lichess_db_rated.parquet $pgns
 ```
 
-### `/monitor/db/<prop>`
+### `parquet_to_positions`
 
-### `/monitor/cf/<cf>/<prop>`
+Scan out position SSTs from the parquet file.
+
+**Input:** ~470 GiB parquet file from above \
+**Output:** ~2 TiB of SST files \
+**Additional resources:** ideally ~5.5 TiB fast disk scratch space (for a
+single pass, ~3 TiB for 2 passes, ~1.8 TiB for 3), ~100 GiB RAM \
+**Typical bottleneck:** CPU, because every pass replays all games (~50 min per
+pass on the development hardware), scratch space determining the number of
+passes > scratch write throughput (a single pass writes ~5 TiB) > memory
+
+Walk the parquet file to produce SSTs indexed by position. Can walk the
+parquet multiple times to make do with insufficient scratch space.
+
+Scratch space on hard disks works, but then the run is bound by sequential
+disk throughput: all scratch data is written once and read once, however many
+passes there are. Scratch and SST files are written through the page cache,
+so that kernel writeback keeps the many concurrently written files
+sequential.
 
 Example:
 
-```
-curl http://localhost:9002/monitor/cf/lichess/rocksdb.stats
-```
-
-```
-** Compaction Stats [lichess] **
-Level    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) CompMergeCPU(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop Rblob(GB) Wblob(GB)
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  L0      1/0   34.75 MB   0.2     64.3     0.0     64.3     157.5     93.2       0.0   1.6      1.4      3.5  46068.07           3002.68      2760   16.691   1763M    92M       0.0       0.0
-  L1      4/0   205.48 MB   0.8    172.6    93.2     79.4     165.5     86.1       0.0   1.8      3.7      3.5  48254.63           3779.43       207  233.114   4758M   164M       0.0       0.0
-  L2     52/0    2.49 GB   1.0    321.9    81.7    240.3     317.2     77.0       4.4   3.9      3.5      3.4  94232.38           6840.29      1345   70.061   8967M   121M       0.0       0.0
-  L3    591/0   24.95 GB   1.0    338.4    78.2    260.1     333.0     72.9       3.1   4.3      3.5      3.5  97870.15           7213.25      1532   63.884   9448M   146M       0.0       0.0
-  L4   3367/0   90.71 GB   0.4     81.3    48.6     32.7      79.9     47.2      27.5   1.6      3.7      3.6  22451.14           1770.16       904   24.835   2281M    35M       0.0       0.0
-  L6  47776/0    2.78 TB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
- Sum  51791/0    2.90 TB   0.0    978.5   301.6    676.9    1053.2    376.3      35.0  10.9      3.2      3.5 308876.38          22605.81      6748   45.773     27G   560M       0.0       0.0
- Int      0/0    0.00 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   0.0      0.0      0.0      0.00              0.00         0    0.000       0      0       0.0       0.0
-
-** Compaction Stats [lichess] **
-Priority    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) CompMergeCPU(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop Rblob(GB) Wblob(GB)
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Low      0/0    0.00 KB   0.0    978.5   301.6    676.9     956.6    279.7       0.0   0.0      3.5      3.4 288675.78          20752.87      4203   68.683     27G   560M       0.0       0.0
-High      0/0    0.00 KB   0.0      0.0     0.0      0.0      96.6     96.6       0.0   0.0      0.0      4.9  20200.60           1852.94      2545    7.937       0      0       0.0       0.0
-
-Blob file count: 0, total size: 0.0 GB, garbage size: 0.0 GB, space amp: 0.0
-
-Uptime(secs): 610745.6 total, 3.5 interval
-Flush(GB): cumulative 96.595, interval 0.000
-AddFile(GB): cumulative 0.000, interval 0.000
-AddFile(Total Files): cumulative 0, interval 0
-AddFile(L0 Files): cumulative 0, interval 0
-AddFile(Keys): cumulative 0, interval 0
-Cumulative compaction: 1053.16 GB write, 1.77 MB/s write, 978.51 GB read, 1.64 MB/s read, 308876.4 seconds
-Interval compaction: 0.00 GB write, 0.00 MB/s write, 0.00 GB read, 0.00 MB/s read, 0.0 seconds
-Stalls(count): 1028 level0_slowdown, 1018 level0_slowdown_with_compaction, 0 level0_numfiles, 0 level0_numfiles_with_compaction, 0 stop for pending_compaction_bytes, 1809 slowdown for pending_compaction_bytes, 0 memtable_compaction, 0 memtable_slowdown, interval 0 total count
-Block cache LRUCache@0x7feb60a3f150#4001884 capacity: 40.00 GB usage: 39.97 GB table_size: 524288 occupancy: 6030149 collections: 1018 last_copies: 5 last_secs: 0.039008 secs_since: 408
-Block cache entry stats(count,size,portion): DataBlock(165238,10.35 GB,25.885%) FilterBlock(22233,29.11 GB,72.7832%) IndexBlock(22348,499.64 MB,1.21981%) Misc(1,0.00 KB,0%)
-
-** File Read Latency Histogram By Level [lichess] **
-
-** DB Stats **
-Uptime(secs): 610745.6 total, 3.5 interval
-Cumulative writes: 0 writes, 0 keys, 0 commit groups, 0.0 writes per commit group, ingest: 0.00 GB, 0.00 MB/s
-Cumulative WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 GB, 0.00 MB/s
-Cumulative stall: 00:00:0.000 H:M:S, 0.0 percent
-Interval writes: 0 writes, 0 keys, 0 commit groups, 0.0 writes per commit group, ingest: 0.00 MB, 0.00 MB/s
-Interval WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 GB, 0.00 MB/s
-Interval stall: 00:00:0.000 H:M:S, 0.0 percent
+```sh
+$B/parquet_to_positions lichess/lichess_db_rated.parquet --out lichess/sst --scratch scratch --scratch-budget 6000g --memory-budget 100g
 ```
 
-Public HTTP API
----------------
+### `parquet_to_games`
 
-See https://lichess.org/api#tag/Opening-Explorer.
+Scan out game SSTs
 
-### `/masters`
+**Input:** ~470 GiB parquet file from above \
+**Output:** ~560 GiB of SST files \
+**Additional resources:** no scratch space, ~2 GiB RAM \
+**Typical bottleneck:** CPU (compression)
 
-### `/lichess`
-
-### `/player`
-
-Example:
-
-```
-curl https://explorer.lichess.ovh/player?player=foo&color=white&play=e2e4
+```sh
+$B/parquet_to_games lichess/lichess_db_rated.parquet --out lichess/sst/games
 ```
 
-Query parameters:
-
-name | type | default | description
---- | --- | --- | ---
-variant | string | `chess` | `antichess`, `atomic`, `chess` (or `standard`, `chess960`, `fromPosition`), `crazyhouse`, `horde`, `kingOfTheHill`, `racingKings`, `threeCheck`
-fen | string | *starting position of variant* | FEN of the root position
-play | string | *empty* | Comma separated moves in UCI notation. Play additional moves starting from *fen*. Required to find an opening name, if *fen* is not an exact match for a named position.
-player | string | *required* | Username to filter for
-color | string | *required* | Filter for games where *player* is `white` or `black`
-modes | string | *all* | Comma separated list of game modes (`rated`, `casual`) to filter for
-speeds | string | *all* | Comma separated list of speeds (`ultraBullet`, `bullet`, `blitz`, `rapid`, `classical`, `correspondence`) to filter for
-since | string | `0000-01` | Year-Month. Filter for games played in this month or later
-until | string | `3000-12` | Year-Month. Filter for games played in this month or earlier
-
-Response: Streamed [`application/x-ndjson`](https://github.com/ndjson/ndjson-spec)
-with rows as follows.
-
-Will start indexing, immediately respond with the current results,
-and stream more updates until indexing is complete. The stream is throttled
-and deduplicated. Empty lines may be sent to avoid timeouts.
-
-```js
-{
-    "white": 10, // total number of white wins from this position
-    "draws": 1,
-    "black": 22,
-    "moves": [
-        {
-            "uci": "e7e5",
-            "san": "e5",
-            "white": 6, // total number of white wins with this move.
-                        // more may transpose to resulting position.
-            "draws": 1,
-            "black": 9,
-            "averageOpponentRating": 1500, // or null
-            "game": { // only game for this move.
-                      // would not actually be sent, because there are multiple
-                      // games in this case, but for example:
-                "id": "uPdCG6Ts",
-                "winner": "black",
-                "speed": "correspondence",
-                "mode": "casual",
-                "white": {
-                    "name": "foo",
-                    "rating": 1500
-                },
-                "black": {
-                    "name": null,
-                    "rating": null
-                },
-                "year": 2015,
-                "month": "2015-09"
-            }
-        },
-        // ...
-    ],
-    "recentGames": [ // currently up to 15 recent games.
-                     // limit is up to discussion.
-        {
-            "uci": "e7e5",
-            "id": "uPdCG6Ts",
-            "winner": "black",
-            "speed": "correspondence",
-            "mode": "casual",
-            "white": {
-                "name": "foo",
-                "rating": 1500
-            },
-            "black": {
-                "name": null,
-                "rating": null
-            },
-            "year": 2015,
-            "month": "2015-09"
-        },
-        // ...
-    ],
-    "opening": {
-        "eco": "B00",
-        "name": "King's Pawn"
-    },
-    "queuePosition": 3 // waiting for other players to be indexed first
-}
-```
-
-License
--------
+## License
 
 Licensed under the GNU Affero General Public License v3. See the `LICENSE` file
 for details.

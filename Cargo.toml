@@ -1,59 +1,48 @@
 [package]
-name = "lila-openingexplorer"
-version = "3.0.0"
-publish = false
-description = "An opening explorer for lichess.org"
-homepage = "https://explorer.lichess.ovh"
-repository = "https://github.com/lichess-org/lila-openingexplorer"
-readme = "README.md"
-license = "AGPL-3.0-or-later"
-authors = ["Niklas Fiekas <niklas.fiekas@backscattering.de>"]
-categories = ["games"]
-keywords = ["chess", "lichess"]
+name = "lila-openingexplorer4"
+version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8", features = ["macros", "multipart"] }
+arbitrary = { version = "1", features = ["derive"] }
+arrow-array = "60"
+arrow-schema = "60"
+axum = "0.8"
+bitflags = "2"
+btoi = "0.5"
 bytes = "1"
-clap = { version = "4", features = ["derive", "env", "deprecated"] }
-csv = "1"
+clap = { version = "4", features = ["derive", "env"] }
+crossbeam = "0.8"
 env_logger = "0.11"
-fastrand = "2"
-futures-util = "0.3"
-json-patch = "4"
+indicatif = "0.18"
+libc = "0.2"
 log = "0.4"
 moka = { version = "0.12", features = ["future"] }
 nohash-hasher = "0.2"
 partial_sort = "1"
-pin-project-lite = "0.2"
-reqwest = { version = "0.12", features = ["stream"] }
-rocksdb = { version = "0.24", features = ["io-uring", "lz4", "zstd", "jemalloc", "bindgen-runtime"], default-features = false }
+parquet = { version = "60", default-features = false, features = ["zstd", "lz4", "arrow"] }
+pgn-reader = { version = "0.29", git = "https://github.com/niklasf/shakmaty.git", branch = "main" }
+rocksdb = { version = "0.25", git = "https://github.com/niklasf/rust-rocksdb.git", branch = "lila-openingexplorer4", features = ["lz4", "zstd", "jemalloc"], default-features = false }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
+rustc-hash = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-serde_with = { version = "3", features = ["time_0_3"] }
-sha-1 = "0.10"
-shakmaty = { version = "0.30", features = ["variant", "nohash-hasher"] }
-sync_wrapper = "1"
-thin-vec = "0.2"
+serde_with = "3"
+sha2 = "0.11"
+shakmaty = { version = "0.30", git = "https://github.com/niklasf/shakmaty.git", branch = "main", features = ["arbitrary", "variant", "nohash-hasher"] }
 thiserror = "2"
-tikv-jemallocator = "0.6" # matching rocksdb
-time = "0.3"
+tikv-jemallocator = "0.7"
 tokio = { version = "1", features = ["full"] }
-tokio-stream = { version = "0.1", features = ["io-util"] }
-tokio-util = { version = "0.7", features = ["io"] }
-tower-http = { version = "0.7", features = ["set-header"] }
+tokio-util = "0.7"
+tower-http = { version = "0.7", features = ["cors"] }
+zstd = "0.14"
+hmac = "0.13"
+getrandom = "0.4"
+memchr = "2"
+futures-util = "0.3"
 
 [dev-dependencies]
-quickcheck = "1"
-tempfile = "3"
-iai = { version = "0.1", git = "https://github.com/sigaloid/iai", rev = "d56a5971f6d5556cd9e9b92e7e0f753c9ce9cdc7" }
+arbtest = "0.3"
 
 [profile.release]
-lto = true
-
-[[bench]]
-name = "benches"
-harness = false
-
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tokio_unstable)"] }
+debug = true

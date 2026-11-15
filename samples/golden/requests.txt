@@ -1,0 +1,55 @@
+# Requests whose responses are recorded in responses.txt (see scripts/test-pipeline.sh).
+# lichess_big
+/lichess?recentGames=0&variant=standard&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR%20b%20KQkq%20-%200%201&ratings=1400%2C1600
+/lichess?variant=standard&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&speeds=bullet%2Cblitz%2Crapid%2Cclassical%2Ccorrespondence%2CultraBullet&ratings=1400%2C1600%2C1800%2C2000%2C2200%2C2500%2C1200%2C1000%2C400
+# lichess_empty
+/lichess?variant=standard&fen=r1bq1rk1%2Fpppp1p1p%2F5np1%2F2b3B1%2F2BpP3%2F2NP1Q2%2FPPP2PPP%2FR3K2R+b+KQ+-&speeds=blitz%2Crapid%2Cclassical&ratings=1800&moves=999
+# lichess_games
+/lichess?variant=standard&fen=r1bqkbnr%2Fpp1ppppp%2F2n5%2F8%2F4P3%2F8%2FPPP2PPP%2FRNBQKBNR+b+KQkq+-+2+4&speeds=blitz%2Crapid&ratings=1800
+/lichess?history=yes&play=g2g4&speeds=blitz%2Cbullet%2Ccorrespondence%2Cclassical%2Crapid&ratings=1200%2C1800%2C1600%2C2000%2C2200%2C1000%2C1400%2C2500&since=2017-01
+/lichess?variant=standard&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&play=e2e4%2Ce7e5%2Cg1f3%2Cb8c6%2Cf1c4%2Cg8f6%2Cf3g5%2Cd7d5%2Ce4d5%2Cc6a5%2Cc4b5%2Cc7c6%2Cd5c6&speeds=bullet%2Cblitz%2Crapid%2Cclassical%2Ccorrespondence&ratings=1000%2C1200%2C1400%2C1600%2C1800%2C2000%2C2200%2C2500
+# lichess_history
+/lichess?history=yes&play=e2e4%2Ce7e5%2Cd2d4%2Ce5d4%2Cc2c3%2Cd4c3%2Cf1c4%2Cc3b2%2Cc1b2%2Cf8b4%2Cb1d2%2Cg8f6%2Ce4e5%2Cf6e4%2Cc4f7%2Ce8f7%2Cd1b3%2Cd7d5%2Ce5d6%2Cc8e6%2Cb3b4%2Ce4d2%2Cb4f4%2Cf7g8%2Cf4e5&speeds=blitz%2Cbullet%2Ccorrespondence%2Cclassical%2Crapid&ratings=1200%2C1800%2C1600%2C2000%2C2200%2C1000%2C1400%2C2500&since=2017-01
+/lichess?history=yes&play=e2e4%2Ce7e6%2Cd2d4%2Cd7d5%2Cb1c3%2Cg8f6%2Ce4e5%2Cf6d7%2Cf2f4%2Cc7c5%2Cg1f3%2Cb8c6%2Cc1e3&speeds=blitz%2Cbullet%2Ccorrespondence%2Cclassical%2Crapid&ratings=1200%2C1800%2C1600%2C2000%2C2200%2C1000%2C1400%2C2500&since=2017-01
+# lichess_single
+/lichess?recentGames=0&variant=standard&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkbnr%2Fppp2ppp%2F4p3%2F3P4%2F8%2F8%2FPPPP1PPP%2FRNBQKBNR%20w%20KQkq%20-%200%203&ratings=1800%2C2000%2C2200
+/lichess?recentGames=0&variant=standard&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkbnr%2Fppp1pppp%2F8%2F3p4%2F4P3%2F2N5%2FPPPP1PPP%2FR1BQKBNR%20b%20KQkq%20-%201%202&ratings=1800%2C2000%2C2200
+/lichess?recentGames=0&variant=standard&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkb1r%2Fpppppppp%2F5n2%2F8%2F3P3P%2F8%2FPPP1PPP1%2FRNBQKBNR%20b%20KQkq%20-%200%202&ratings=1800%2C2000%2C2200
+# lichess_some
+/lichess?recentGames=0&variant=standard&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkbnr%2Fppp1pppp%2F8%2F3p4%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR%20w%20KQkq%20-%200%202&ratings=1800%2C2000%2C2200
+/lichess?recentGames=0&variant=standard&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkbnr%2Fpppp1ppp%2F4p3%2F8%2F3P4%2F2N5%2FPPP1PPPP%2FR1BQKBNR%20b%20KQkq%20-%200%202&ratings=1400%2C1600
+# masters_empty
+/masters?variant=standard&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&play=e2e4%2Cd7d5%2Ce4d5%2Cd8d5%2Cb1c3%2Cd5a5%2Cd2d4%2Cc7c6%2Cc1d2%2Ca5c7%2Cf1c4%2Cg8f6%2Cd1e2%2Cc8f5%2Cd4d5%2Cc6d5%2Cc3d5%2Cf6d5%2Cc4d5%2Ce7e6%2Ce2b5%2Cb8c6%2Cd5c6%2Cb7c6%2Cb5a4%2Ca8b8%2Cg1f3%2Cb8b2%2Ce1h1%2Cf8c5%2Cd2a5%2Cc5b6%2Ca5c3%2Cb2b5%2Cc3g7%2Ch8g8
+# masters_games
+/masters?variant=standard&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&play=e2e4%2Cc7c5
+/masters?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&moves=12&topGames=10
+# masters_single
+/masters?fen=rnbqkbnr%2Fppp1pppp%2F8%2F3p4%2F8%2F2N5%2FPPPPPPPP%2FR1BQKBNR+w+KQkq+-+0+2&since=1952
+/masters?fen=rnbqkbnr%2Fpp1ppppp%2F2p5%2F8%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR+w+KQkq+-+0+2&since=1952
+# masters_some
+/masters?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&since=1952
+# pgn_404
+/masters/pgn/5ZaiboaU
+# status_400
+/masters?variant=standard&fen=8%2F8%2F8%2F8%2F8%2F8%2F8%2F8+w+-+-+0+1&play=
+# variant_antichess
+/lichess?recentGames=0&variant=antichess&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR%20b%20-%20-%200%201&ratings=400
+# variant_atomic
+/lichess?recentGames=0&variant=atomic&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnb1kbnr%2FppppqNpp%2F5p2%2F4p3%2F8%2F8%2FPPPPPPPP%2FRNBQKB1R%20w%20KQkq%20-%202%204&ratings=1400%2C1600
+# variant_chess
+# variant_chess960
+/lichess?variant=chess960&fen=bbnnqrkr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FBBNNQRKR+w+KQkq+-+0+1&play=&speeds=bullet%2Cblitz%2Crapid%2Cclassical%2Ccorrespondence&ratings=1000%2C1200%2C1400%2C1600%2C1800%2C2000%2C2200%2C2500
+# variant_crazyhouse
+/lichess?variant=crazyhouse&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR%2F+w+KQkq+-+0+1&play=b1c3%2Cd7d5%2Cd2d4%2Cg8f6%2Cg1f3%2Cc8f5&since=2015-04&speeds=bullet%2Cblitz%2Crapid%2Cclassical%2Ccorrespondence&ratings=1800%2C2000%2C2200%2C2500%2C1600
+# variant_fromPosition
+/lichess?recentGames=0&variant=fromPosition&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=r1bqkbnr%2Fpp1p1ppp%2F2n1p3%2F8%2F3NP3%2F8%2FPPP2PPP%2FRNBQKB1R%20w%20KQkq%20-%200%201&ratings=1800%2C2000%2C2200
+# variant_horde
+/lichess?recentGames=0&variant=horde&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkbnr%2Fpppppppp%2F8%2FPPP2PP1%2F1PPPPPPP%2FPPPPPPPP%2FPPPPPPPP%2FPPPPPPPP%20b%20kq%20-%200%201&ratings=1400%2C1600
+# variant_kingOfTheHill
+/lichess?recentGames=0&variant=kingOfTheHill&topGames=0&speeds=rapid%2Cclassical%2Ccorrespondence&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F3P4%2F8%2FPPP1PPPP%2FRNBQKBNR%20b%20KQkq%20-%200%201&ratings=400
+# variant_racingKings
+/lichess?recentGames=0&variant=racingKings&topGames=0&speeds=bullet%2Cblitz%2Crapid&fen=8%2F8%2F8%2F8%2F8%2F8%2FkrbnNBRK%2FqrbnNBRQ%20w%20-%20-%200%201&ratings=2500
+# variant_threeCheck
+/lichess?recentGames=0&variant=threeCheck&topGames=0&speeds=bullet%2Cblitz%2Crapid&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR%20b%20KQkq%20-%200%201%20%2B0%2B0&ratings=1000%2C1200
+# pgn_200
+/masters/pgn/X08vNMbe

@@ -1,0 +1,13 @@
+type: string
+enum:
+  - standard
+  - chess960
+  - crazyhouse
+  - antichess
+  - atomic
+  - horde
+  - kingOfTheHill
+  - racingKings
+  - threeCheck
+  - fromPosition
+default: standard

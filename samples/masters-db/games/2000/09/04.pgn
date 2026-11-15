@@ -1,0 +1,74 @@
+[Event "Saltmarsh Invitational 18"]
+[Site "Saltmarsh"]
+[Date "2000.09.04"]
+[Round "?"]
+[White "Zielinski, Vera"]
+[Black "Laurent, Cyril"]
+[Result "0-1"]
+[WhiteElo "2823"]
+[BlackElo "2581"]
+
+1. g3 c5 2. Nc3 g5 3. f3 b6 4. e4 Qc7 5. d3 Kd8 6. b4 a5 7. Ke2 g4 8. Kf2 Qc6 9. e5 Qb7 0-1
+
+[Event "Faraday Memorial"]
+[Site "Quarry Hill"]
+[Date "2000.09.04"]
+[Round "4"]
+[White "Kaminski, Ines"]
+[Black "Engstrom, H."]
+[Result "0-1"]
+[WhiteElo "2269"]
+[BlackElo "2556"]
+
+1. g4 b5 2. b4 e6 3. c4 Qg5 4. f3 Qe7 5. c5 Qh4# 0-1
+
+[Event "Nwosu Memorial"]
+[Site "Porto Selva"]
+[Date "2000.09.04"]
+[Round "6"]
+[White "Quiroga, L."]
+[Black "Bergstrom, Dario"]
+[Result "1/2-1/2"]
+[WhiteElo "2573"]
+[BlackElo "2409"]
+
+1. f3 d6 2. c4 Bh3 3. Qc2 a6 4. Kd1 f6 5. e3 Ra7 6. Qa4+ b5 7. Nc3 Be6 8. h3 Nh6 9. Rh2 Qd7 10. Nxb5 Nc6 11. d3 Nd8 12. Nxd6+ exd6 13. f4 Bd5 14. cxd5 Kf7 15. Qa5 Ke8 16. a3 Nf5 17. Qb5 Kf7 18. Ke2 Ng3+ 19. Kf2 Be7 20. Ra2 c5 21. Ke1 Bf8 22. Qb8 Qf5 23. Kd1 Nxf1 24. Qxd8 h6 25. Bd2 Qxd3 26. Qe8+ Kg8 27. Qxf8+ Kxf8 28. Ra1 Qh7 29. Ke1 h5 30. Ba5 c4 31. Kf2 Rc7 32. Ke1 Ra7 33. Rh1 g6 34. Rh2 h4 35. Ke2 Ke7 36. Kd1 c3 37. e4 Nd2 38. b4 c2+ 39. Ke1 Rc8 40. Nf3 Rcc7 41. Rb1 Nxb1 42. Bb6 Kd7 43. f5 c1=R+ 44. Ke2 Rab7 45. Ne1 Nxa3 46. Bxc7 Ra7 47. Nf3 Rf1 48. e5 Rc1 49. b5 dxe5 50. Bd8 Kxd8 51. Nxe5 Nc4 52. d6 Rf7 53. Nxf7+ Qxf7 54. bxa6 Rc2+ 55. Kf3 Rd2 56. Ke4 Rxd6 57. g4 Ke8 58. Rd2 Qg8 59. Rd5 1/2-1/2
+
+[Event "Kestrelton Masters"]
+[Site "Tarnwick"]
+[Date "2000.09.04"]
+[Round "13"]
+[White "Marchetti, Greta"]
+[Black "Zielinski, Lucia"]
+[Result "1/2-1/2"]
+[WhiteElo "2413"]
+[BlackElo "2756"]
+[FEN "rkbqnbrn/pppppppp/8/8/8/8/PPPPPPPP/RKBQNBRN w KQkq - 0 1"]
+[SetUp "1"]
+
+1. f3 e5 2. d4 Nf6 3. f4 Ne8 4. f5 h5 5. e4 Qg5 6. b4 Be7 7. h3 h4 8. Qd2 Qg4 9. Nf3 a5 10. c3 Ra7 11. Ng3 Bf8 12. Qe3 Qxh3 13. Nxe5 Qxg2 14. Nf3 Ka8 15. Ba6 Nd6 16. Bc4 b6 17. Be2 g6 18. Re1 b5 19. Bd3 Qc2+ 20. Kxc2 Be7 21. Rh1 a4 22. c4 bxc4 23. Ng5 cxd3+ 24. Kxd3 Rg7 25. Ba3 Ra5 26. Nf3 c5 27. Rhb1 Rg8 28. Qh6 Bb7 29. dxc5 Rf8 30. Rc1 Nc4 31. Rc3 Bxe4+ 32. Kd4 Ne3 33. Bc1 Kb7 34. Qxh8 Rg8 35. Qxg8 hxg3 36. Bb2 Ra7 37. Qe8 Ng4 38. Re3 Bd5 39. Kxd5 Nh6 40. Ng1 Bf6 41. Rc1 Be7 42. Ne2 d6 43. Rd1 Ra5 44. Qf8 Ka6 45. Qxf7 Rb5 46. Re5 g5 47. Rb1 dxe5 48. Re1 Rb7 49. Qh5 Rb8 50. Ke4 Rb7 51. b5+ Ka7 52. Bc3 Rd7 53. Ng1 Rb7 54. Qxg5 Ng8 55. Nh3 Bd8 1/2-1/2
+
+[Event "Engstrom Memorial"]
+[Site "Kestrelton"]
+[Date "2000.09.04"]
+[Round "?"]
+[White "Engstrom, Kenji"]
+[Black "Vasquez, U."]
+[Result "0-1"]
+[WhiteElo "2638"]
+[BlackElo "2423"]
+
+1. c4 Nh6 2. Nc3 d6 3. f4 0-1
+
+[Event "Moreau Memorial"]
+[Site "Castelvento"]
+[Date "2000.09.04"]
+[Round "11"]
+[White "Galdos, F."]
+[Black "Galdos, Quentin"]
+[Result "1/2-1/2"]
+[WhiteElo "2731"]
+[BlackElo "2244"]
+
+1. f3 b5 2. g4 h6 3. f4 d5 4. h4 g5 5. fxg5 f6 6. b4 Bf5 7. Nh3 Nc6 8. e4 Kd7 9. Nf4 Bxe4 10. h5 e6 11. Na3 Nce7 12. Nd3 Bf3 13. Nxb5 fxg5 14. Rb1 Ke8 15. Qe2 a6 16. Rh4 d4 17. Na3 c5 18. Nxc5 Bxg4 19. Qxg4 Qd6 20. Kf2 Nf6 21. Nxa6 Qc6 22. Nc7+ Kd8 23. Qf4 Kd7 24. Nxe6 gxh4 25. c4 Qb5 26. Qf5 Rg8 27. Ra1 Ra7 28. Bd3 Nh7 29. Ng7+ Kd8 30. Qf4 Qxb4 31. Nc2 Ra5 32. Bxh7 Qb6 33. a4 Qf6 34. Kg2 Rxg7+ 35. Kh1 Qc6+ 36. Kh2 Ra8 37. Qf7 Rxh7 38. Qf6 Ke8 39. Ne1 Qd7 40. Qxh6 Qa7 41. Qxh7 Rb8 42. Qh8 Nc8 43. Nc2 Qc7+ 44. Kg2 Qc6+ 45. Kf1 Kd8 46. Ne1 Na7 47. Qf6+ Ke8 48. Ra2 Rb1 49. Qf7+ Kxf7 50. h6 Bxh6 51. c5 Qf3+ 52. Nxf3 Rb3 53. Nxh4 Rb4 54. a5 Ke6 55. Kg2 Rb8 56. Rb2 Rb4 57. Kh1 Nc8 58. Nf5 Bg7 59. Kg2 Kd5 60. Rb3 Bf8 61. Rh3 Nd6 62. Rh8 Be7 63. Re8 Bd8 64. Kg1 Rb1 65. Rf8 Kc4 66. Kh1 Kb5 67. Ng3 Nc4 68. Nf1 Nd6 69. Nh2 1/2-1/2
+

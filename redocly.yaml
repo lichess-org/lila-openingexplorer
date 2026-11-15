@@ -1,0 +1,11 @@
+# Same rules as doc/redocly.yaml of https://github.com/lichess-org/api.
+# npx @redocly/cli@2.71.2 lint doc/specs/openingexplorer.yaml
+extends:
+  - recommended-strict
+
+rules:
+  operation-4xx-response: off
+  no-invalid-schema-examples:
+    severity: error
+    allowAdditionalProperties: false
+  no-server-example.com: off

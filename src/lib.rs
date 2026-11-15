@@ -1,10 +1,14 @@
-#![forbid(unsafe_code)]
-
-pub mod api;
-pub mod db;
-pub mod indexer;
-pub mod lila;
-pub mod model;
-pub mod opening;
+pub mod intermediate;
+pub mod lila_variant;
+pub mod masters_to_parquet;
+pub mod mock_lila;
+pub mod packed;
+pub mod parquet;
+pub mod parquet_to_games;
+pub mod parquet_to_positions;
+pub mod pgn_to_parquet;
+pub mod player;
+pub mod scatter;
+pub mod server;
+pub mod sst;
 pub mod util;
-pub mod zobrist;

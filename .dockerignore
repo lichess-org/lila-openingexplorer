@@ -1,7 +1,7 @@
-.git
-.github
+*
 
-Dockerfile
-
-target
-tests
+# Allow list
+!Cargo.toml
+!Cargo.lock
+!rustfmt.toml
+!src

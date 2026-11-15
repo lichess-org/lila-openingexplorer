@@ -1,0 +1,52 @@
+get:
+  operationId: openingExplorerMasterGame
+  summary: OTB master game
+  description: |
+    **Endpoint: `https://explorer.lichess.org/masters/pgn/{gameId}`**
+
+    Example: `curl https://explorer.lichess.org/masters/pgn/aAbqI4ey`
+  tags:
+    - Opening Explorer
+  servers:
+    - url: https://explorer.lichess.org
+    - url: http://localhost:{port}
+      variables:
+        port:
+          default: "9002"
+  security:
+    - OAuth2: []
+  parameters:
+    - in: path
+      name: gameId
+      schema:
+        type: string
+      required: true
+  responses:
+    "200":
+      description: The PGN representation of the game.
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+            default: "'*'"
+      content:
+        application/x-chess-pgn:
+          schema:
+            type: string
+            description: Game PGN
+          examples:
+            pgn:
+              $ref: "../../examples/openingExplorer-otbMasterGame.pgn.yaml"
+    "400":
+      description: Invalid parameters, position or moves.
+      content:
+        text/plain:
+          schema:
+            type: string
+          example: "bad request: illegal move e2e5: illegal uci move"
+    "404":
+      description: There is no game with this id.
+      content:
+        text/plain:
+          schema:
+            type: string

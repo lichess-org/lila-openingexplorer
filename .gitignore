@@ -1,4 +1,4 @@
 /target
 /_db
-*.pgn
-*.zst
+CLAUDE.local.md
+/samples/requests
