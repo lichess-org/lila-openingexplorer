@@ -13,7 +13,7 @@ See the [Lichess API reference](https://lichess.org/api#tag/opening-explorer).
 ### What to expect?
 
 Production easily handles the current peak usage of ~150 requests per second
-split across /lichess, /masters and /player on this hardware:
+split across `/lichess`, `/masters` and `/player` on this hardware:
 
 * AMD Ryzen 5 PRO 3600 (12 threads @ 3.6 GHz)
 * 128 GiB RAM
@@ -30,7 +30,7 @@ B=target/release
 ```
 
 Use the [Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/guides/cli)
-to download prepared SSTs or see indexing instructions below. Example:
+to download prepared SSTs (~2.5 TiB) or see indexing instructions below. Example:
 
 ```sh
 hf sync hf://buckets/nfiekas/opening-explorer-lichess/2026-11-v2 /data/hdd/lichess/bucket/2026-11-v2 --exclude "*.parquet"
