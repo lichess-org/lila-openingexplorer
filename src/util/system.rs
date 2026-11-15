@@ -1,4 +1,9 @@
-use std::{ffi::CString, fs, io, mem, path::Path};
+use std::{
+    ffi::CString,
+    fs, io, mem,
+    os::unix::fs::MetadataExt,
+    path::{Path, PathBuf},
+};
 
 /// Total physical memory in bytes.
 pub fn total_memory() -> Option<u64> {
@@ -10,9 +15,17 @@ pub fn total_memory() -> Option<u64> {
         .checked_mul(u64::try_from(page_size).ok()?)
 }
 
-/// Bytes available to unprivileged users on the file system containing
-/// `path`.
+/// The path itself if it exists, or else its nearest existing ancestor.
+fn existing_ancestor(path: &Path) -> &Path {
+    path.ancestors()
+        .find(|ancestor| ancestor.exists())
+        .unwrap_or(Path::new("."))
+}
+
+/// Bytes available to unprivileged users on the file system that contains
+/// `path`, or will contain it once it is created.
 pub fn free_space(path: &Path) -> Option<u64> {
+    let path = existing_ancestor(path);
     let cpath = CString::new(path.as_os_str().as_encoded_bytes()).ok()?;
     // SAFETY: statvfs only writes to the zeroed struct.
     let mut stat: libc::statvfs = unsafe { mem::zeroed() };
@@ -20,6 +33,29 @@ pub fn free_space(path: &Path) -> Option<u64> {
         return None;
     }
     Some(stat.f_bavail as u64 * stat.f_frsize as u64)
+}
+
+/// Whether the paths are on the same file system, or will be once they are
+/// created.
+pub fn same_file_system(a: &Path, b: &Path) -> io::Result<bool> {
+    Ok(fs::metadata(existing_ancestor(a))?.dev() == fs::metadata(existing_ancestor(b))?.dev())
+}
+
+/// Whether the file system that contains `path` (or will contain it once it
+/// is created) is on a rotational disk. `None` if it is not backed by a
+/// single block device that says so, like tmpfs or network file systems.
+pub fn rotational(path: &Path) -> Option<bool> {
+    let dev = fs::metadata(existing_ancestor(path)).ok()?.dev();
+    let sys = PathBuf::from(format!(
+        "/sys/dev/block/{}:{}",
+        libc::major(dev),
+        libc::minor(dev)
+    ));
+    // Partitions share the queue of their disk.
+    ["queue/rotational", "../queue/rotational"]
+        .iter()
+        .find_map(|queue| fs::read_to_string(sys.join(queue)).ok())
+        .map(|rotational| rotational.trim() == "1")
 }
 
 /// Creates a directory, unless it already exists.

@@ -29,8 +29,10 @@ const MAX_FILE_SIZE_FACTOR: u64 = 2;
 pub struct Config {
     /// Threads writing ranges of the input in parallel.
     pub threads: usize,
-    /// Use O_DIRECT for the input and the SST files.
-    pub direct_io: bool,
+    /// Use O_DIRECT to read the input.
+    pub direct_reads: bool,
+    /// Use O_DIRECT to write the SST files.
+    pub direct_writes: bool,
     /// Skip the first row groups of the inputs.
     pub skip_row_groups: usize,
     /// Only process the first row groups of the inputs.
@@ -62,7 +64,7 @@ pub fn convert(
         parquet,
         config.skip_row_groups,
         config.row_groups,
-        config.direct_io,
+        config.direct_reads,
     )?;
     create_empty_dir(out)?;
     if let Some(dir) = game_ids {
@@ -70,7 +72,7 @@ pub fn convert(
     }
 
     let opts = SstConfig::GAMES.options();
-    let env_opts = env_options(config.direct_io);
+    let env_opts = env_options(config.direct_writes);
     let ranges = ranges(&input, config);
     let progress = progress.add(progress_bar(input.total_rows()));
     let next = AtomicUsize::new(0);
@@ -202,7 +204,7 @@ fn write_game_ids(
         return Err(io::Error::other(format!("duplicate game id {}", pair[0].0)).into());
     }
     let opts = SstConfig::GAME_IDS.options();
-    let env_opts = env_options(config.direct_io);
+    let env_opts = env_options(config.direct_writes);
     let mut writer = RollingSstWriter::new(
         &opts,
         &env_opts,

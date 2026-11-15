@@ -69,6 +69,23 @@ fn scratch_ratio(zstd_level: i32) -> f64 {
     if zstd_level == 0 { 1.0 } else { SCRATCH_RATIO }
 }
 
+/// Upper bound for the SST bytes per record, without the fixed costs of
+/// cold groups. Measured on lichess 5.4 (positions) and 5.7 (cold) at full
+/// scale, less on slices, and 6.2 for masters positions.
+const OUTPUT_RECORD_BYTES: f64 = 6.5;
+
+/// Upper bound for the SST bytes of a cold group in addition to its records:
+/// its key and value header, uncompressed.
+const COLD_GROUP_BYTES: u64 = 15;
+
+/// Upper bound for the bytes of all SST files. Cold groups have a fixed
+/// cost, so inputs with few records per group need more bytes per record
+/// (measured up to 11.7).
+fn output_bound(records: u64) -> u64 {
+    let cold_groups = records.min(1 << (8 * ColdKey::PREFIX_SIZE));
+    (records as f64 * OUTPUT_RECORD_BYTES) as u64 + cold_groups * COLD_GROUP_BYTES
+}
+
 /// Fixed memory overhead for the parquet reader, rocksdb and allocator slack.
 const BASE_MEMORY: u64 = 4 << 30;
 
@@ -97,10 +114,12 @@ struct Estimate {
     months: u64,
     /// Ratio of scratch chunks to their raw bytes.
     scratch_ratio: f64,
+    /// Scratch space to use, leaving room for the output where needed.
+    scratch_budget: u64,
 }
 
 impl Estimate {
-    fn new(input: &Input, config: &Config, read_threads: u64) -> Estimate {
+    fn new(input: &Input, config: &Config, read_threads: u64) -> io::Result<Estimate> {
         let rows = input.total_rows();
         let sample = Sample::replay(input, config.threads);
         let per_row = if sample.sampled_rows == 0 {
@@ -115,14 +134,21 @@ impl Estimate {
             hot: Vec::new(),
             months: sample.months,
             scratch_ratio: scratch_ratio(config.scratch_zstd_level),
+            scratch_budget: 0,
         };
+        estimate.scratch_budget = config.scratch_budget.resolve(estimate.output())?;
         // Choose hot positions for the layout without them. Then the
         // remaining records may fit into fewer partitions.
         let layout = estimate.layout(config, read_threads);
         let threshold = estimate.records / layout.memory_partitions() as u64 / HOT_FRACTION;
         estimate.hot = sample.hot(rows, threshold.max(1));
         estimate.records = estimate.records.saturating_sub(estimate.hot_records());
-        estimate
+        Ok(estimate)
+    }
+
+    /// Upper bound for the bytes of all SST files.
+    fn output(&self) -> u64 {
+        output_bound(self.records + self.hot_records())
     }
 
     fn record_bytes(&self) -> u64 {
@@ -175,7 +201,7 @@ impl Estimate {
         Layout::choose(|layout| {
             (
                 self.memory(layout, read_threads) <= config.memory_budget,
-                self.scratch(layout) <= config.scratch_budget,
+                self.scratch(layout) <= self.scratch_budget,
             )
         })
     }
@@ -208,15 +234,48 @@ impl Counters {
     }
 }
 
+/// Scratch space to use. Determines the number of passes over the input.
+pub enum ScratchBudget {
+    Bytes(u64),
+    /// 90% of the free bytes of the file system of the scratch directory.
+    /// If the output is written to the same file system, after reserving
+    /// its estimated size.
+    Free {
+        bytes: u64,
+        shared_with_output: bool,
+    },
+}
+
+impl ScratchBudget {
+    fn resolve(&self, output: u64) -> io::Result<u64> {
+        let free = match *self {
+            ScratchBudget::Bytes(bytes) => return Ok(bytes),
+            ScratchBudget::Free {
+                bytes,
+                shared_with_output: false,
+            } => bytes,
+            ScratchBudget::Free {
+                bytes,
+                shared_with_output: true,
+            } => bytes.checked_sub(output).ok_or_else(|| {
+                io::Error::other(format!(
+                    "up to {} GiB output may not fit into the {} GiB free on the file system shared with the scratch directory (override with --scratch-budget)",
+                    output.div_ceil(1 << 30),
+                    bytes >> 30,
+                ))
+            })?,
+        };
+        Ok(free / 10 * 9)
+    }
+}
+
 pub struct Config {
     /// Threads to use in total, unless overridden for a stage.
     pub threads: usize,
     /// Maximum bytes of memory to use. Determines the number of memory
     /// partitions.
     pub memory_budget: u64,
-    /// Maximum bytes to use in scratch space. Determines the number of
-    /// passes over the input.
-    pub scratch_budget: u64,
+    pub scratch_budget: ScratchBudget,
     /// Threads for replaying the input.
     pub read_threads: Option<usize>,
     /// Threads for compressing and writing scratch chunks.
@@ -227,8 +286,12 @@ pub struct Config {
     pub sst_threads: Option<usize>,
     /// Concurrent reads of the input, ahead of the decoding threads.
     pub io_depth: usize,
-    /// Use O_DIRECT for the input, scratch files and SST files.
-    pub direct_io: bool,
+    /// Use O_DIRECT to read the input and the scratch files.
+    pub direct_reads: bool,
+    /// Use O_DIRECT to write the scratch files.
+    pub direct_scratch_writes: bool,
+    /// Use O_DIRECT to write the SST files.
+    pub direct_sst_writes: bool,
     /// Zstd level for scratch chunks, or 0 for no compression.
     pub scratch_zstd_level: i32,
     /// Skip the first row groups of the inputs.
@@ -282,13 +345,13 @@ impl Plan {
             parquet,
             config.skip_row_groups,
             config.row_groups,
-            config.direct_io,
+            config.direct_reads,
         )?;
 
         // The layout depends on the read threads (buffers), which depend on
         // the layout (overlap). Resolve with the larger read thread count.
         let max_read_threads = config.read_threads.unwrap_or(threads * 2 / 3).max(1);
-        let estimate = Estimate::new(&input, config, max_read_threads as u64);
+        let estimate = Estimate::new(&input, config, max_read_threads as u64)?;
         let layout = estimate.layout(config, max_read_threads as u64);
         // With a single pass the scan and the partition writes never overlap,
         // so each phase can use all threads. With several passes the scan of
@@ -326,7 +389,7 @@ impl fmt::Display for Plan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} games, about {} records ({} GiB) and {} records of {} hot positions; {} passes with {} memory partitions each, about {} GiB scratch per pass and {} GiB memory; threads: {} read, {} write, {} load ({} after the last scan), {} sst ({} after the last scan)",
+            "{} games, about {} records ({} GiB) and {} records of {} hot positions; {} passes with {} memory partitions each, about {} GiB scratch per pass (budget {} GiB), {} GiB memory and up to {} GiB output; threads: {} read, {} write, {} load ({} after the last scan), {} sst ({} after the last scan)",
             self.estimate.rows,
             self.estimate.records,
             self.estimate.record_bytes() >> 30,
@@ -335,7 +398,9 @@ impl fmt::Display for Plan {
             self.layout.passes(),
             self.layout.memory_partitions_per_pass(),
             self.estimate.scratch(&self.layout) >> 30,
+            self.estimate.scratch_budget >> 30,
             self.estimate.memory(&self.layout, self.read_threads as u64) >> 30,
+            self.estimate.output().div_ceil(1 << 30),
             self.read_threads,
             self.write_threads,
             self.load_threads,
@@ -398,7 +463,7 @@ pub fn convert(
         }
         .options(),
         positions_opts: &SstConfig::POSITIONS.options(),
-        env_opts: &env_options(config.direct_io),
+        env_opts: &env_options(config.direct_sst_writes),
         out,
         target_size: config.sst_target_size,
         cold: config.cold,
@@ -521,12 +586,13 @@ pub fn convert(
                     scratch: scratch_dir,
                     zstd_level: config.scratch_zstd_level,
                     // The first pass has nothing to wait for.
-                    budget: (pass > 0).then_some(config.scratch_budget),
+                    budget: (pass > 0).then_some(estimate.scratch_budget),
                     layout: layout.clone(),
                     read_threads,
                     write_threads,
                     io_depth: config.io_depth.max(1),
-                    direct: config.direct_io,
+                    direct_writes: config.direct_scratch_writes,
+                    direct_reads: config.direct_reads,
                     counters,
                     hot_set,
                 },
@@ -624,7 +690,8 @@ struct ScatterConfig<'a> {
     read_threads: usize,
     write_threads: usize,
     io_depth: usize,
-    direct: bool,
+    direct_writes: bool,
+    direct_reads: bool,
     counters: &'a Counters,
     hot_set: &'a IntSet<PositionKey>,
 }
@@ -687,7 +754,8 @@ fn scatter_pass(
                     first_memory_partition + i
                 )),
                 config.zstd_level,
-                config.direct,
+                config.direct_writes,
+                config.direct_reads,
             )?))
         })
         .collect::<io::Result<_>>()?;
@@ -856,5 +924,32 @@ mod tests {
         assert_eq!(cold_zstd_level(300_000_000_000), 0);
         assert_eq!(cold_zstd_level((1 << 32) - 1), 3);
         assert_eq!(cold_zstd_level(1 << 32), 0);
+    }
+
+    #[test]
+    fn test_output_bound() {
+        // Records and SST bytes of real runs: masters, lichess slices of 60
+        // and 1000 row groups, and all of lichess.
+        for (records, bytes) in [
+            (240_857_745, 2_311_965_762),
+            (451_302_685, 3_759_064_289),
+            (4_404_320_877, 51_446_524_315),
+            (378_968_287_958, 2_157_316_170_701),
+        ] {
+            let bound = output_bound(records);
+            assert!(bytes < bound && bound < 3 * bytes, "{records}: {bound}");
+        }
+    }
+
+    #[test]
+    fn test_scratch_budget() {
+        let free = |shared_with_output| ScratchBudget::Free {
+            bytes: 1000,
+            shared_with_output,
+        };
+        assert_eq!(ScratchBudget::Bytes(1000).resolve(5000).unwrap(), 1000);
+        assert_eq!(free(false).resolve(5000).unwrap(), 900);
+        assert_eq!(free(true).resolve(400).unwrap(), 540);
+        assert!(free(true).resolve(1001).is_err());
     }
 }

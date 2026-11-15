@@ -1,6 +1,7 @@
 use std::{
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io,
+    ops::Range,
     os::unix::fs::{FileExt, OpenOptionsExt},
     path::PathBuf,
     sync::{
@@ -92,42 +93,56 @@ struct ChunkMeta {
     compressed_len: u32,
 }
 
+impl ChunkMeta {
+    /// Offset after the compressed bytes, without padding.
+    fn end(&self) -> u64 {
+        self.offset + u64::from(self.compressed_len)
+    }
+}
+
+/// Bytes to read at once when loading a scratch file. Hard disks seek away
+/// to other files between the reads.
+const READ_RUN: u64 = 16 << 20;
+
 /// A scratch file holding compressed chunks of records.
 pub struct ScratchFile {
     path: PathBuf,
-    /// Buffered handle for reading.
-    file: File,
-    /// Handle for writing, and for reading back if `direct`: then with
-    /// `O_DIRECT`, and chunks padded to `DIRECT_ALIGN`.
+    /// Handle for writing: if `direct_writes`, with `O_DIRECT` and chunks
+    /// padded to `DIRECT_ALIGN`.
     write_file: File,
-    direct: bool,
+    direct_writes: bool,
+    /// Handle for reading back: if `direct_reads`, with `O_DIRECT`.
+    read_file: File,
+    direct_reads: bool,
     zstd_level: i32,
     len: u64,
     chunks: Vec<ChunkMeta>,
 }
 
 impl ScratchFile {
-    pub fn create(path: PathBuf, zstd_level: i32, direct: bool) -> io::Result<ScratchFile> {
-        let file = File::options()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&path)?;
-        let write_file = if direct {
-            File::options()
-                .read(true)
-                .write(true)
-                .custom_flags(libc::O_DIRECT)
-                .open(&path)?
-        } else {
-            file.try_clone()?
+    pub fn create(
+        path: PathBuf,
+        zstd_level: i32,
+        direct_writes: bool,
+        direct_reads: bool,
+    ) -> io::Result<ScratchFile> {
+        let open = |options: &mut OpenOptions, direct: bool| {
+            if direct {
+                options.custom_flags(libc::O_DIRECT);
+            }
+            options.open(&path)
         };
+        let write_file = open(
+            File::options().write(true).create(true).truncate(true),
+            direct_writes,
+        )?;
+        let read_file = open(File::options().read(true), direct_reads)?;
         Ok(ScratchFile {
             path,
-            file,
             write_file,
-            direct,
+            direct_writes,
+            read_file,
+            direct_reads,
             zstd_level,
             len: 0,
             chunks: Vec::new(),
@@ -157,7 +172,7 @@ impl ScratchFile {
         compressed: Compressed<'_>,
         usage: &Gauge,
     ) -> io::Result<()> {
-        let bytes = if self.direct {
+        let bytes = if self.direct_writes {
             compressed.padded
         } else {
             &compressed.padded[..compressed.len]
@@ -173,16 +188,17 @@ impl ScratchFile {
         Ok(())
     }
 
-    /// Loads and decompresses all chunks in parallel. Each thread starts
-    /// with a state from `init` and calls `f` with the index and the raw
-    /// bytes of each chunk it loads (which `f` may take). Returns the states
-    /// of all threads.
+    /// Loads and decompresses all chunks in parallel, reading runs of
+    /// consecutive chunks at once. Each thread starts with a state from
+    /// `init` and calls `f` with the index and the raw bytes of each chunk
+    /// it loads (which `f` may take). Returns the states of all threads.
     pub fn load<S: Send>(
         &self,
         threads: usize,
         init: impl Fn() -> S + Sync,
         f: impl Fn(&mut S, usize, &mut Vec<u8>) + Sync,
     ) -> Vec<S> {
+        let runs = self.runs();
         let next = AtomicUsize::new(0);
         let states = Mutex::new(Vec::with_capacity(threads));
 
@@ -193,26 +209,21 @@ impl ScratchFile {
                     let mut decompressor = ChunkDecompressor::new(self.zstd_level);
                     let mut compressed = AlignedBuf::new();
                     let mut raw = Vec::new();
-                    loop {
-                        let i = next.fetch_add(1, Ordering::Relaxed);
-                        let Some(chunk) = self.chunks.get(i) else {
-                            break;
-                        };
-                        let len = chunk.compressed_len as usize;
-                        let dst = compressed.resize(len);
-                        if self.direct {
-                            self.write_file
-                                .read_exact_at(dst, chunk.offset)
-                                .expect("read chunk");
-                        } else {
-                            self.file
-                                .read_exact_at(&mut dst[..len], chunk.offset)
-                                .expect("read chunk");
+                    while let Some(run) = runs.get(next.fetch_add(1, Ordering::Relaxed)) {
+                        let (start, bytes) = self
+                            .read_run(run.clone(), &mut compressed)
+                            .expect("read chunks");
+                        for i in run.clone() {
+                            let chunk = &self.chunks[i];
+                            let offset = (chunk.offset - start) as usize;
+                            raw.clear();
+                            raw.resize(chunk.raw_len as usize, 0);
+                            decompressor.decompress(
+                                &bytes[offset..offset + chunk.compressed_len as usize],
+                                &mut raw,
+                            );
+                            f(&mut state, i, &mut raw);
                         }
-                        raw.clear();
-                        raw.resize(chunk.raw_len as usize, 0);
-                        decompressor.decompress(&dst[..len], &mut raw);
-                        f(&mut state, i, &mut raw);
                     }
                     states.lock().expect("lock states").push(state);
                 });
@@ -222,11 +233,125 @@ impl ScratchFile {
         states.into_inner().expect("states")
     }
 
+    /// Ranges of consecutive chunks that span about `READ_RUN` bytes.
+    fn runs(&self) -> Vec<Range<usize>> {
+        let mut runs = Vec::new();
+        let mut first = 0;
+        for (i, chunk) in self.chunks.iter().enumerate() {
+            if chunk.end() - self.chunks[first].offset >= READ_RUN {
+                runs.push(first..i + 1);
+                first = i + 1;
+            }
+        }
+        if first < self.chunks.len() {
+            runs.push(first..self.chunks.len());
+        }
+        runs
+    }
+
+    /// Reads a non-empty run of chunks with a single read. Returns the
+    /// offset of the first byte read and the bytes.
+    fn read_run<'a>(
+        &self,
+        run: Range<usize>,
+        buf: &'a mut AlignedBuf,
+    ) -> io::Result<(u64, &'a [u8])> {
+        let (mut start, end) = (
+            self.chunks[run.start].offset,
+            self.chunks[run.end - 1].end(),
+        );
+        let mut aligned_end = end;
+        if self.direct_reads {
+            start -= start % DIRECT_ALIGN as u64;
+            aligned_end = end.next_multiple_of(DIRECT_ALIGN as u64);
+        }
+        let dst = &mut buf.resize((aligned_end - start) as usize)[..(aligned_end - start) as usize];
+        // The aligned end is past the end of a file that was not written
+        // with `O_DIRECT`.
+        let needed = (end - start) as usize;
+        let mut filled = 0;
+        while filled < needed {
+            match self
+                .read_file
+                .read_at(&mut dst[filled..], start + filled as u64)
+            {
+                Ok(0) => return Err(io::ErrorKind::UnexpectedEof.into()),
+                Ok(n) => filled += n,
+                Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
+                Err(err) => return Err(err),
+            }
+        }
+        Ok((start, &dst[..needed]))
+    }
+
     pub fn remove(self, usage: &Gauge) -> io::Result<()> {
-        drop(self.file);
         drop(self.write_file);
+        drop(self.read_file);
         fs::remove_file(&self.path)?;
         usage.sub(self.len);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{env, process};
+
+    use super::*;
+
+    fn chunk(i: usize) -> Vec<u8> {
+        let len = 600_000 + i * 12_345;
+        (0..len).map(|j| (i * 31 + j * 7 + j / 251) as u8).collect()
+    }
+
+    fn roundtrip(zstd_level: i32, direct_writes: bool, direct_reads: bool) {
+        let path = env::temp_dir().join(format!(
+            "scratch-test-{}-{zstd_level}-{direct_writes}-{direct_reads}",
+            process::id()
+        ));
+        let mut file = match ScratchFile::create(path, zstd_level, direct_writes, direct_reads) {
+            Ok(file) => file,
+            // The file system does not support O_DIRECT.
+            Err(err) if err.raw_os_error() == Some(libc::EINVAL) => return,
+            Err(err) => panic!("create scratch file: {err}"),
+        };
+        let usage = Gauge::default();
+        let mut compressor = ChunkCompressor::new(zstd_level);
+        let chunks = 64;
+        for i in 0..chunks {
+            let raw = chunk(i);
+            file.append(raw.len(), compressor.compress(&raw), &usage)
+                .expect("append");
+        }
+        assert_eq!(
+            file.raw_len(),
+            (0..chunks).map(|i| chunk(i).len() as u64).sum::<u64>()
+        );
+        if zstd_level == 0 {
+            assert!(file.runs().len() > 2, "several runs");
+        }
+
+        let mut seen = file
+            .load(3, Vec::new, |seen, i, raw| {
+                assert_eq!(*raw, chunk(i), "chunk {i}");
+                seen.push(i);
+            })
+            .concat();
+        seen.sort_unstable();
+        assert_eq!(seen, (0..chunks).collect::<Vec<_>>());
+
+        file.remove(&usage).expect("remove");
+        usage.wait_until(|bytes| bytes == 0);
+    }
+
+    #[test]
+    fn test_scratch_file_roundtrip() {
+        for zstd_level in [0, 1] {
+            for direct_writes in [false, true] {
+                for direct_reads in [false, true] {
+                    roundtrip(zstd_level, direct_writes, direct_reads);
+                }
+            }
+        }
     }
 }
