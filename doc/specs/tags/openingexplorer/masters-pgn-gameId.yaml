@@ -37,13 +37,6 @@ get:
           examples:
             pgn:
               $ref: "../../examples/openingExplorer-otbMasterGame.pgn.yaml"
-    "400":
-      description: Invalid parameters, position or moves.
-      content:
-        text/plain:
-          schema:
-            type: string
-          example: "bad request: illegal move e2e5: illegal uci move"
     "404":
       description: There is no game with this id.
       content:
