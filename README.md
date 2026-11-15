@@ -8,20 +8,35 @@ and growing).
 
 See the [Lichess API reference](https://lichess.org/api#tag/opening-explorer).
 
-## Usage
+## Serving
 
-Build the binaries:
+### What to expect?
+
+Production easily handles the current peak usage of ~150 requests per second
+split across /lichess, /masters and /player on this hardware:
+
+* AMD Ryzen 5 PRO 3600 (12 threads @ 3.6 GHz)
+* 128 GiB RAM
+* 4x HGST HUS726T6TAL (5.46 TiB) in RAID 10
+* 2x WDC CL SN720 SDAQNTW-512G-2000 (477 GiB) in RAID 1
+
+### Preparation
+
+Build the [Rust](https://rust-lang.org/tools/install/) binaries:
 
 ```sh
 cargo build --release
 B=target/release
 ```
 
-Production: 128 GiB RAM, 12 hardware threads, SST files on hard disks,
-two instances running intermittently.
+Use the [Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/guides/cli)
+to download prepared SSTs or see indexing instructions below. Example:
 
-Create the database directories from the SST files. The SST files are
-hard-linked, so they must be on the same file system as the database:
+```sh
+hf sync hf://buckets/nfiekas/opening-explorer-lichess/2026-11-v2 /data/hdd/lichess/bucket/2026-11-v2 --exclude "*.parquet"
+```
+
+### Start servers
 
 ```sh
 $B/explorer ingest --db /hdd/lichess/db --sst /hdd/lichess/sst
@@ -172,13 +187,6 @@ $B/parquet_to_games lichess/lichess_db_rated.parquet --out lichess/sst/games
 * [x] Delta-encoding for intermediate entries
 * [ ] Consider introducing player ids
 * [ ] Explore more expensive move compression for cold storage
-
-## Production hardware
-
-* AMD Ryzen 5 PRO 3600 (12 threads @ 3.6 GHz)
-* 128 GiB RAM
-* 4x HGST HUS726T6TAL (5.46 TiB) in RAID 10
-* 2x WDC CL SN720 SDAQNTW-512G-2000 (477 GiB) in RAID 1
 
 ## License
 
