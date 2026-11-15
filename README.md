@@ -38,65 +38,77 @@ hf sync hf://buckets/nfiekas/opening-explorer-lichess/2026-11-v2 /data/hdd/liche
 
 ### Start servers
 
+Create the database directories. The SST files are hard-linked, so each
+database must be on the same file system as its SSTs:
+
 ```sh
-$B/explorer ingest --db /hdd/lichess/db --sst /hdd/lichess/sst
-$B/explorer ingest --db /hdd/masters/db --sst /hdd/masters/sst
+$B/explorer ingest --if-missing --db /data/hdd/lichess/db/2026-11-v2 --sst /data/hdd/lichess/bucket/2026-11-v2
+$B/explorer ingest --if-missing --db /data/hdd/masters/db/2026-11 --sst /data/hdd/masters/sst/2026-11
 ```
 
 Serve them:
 
 ```sh
-$B/explorer lichess --db /hdd/lichess/db --bind 127.0.0.1:9002 --cors \
-    --cache 32g \
-    --blocking-threads 16 \
-    --response-cache 300000 \
-    --lila-bearer-file /etc/explorer-bearer
+$B/explorer lichess --db /data/hdd/lichess/db/2026-11-v2 \
+    --bind 127.0.0.1:9002 --admin-bind 127.0.0.1:9102 \
+    --cors \
+    --cache 16g --pin-metadata \
+    --parallel-fetch --blocking-threads 16 \
+    --no-blacklist
 
-$B/explorer masters --db /hdd/masters/db --bind 127.0.0.1:9003 --cors \
+$B/explorer masters --db /data/hdd/masters/db/2026-11 \
+    --bind 127.0.0.1:9003 --admin-bind 127.0.0.1:9103 \
+    --cors \
     --cache 4g \
     --blocking-threads 12
-```
 
-* `--cache`: Should fit index and filter blocks (10.2 GiB as of 2026-11,
-  growing with the number of games). Adding more is good, but keep a
-  significant amount of RAM for the page cache to avoid cold starts.
-* No `--direct-reads`: Avoid when cold starts matter. Otherwise good combined
-  with assigning all RAM to `--cache`.
-* `--blocking-threads 16`: To be measured. On hard disks, it might be good
-  to oversubscribe.
-* `--response-cache 100000`: 28% hit rate in 2026-11. More gains little.
-* `--lila-bearer-file`: Token of https://lichess.org/@/OpeningExplorer
-  (or `EXPLORER_BEARER_FILE`), for the blacklist of players marked by
-  moderators every `--blacklist-refresh` seconds, default 173 min.
-  `--no-blacklist` to disable.
-* `--admin-bind`: Provide Prometheus metrics at `/metrics`.
-
-The personal opening explorer (`/player`) has its own writable database,
-created on first start, and indexes games from lila on demand:
-
-```sh
-$B/explorer player --db /nvme/player/db --bind 127.0.0.1:9004 --cors \
-    --db-path /nvme/player/sst:64g --db-path /hdd/player/sst:6t \
-    --cache 8g \
+$B/explorer player --db /data/ssd/player/db \
+    --bind 127.0.0.1:9004 --admin-bind 127.0.0.1:9104 \
+    --cors \
+    --db-path /data/ssd/player/sst:64g --db-path /data/hdd/player/sst:4t \
+    --cache 4g \
     --lila-bearer-file /etc/explorer-bearer
 ```
 
-* `--db-path`: The write ahead log (in `--db`), then multiple paths and
-  their capacities (to put the upper levels on fast storage, if possible).
-* `--rate-limit 16m` (default): Bounds write throughput per second of
-  compactions.
-* `--admin-bind`: Provide Prometheus metrics at `/metrics` and `DELETE /player/{id}`.
-* `--indexers 8` (default): Parallel index runs, which is also the most
-  parallel streams from lila's games export. Uses `--lila-bearer-file`
-  if specified.
+* `--cache`: block caches total only 24 GiB, so that most RAM is page cache.
+  As long as meta data is cached, the page cache (compressed blocks) saves
+  about as many disk reads per GiB as the block cache, survives restarts,
+  and leaves room for a second lichess instance during the monthly switch.
+  No `--direct-reads` to use page cache.
+* `--pin-metadata`: Loads and pins all index and filter blocks at startup
+  (~1 min on the HDDs, 10.2 GiB as of 2026-11, growing with the number of
+  games), so that a lookup needs at most one data block read. +30%
+  throughput from a cold start. `--cache` must exceed the metadata with
+  some room for data blocks.
+* `--parallel-fetch`: Reads the games of a response concurrently. Useful for
+  improved I/O scheduling on HDD.
+* `--blocking-threads`: It can be useful to oversubscribe as configured here.
+* `--response-cache`: The default of 100000 had a 28% hit rate in 2026-11.
+  More gains little.
+* `--no-blacklist` / `--lila-bearer-file`: The official Lichess instance
+  gets to use a blacklist with players marked by moderators and relaxed
+  internal rate limits for personal explorer indexing.
+* `--admin-bind`: Prometheus metrics at `/metrics` (and
+  `DELETE /player/{id}` for the personal explorer). Keep private.
+* `--db-path` for the personal explorer: The write ahead log stays in
+  `--db`, upper levels go to the NVMe and the last level (about 10x
+  larger, see `--level-ratio`) to the HDDs. Each column family places its
+  levels against the whole size of a path, so a young database can put up
+  to about 3x the first path's size on it.
+* `--rate-limit`: Defaults to 16 MiB/s, so player database compactions do not
+  disturb the other servers too much.
+
+### Testing
 
 Replay an nginx request log (tab separated `$msec`, `$status`,
-`$request_time`, `$upstream_response_time`, `$request_uri`) against both:
+`$request_time`, `$upstream_response_time`, `$request_uri`) against the
+servers:
 
 ```sh
 $B/stress_explorer samples/requests/explorer-2026-11-06T1520Z-1h.tsv.zst \
     --lichess-url http://127.0.0.1:9002 \
-    --masters-url http://127.0.0.1:9003
+    --masters-url http://127.0.0.1:9003 \
+    --player-url http://127.0.0.1:9004
 ```
 
 ## Indexing
