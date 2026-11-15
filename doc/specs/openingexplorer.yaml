@@ -1,0 +1,53 @@
+# The opening explorer section of https://github.com/lichess-org/api, which
+# is updated from here: tags/openingexplorer/, schemas/ and examples/ have
+# the same layout as its doc/specs/. Path entries are as in its
+# lichess-api.yaml. The shared schemas (GameColor, Speed, VariantKey) are
+# copies from there.
+openapi: "3.1.0"
+info:
+  version: 4.0.0
+  title: Lichess opening explorer
+  license:
+    name: AGPL-3.0-or-later
+    url: https://www.gnu.org/licenses/agpl-3.0.txt
+  description: |
+    Lookup positions from the [Lichess opening explorer](https://lichess.org/analysis#explorer).
+servers:
+  - url: https://explorer.lichess.org
+tags:
+  - name: Opening Explorer
+    description: |
+      Lookup positions from the [Lichess opening explorer](https://lichess.org/analysis#explorer).
+
+      Runs <https://github.com/lichess-org/lila-openingexplorer>.
+
+      > [!important]
+      > The hostname for these endpoints is `explorer.lichess.org` and not `lichess.org`.
+paths:
+  /masters:
+    $ref: "./tags/openingexplorer/masters.yaml"
+
+  /lichess:
+    $ref: "./tags/openingexplorer/lichess.yaml"
+
+  /lichess/history:
+    $ref: "./tags/openingexplorer/lichess-history.yaml"
+
+  /player:
+    $ref: "./tags/openingexplorer/player.yaml"
+
+  /masters/pgn/{gameId}:
+    $ref: "./tags/openingexplorer/masters-pgn-gameId.yaml"
+
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      description: |
+        Read [the introduction for how to make authenticated requests](https://lichess.org/api#description/authentication).
+        The opening explorer needs no scopes.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://lichess.org/oauth
+          tokenUrl: https://lichess.org/api/token
+          scopes: {}

@@ -32,6 +32,12 @@ Only `/lichess`, `/lichess/history`, `/masters`, `/master`
 and `/masters/pgn/{id}` requests, and only the query parameters the
 explorers recognize. No `/player` requests.
 
+## `openings/`
+
+A few opening names in the format of
+https://github.com/lichess-org/chess-openings (`a.tsv` to `e.tsv`), for
+`--openings-dir`.
+
 ## `golden/`
 
 `requests.txt`: real requests of the sample log (and a few more), picked
@@ -39,9 +45,10 @@ to cover the lichess and masters explorers: positions with many games, one
 game (cold) or none, top and recent games, history, every variant, PGNs, a
 bad request.
 
-`responses.txt`: their responses from databases built from the
-samples above, which `samples/test-pipeline.sh` (and CI) compares byte for
-byte.
+`responses.txt`: their responses (body, then status and content type)
+from databases built from the samples above, which
+`samples/test-pipeline.sh` (and CI) compares byte for byte, and checks
+against the API description (`doc/specs/`).
 
 After an intended change of responses, record them anew with
 `UPDATE_GOLDEN=1 samples/test-pipeline.sh`.

@@ -39,6 +39,15 @@ jobs:
         if: failure()
         run: tail -n 100 "$RUNNER_TEMP"/pipeline-test/*.log || true
 
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint API description
+        run: npx --yes @redocly/cli@2.71.2 lint doc/specs/openingexplorer.yaml --format=github-actions
+      - name: Check formatting of API description
+        run: npx --yes prettier@3.9.10 --check doc
+
   image:
     runs-on: ${{ matrix.runner }}
     strategy:

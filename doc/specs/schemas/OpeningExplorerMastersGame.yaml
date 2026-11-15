@@ -1,0 +1,26 @@
+type: object
+
+properties:
+  id:
+    type: string
+  winner:
+    oneOf:
+      - $ref: "./GameColor.yaml"
+      - type: "null"
+  white:
+    $ref: "./OpeningExplorerGamePlayer.yaml"
+  black:
+    $ref: "./OpeningExplorerGamePlayer.yaml"
+  year:
+    type: integer
+  month:
+    type: [string, "null"]
+    description: Month of the game, if known
+
+required:
+  - id
+  - winner
+  - white
+  - black
+  - year
+  - month

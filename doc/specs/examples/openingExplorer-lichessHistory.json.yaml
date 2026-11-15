@@ -1,0 +1,15 @@
+value:
+  {
+    "white": 9227,
+    "draws": 588,
+    "black": 8434,
+    "moves": [],
+    "recentGames": [],
+    "topGames": [],
+    "opening": { "eco": "C20", "name": "King's Pawn Game" },
+    "history":
+      [
+        { "month": "2026-09", "white": 4529, "draws": 291, "black": 4185 },
+        { "month": "2026-10", "white": 4698, "draws": 297, "black": 4249 },
+      ],
+  }

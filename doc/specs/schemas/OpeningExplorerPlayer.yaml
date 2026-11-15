@@ -1,0 +1,71 @@
+type: object
+
+properties:
+  opening:
+    oneOf:
+      - $ref: "./OpeningExplorerOpening.yaml"
+      - type: "null"
+  queuePosition:
+    type: integer
+    description: Waiting for other players to be indexed first
+  white:
+    type: integer
+  draws:
+    type: integer
+  black:
+    type: integer
+  moves:
+    type: array
+    items:
+      type: object
+      properties:
+        uci:
+          type: string
+        san:
+          type: string
+        averageOpponentRating:
+          type: integer
+        performance:
+          type: integer
+        white:
+          type: integer
+        draws:
+          type: integer
+        black:
+          type: integer
+        game:
+          oneOf:
+            - $ref: "./OpeningExplorerPlayerGame.yaml"
+            - type: "null"
+        opening:
+          oneOf:
+            - $ref: "./OpeningExplorerOpening.yaml"
+            - type: "null"
+      required:
+        - uci
+        - san
+        - white
+        - draws
+        - black
+        - game
+        - opening
+  recentGames:
+    type: array
+    items:
+      allOf:
+        - type: object
+          properties:
+            uci:
+              type: string
+          required:
+            - uci
+        - $ref: "./OpeningExplorerPlayerGame.yaml"
+
+required:
+  - opening
+  - queuePosition
+  - white
+  - draws
+  - black
+  - moves
+  - recentGames

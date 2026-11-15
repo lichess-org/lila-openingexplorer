@@ -28,6 +28,7 @@ use tokio::task::JoinSet;
 /// Exits with status 1 if any response was invalid, a server error (5xx) or
 /// another unexpected status, or if any request failed without a response.
 /// Client errors (4xx) are expected, since logs have bad requests.
+/// Streamed responses (/player) are read to the end.
 #[derive(Parser)]
 #[command(group(ArgGroup::new("servers").required(true).multiple(true)))]
 struct Args {
@@ -40,6 +41,9 @@ struct Args {
     /// /masters/pgn/{id} (also /master).
     #[arg(long, group = "servers")]
     masters_url: Option<String>,
+    /// Base URL of the player explorer, for /player (also /personal).
+    #[arg(long, group = "servers")]
+    player_url: Option<String>,
     /// Concurrent requests, across all targets.
     #[arg(long, default_value_t = 32)]
     concurrency: usize,
@@ -85,6 +89,7 @@ struct Args {
 enum Kind {
     Lichess,
     Masters,
+    Player,
 }
 
 impl Kind {
@@ -93,6 +98,7 @@ impl Kind {
         match path {
             "/lichess" | "/lichess/history" => Some(Kind::Lichess),
             "/masters" | "/master" => Some(Kind::Masters),
+            "/player" | "/personal" => Some(Kind::Player),
             _ => path
                 .strip_prefix("/masters/pgn/")
                 .or_else(|| path.strip_prefix("/master/pgn/"))
@@ -313,10 +319,13 @@ async fn request(
         }
     };
     let status = response.status();
-    let is_json = response
+    let content_type = response
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
-        .is_some_and(|value| value.as_bytes().starts_with(b"application/json"));
+        .map(|value| value.as_bytes().to_owned())
+        .unwrap_or_default();
+    let is_json = content_type.starts_with(b"application/json");
+    let is_ndjson = content_type.starts_with(b"application/x-ndjson");
     let body = match response.bytes().await {
         Ok(body) => body,
         Err(err) => {
@@ -342,7 +351,16 @@ async fn request(
     if status.is_success() {
         outcome.ok += 1;
         // Masters PGNs are not JSON.
-        if is_json && let Err(err) = validate(&body) {
+        let result = if is_json {
+            validate(&body)
+        } else if is_ndjson {
+            body.split(|&b| b == b'\n')
+                .filter(|line| !line.trim_ascii().is_empty())
+                .try_for_each(validate)
+        } else {
+            Ok(())
+        };
+        if let Err(err) = result {
             outcome.invalid += 1;
             outcome.example(format!("{url}: {err}"));
         }
@@ -504,6 +522,7 @@ async fn main() {
     let targets: Vec<Target> = [
         (Kind::Lichess, "lichess", &args.lichess_url),
         (Kind::Masters, "masters", &args.masters_url),
+        (Kind::Player, "player", &args.player_url),
     ]
     .into_iter()
     .filter_map(|(kind, name, url)| {

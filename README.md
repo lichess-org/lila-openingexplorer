@@ -1,8 +1,12 @@
-# lila-openingexplorer v4
+# lila-openingexplorer
 
-Next generation opening explorer for lichess.org, indexing billions of
+Opening explorer for lichess.org, indexing billions of
 chess games (currently ~10 billion rated games across all variants,
 and growing).
+
+## API
+
+See the [Lichess API reference](https://lichess.org/api#tag/opening-explorer).
 
 ## Usage
 

@@ -1,0 +1,81 @@
+get:
+  operationId: openingExplorerMaster
+  summary: Masters database
+  description: |
+    **Endpoint: <https://explorer.lichess.org/masters>**
+
+    Example: `curl https://explorer.lichess.org/masters?play=d2d4,d7d5,c2c4,c7c6,c4d5`
+  tags:
+    - Opening Explorer
+  servers:
+    - url: https://explorer.lichess.org
+    - url: http://localhost:{port}
+      variables:
+        port:
+          default: "9002"
+  security:
+    - OAuth2: []
+  parameters:
+    - in: query
+      name: fen
+      description: X-FEN of the root position
+      schema:
+        type: string
+      example: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+    - in: query
+      name: play
+      description: |
+        Comma separated sequence of legal moves in UCI notation.
+        Play additional moves starting from `fen`.
+        Required to find an opening name, if `fen` is not an exact match
+        for a named position.
+      schema:
+        type: string
+        default: ""
+      example: d2d4,d7d5,c2c4,c7c6,c4d5
+    - in: query
+      name: since
+      description: Include only games from this year or later
+      schema:
+        type: integer
+        default: 1952
+    - in: query
+      name: until
+      description: Include only games from this year or earlier
+      schema:
+        type: integer
+    - in: query
+      name: moves
+      description: Number of most common moves to display
+      schema:
+        type: integer
+        default: 12
+    - in: query
+      name: topGames
+      description: Number of top games to display
+      schema:
+        type: integer
+        default: 15
+        maximum: 15
+  responses:
+    "200":
+      description: Opening statistics and game references for the position.
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+            default: "'*'"
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas/OpeningExplorerMasters.yaml"
+          examples:
+            default:
+              $ref: "../../examples/openingExplorer-masters.json.yaml"
+    "400":
+      description: Invalid parameters, position or moves.
+      content:
+        text/plain:
+          schema:
+            type: string
+          example: "bad request: illegal move e2e5: illegal uci move"
