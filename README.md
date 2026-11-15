@@ -1,8 +1,13 @@
 # lila-openingexplorer
 
 Opening explorer for lichess.org, indexing billions of
-chess games (currently ~10 billion rated games across all variants,
-and growing).
+chess games (currently ~500 billion positions from rated games across all
+variants, and growing). Featuring:
+
+* `/masters`, a database of master games
+* `/lichess`, [rated games from Lichess itself](https://database.lichess.org/)
+* `/player`, an on-demand database of [openings by player](https://lichess.org/@/lichess/blog/announcing-the-personal-opening-explorer/YXMPxxMA)
+* [Curated opening names](https://github.com/lichess-org/chess-openings)
 
 ## API
 
@@ -188,17 +193,6 @@ Scan out game SSTs
 ```sh
 $B/parquet_to_games lichess/lichess_db_rated.parquet --out lichess/sst/games
 ```
-
-## Todo
-
-* [ ] Broadcast games
-* [x] Unify masters/lichess API
-* [ ] Upstream RocksDB PerfStatsLevel mismatch
-* [x] Document and use title on GamePlayer
-* [ ] Record provenance in SST file meta data
-* [x] Delta-encoding for intermediate entries
-* [ ] Consider introducing player ids
-* [ ] Explore more expensive move compression for cold storage
 
 ## License
 
