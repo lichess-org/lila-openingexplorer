@@ -60,13 +60,17 @@ $B/explorer lichess --db /data/hdd/lichess/db/2026-11-v2 \
     --cache 16g --pin-metadata \
     --parallel-fetch --blocking-threads 16 \
     --no-blacklist
+```
 
+```sh
 $B/explorer masters --db /data/hdd/masters/db/2026-11 \
     --bind 127.0.0.1:9003 --admin-bind 127.0.0.1:9103 \
     --cors \
     --cache 4g \
     --blocking-threads 12
+```
 
+```sh
 $B/explorer player --db /data/ssd/player/db \
     --bind 127.0.0.1:9004 --admin-bind 127.0.0.1:9104 \
     --cors \
@@ -193,6 +197,53 @@ Scan out game SSTs
 ```sh
 $B/parquet_to_games lichess/lichess_db_rated.parquet --out lichess/sst/games
 ```
+
+## Database design
+
+The main design decision in v4 is to **prioritize (offline) indexing
+performance**. It seems irrelevant for users, and indeed until now we were
+satisfied with indexing games ~2x faster than they were being played.
+But it allows iterating and actually testing new ideas, leading to overall
+better performance after all.
+
+### Read-only masters and lichess dbs
+
+**`games`**: Game meta data and `PackedMoves`, indexing by internal
+`GameIndex`.
+
+**`game_ids`**: Mapping Lichess `GameId` to internal `GameIndex`. Only used
+for the `/masters/pgn/<game_id>` endpoint.
+
+**`positions`**: Denormalized statistics for positions (in groups by month,
+move, rating and speed, which can be summed for the respective filter). Indexed
+by 96-bit `PositionKey` (based on Zobrist hashing). Positions that have been
+reached only once are not stored and go to `cold_positions` instead.
+
+**`cold_positions`**: The long tail of positions that have been reached only
+once. Indexed by a truncated hash, and merely pointing to the games in which
+they *may* have been reached. At runtime, the candidate games are loaded
+to provide the meta data, and replayed to check if any position actually
+matches.
+
+This warm/cold split is tricky to efficiently maintain in a live database,
+but trivial when creating a read-only database offline. It saves so much space,
+that 2 instances can live side by side for a blue/green rollover, so having
+only offline indexing is fine.
+
+### Live-indexed player db
+
+However the player db needs online indexing. It uses the same design with
+these changes:
+
+* `positions` and `cold_positions` keys are prefixed with an internal player id
+  and a generation number. We can do indexing into the next generation and
+  drop the previous one, basically like the blue/green rollover of the lichess
+  database.
+* To allow *some* live indexing, we add associative merge operators
+  for `positions` and `cold_positions`, and relax the requirement for the
+  hard split at exactly one game. Instead, a read always hits both and merges
+  the result. The generation rollover above serves as a periodic compaction
+  step.
 
 ## License
 
