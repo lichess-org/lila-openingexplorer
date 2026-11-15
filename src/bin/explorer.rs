@@ -43,7 +43,7 @@ enum Command {
     /// Serves /masters and /masters/pgn/{id} from an ingested database of
     /// masters games.
     Masters(ServeArgs),
-    /// Serves /player (and /personal) from a writable database of indexed
+    /// Serves /player from a writable database of indexed
     /// players, created if missing.
     Player(PlayerArgs),
 }

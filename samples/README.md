@@ -28,9 +28,9 @@ tab separated
 `$msec`, `$status`, `$request_time`, `$upstream_response_time`,
 `$request_uri`.
 
-Only `/lichess`, `/lichess/history`, `/masters`, `/master`
-and `/masters/pgn/{id}` requests, and only the query parameters the
-explorers recognize. No `/player` requests.
+Only `/lichess`, `/masters` and `/masters/pgn/{id}` requests, and only
+the query parameters the explorers recognize. `/player` requests omitted
+for privacy.
 
 ## `openings/`
 

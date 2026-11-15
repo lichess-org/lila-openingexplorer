@@ -51,7 +51,5 @@
 /lichess?recentGames=0&variant=racingKings&topGames=0&speeds=bullet%2Cblitz%2Crapid&fen=8%2F8%2F8%2F8%2F8%2F8%2FkrbnNBRK%2FqrbnNBRQ%20w%20-%20-%200%201&ratings=2500
 # variant_threeCheck
 /lichess?recentGames=0&variant=threeCheck&topGames=0&speeds=bullet%2Cblitz%2Crapid&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F4P3%2F8%2FPPPP1PPP%2FRNBQKBNR%20b%20KQkq%20-%200%201%20%2B0%2B0&ratings=1000%2C1200
-# lichess_history_endpoint
-/lichess/history?variant=standard&play=e2e4%2Ce7e5
 # pgn_200
 /masters/pgn/X08vNMbe

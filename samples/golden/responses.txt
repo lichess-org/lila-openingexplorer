@@ -118,10 +118,6 @@ GET /lichess?recentGames=0&variant=threeCheck&topGames=0&speeds=bullet%2Cblitz%2
 {"white":221,"draws":0,"black":160,"moves":[{"uci":"e7e5","san":"e5","averageRating":1228,"white":113,"draws":0,"black":69,"game":null,"opening":{"eco":"C20","name":"King's Pawn Game"}},{"uci":"e7e6","san":"e6","averageRating":1341,"white":33,"draws":0,"black":44,"game":null,"opening":{"eco":"C00","name":"French Defense"}},{"uci":"d7d5","san":"d5","averageRating":1170,"white":33,"draws":0,"black":10,"game":null,"opening":{"eco":"B01","name":"Scandinavian Defense"}},{"uci":"b8c6","san":"Nc6","averageRating":1299,"white":11,"draws":0,"black":14,"game":null,"opening":null},{"uci":"g8f6","san":"Nf6","averageRating":1249,"white":5,"draws":0,"black":10,"game":null,"opening":null},{"uci":"c7c6","san":"c6","averageRating":1291,"white":8,"draws":0,"black":1,"game":null,"opening":{"eco":"B10","name":"Caro-Kann Defense"}},{"uci":"d7d6","san":"d6","averageRating":1223,"white":7,"draws":0,"black":1,"game":null,"opening":null},{"uci":"c7c5","san":"c5","averageRating":1372,"white":4,"draws":0,"black":3,"game":null,"opening":{"eco":"B20","name":"Sicilian Defense"}},{"uci":"g7g6","san":"g6","averageRating":1445,"white":2,"draws":0,"black":4,"game":null,"opening":null},{"uci":"b7b5","san":"b5","averageRating":951,"white":2,"draws":0,"black":1,"game":null,"opening":null},{"uci":"f7f5","san":"f5","averageRating":1119,"white":0,"draws":0,"black":2,"game":null,"opening":null},{"uci":"f7f6","san":"f6","averageRating":1374,"white":0,"draws":0,"black":1,"game":null,"opening":null}],"recentGames":[],"topGames":[],"opening":{"eco":"B00","name":"King's Pawn Game"}}
 200 application/json
 
-GET /lichess/history?variant=standard&play=e2e4%2Ce7e5
-{"white":2761,"draws":191,"black":2445,"moves":[],"recentGames":[],"topGames":[],"opening":{"eco":"C20","name":"King's Pawn Game"},"history":[]}
-200 application/json
-
 GET /masters/pgn/X08vNMbe
 [Event "Trembley Memorial"]
 [Site "Brindmoor"]

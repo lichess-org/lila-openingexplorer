@@ -34,14 +34,14 @@ use tokio::task::JoinSet;
 struct Args {
     /// Request log.
     log: PathBuf,
-    /// Base URL of the lichess explorer, for /lichess and /lichess/history.
+    /// Base URL of the lichess explorer, for /lichess.
     #[arg(long, group = "servers")]
     lichess_url: Option<String>,
     /// Base URL of the masters explorer, for /masters and
-    /// /masters/pgn/{id} (also /master).
+    /// /masters/pgn/{id}.
     #[arg(long, group = "servers")]
     masters_url: Option<String>,
-    /// Base URL of the player explorer, for /player (also /personal).
+    /// Base URL of the player explorer, for /player.
     #[arg(long, group = "servers")]
     player_url: Option<String>,
     /// Concurrent requests, across all targets.
@@ -96,12 +96,11 @@ impl Kind {
     /// The server for the path, if it is one of the routes.
     fn route(path: &str) -> Option<Kind> {
         match path {
-            "/lichess" | "/lichess/history" => Some(Kind::Lichess),
-            "/masters" | "/master" => Some(Kind::Masters),
-            "/player" | "/personal" => Some(Kind::Player),
+            "/lichess" => Some(Kind::Lichess),
+            "/masters" => Some(Kind::Masters),
+            "/player" => Some(Kind::Player),
             _ => path
                 .strip_prefix("/masters/pgn/")
-                .or_else(|| path.strip_prefix("/master/pgn/"))
                 .filter(|id| id.parse::<GameId>().is_ok())
                 .map(|_| Kind::Masters),
         }

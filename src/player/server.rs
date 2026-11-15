@@ -872,7 +872,6 @@ pub fn router(
     });
     let app = Router::new()
         .route("/player", get(player))
-        .route("/personal", get(player))
         .with_state(Arc::clone(&state));
     let admin = Router::new()
         .route("/metrics", get(metrics))

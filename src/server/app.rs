@@ -36,7 +36,7 @@ use crate::{
         metrics::Metrics,
         openings::{self, Openings},
         pgn::masters_pgn,
-        query::{LichessQuery, Limits, MastersQuery, Play, PlayError, PlayPosition},
+        query::{LichessQuery, MastersQuery, Play, PlayError, PlayPosition},
         replay::find_visit,
         response::{
             ExplorerGame, ExplorerGameWithUci, ExplorerMove, ExplorerResponse, HistoryEntry, Stats,
@@ -539,22 +539,6 @@ async fn lichess(
     explore(state, ExploreQuery::Lichess(query)).await
 }
 
-async fn lichess_history(
-    State(state): State<Shared>,
-    query: Result<Query<LichessQuery>, QueryRejection>,
-) -> Result<Response, Error> {
-    let query = LichessQuery {
-        history: true,
-        limits: Limits {
-            moves: 0,
-            top_games: 0,
-            recent_games: 0,
-        },
-        ..parse_query(&state, query)?
-    };
-    explore(state, ExploreQuery::Lichess(query)).await
-}
-
 async fn masters(
     State(state): State<Shared>,
     query: Result<Query<MastersQuery>, QueryRejection>,
@@ -721,14 +705,10 @@ pub async fn serve(config: AppConfig, db: Database) -> Result<(), Box<dyn std::e
 
     let app = Router::new();
     let app = match state.config.kind {
-        Kind::Lichess => app
-            .route("/lichess", get(lichess))
-            .route("/lichess/history", get(lichess_history)),
+        Kind::Lichess => app.route("/lichess", get(lichess)),
         Kind::Masters => app
             .route("/masters", get(masters))
-            .route("/masters/pgn/{id}", get(masters_pgn_handler))
-            .route("/master", get(masters))
-            .route("/master/pgn/{id}", get(masters_pgn_handler)),
+            .route("/masters/pgn/{id}", get(masters_pgn_handler)),
     };
     let app = app.with_state(Arc::clone(&state));
     let app = if state.config.cors {

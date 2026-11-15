@@ -30,9 +30,6 @@ paths:
   /lichess:
     $ref: "./tags/openingexplorer/lichess.yaml"
 
-  /lichess/history:
-    $ref: "./tags/openingexplorer/lichess-history.yaml"
-
   /player:
     $ref: "./tags/openingexplorer/player.yaml"
 

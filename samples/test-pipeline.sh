@@ -55,7 +55,6 @@ api_example() { # uri, "status content-type", body file
     local path=${1%%\?*} status=${2%% *} media=${2#* } operation
     media=${media%%;*}
     case $path in
-        /lichess/history) operation=lichess-history ;;
         /masters/pgn/*) operation=masters-pgn-gameId ;;
         *) operation=${path#/} ;;
     esac
