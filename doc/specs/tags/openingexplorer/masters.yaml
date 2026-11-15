@@ -35,15 +35,20 @@ get:
       example: d2d4,d7d5,c2c4,c7c6,c4d5
     - in: query
       name: since
-      description: Include only games from this year or later
+      description: |
+        Include only games from this month or later: `YYYY-MM`, or `YYYY`
+        for January of that year
       schema:
-        type: integer
-        default: 1952
+        type: string
+        default: 1952-01
     - in: query
       name: until
-      description: Include only games from this year or earlier
+      description: |
+        Include only games from this month or earlier: `YYYY-MM`, or `YYYY`
+        for December of that year
       schema:
-        type: integer
+        type: string
+        default: 3000-12
     - in: query
       name: moves
       description: Number of most common moves to display

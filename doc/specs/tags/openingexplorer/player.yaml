@@ -85,13 +85,17 @@ get:
             - rated
     - in: query
       name: since
-      description: Include only games from this month or later
+      description: |
+        Include only games from this month or later: `YYYY-MM`, or `YYYY`
+        for January of that year
       schema:
         type: string
         default: 1952-01
     - in: query
       name: until
-      description: Include only games from this month or earlier
+      description: |
+        Include only games from this month or earlier: `YYYY-MM`, or `YYYY`
+        for December of that year
       schema:
         type: string
         default: 3000-12
