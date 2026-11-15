@@ -35,7 +35,7 @@ use crate::{
         ChunkWriterConfig, ChunkWriterTimes, Layout, RESIDENT_PARTITIONS_PER_PASS, ScratchFile,
         spawn_chunk_writers,
     },
-    sst::{SstConfig, env_options},
+    sst::SstConfig,
     util::{Gauge, create_dir, create_empty_dir, log_above, progress_bar, timed, timed_seconds},
 };
 
@@ -288,10 +288,6 @@ pub struct Config {
     pub io_depth: usize,
     /// Use O_DIRECT to read the input and the scratch files.
     pub direct_reads: bool,
-    /// Use O_DIRECT to write the scratch files.
-    pub direct_scratch_writes: bool,
-    /// Use O_DIRECT to write the SST files.
-    pub direct_sst_writes: bool,
     /// Zstd level for scratch chunks, or 0 for no compression.
     pub scratch_zstd_level: i32,
     /// Skip the first row groups of the inputs.
@@ -463,7 +459,6 @@ pub fn convert(
         }
         .options(),
         positions_opts: &SstConfig::POSITIONS.options(),
-        env_opts: &env_options(config.direct_sst_writes),
         out,
         target_size: config.sst_target_size,
         cold: config.cold,
@@ -591,7 +586,6 @@ pub fn convert(
                     read_threads,
                     write_threads,
                     io_depth: config.io_depth.max(1),
-                    direct_writes: config.direct_scratch_writes,
                     direct_reads: config.direct_reads,
                     counters,
                     hot_set,
@@ -690,7 +684,6 @@ struct ScatterConfig<'a> {
     read_threads: usize,
     write_threads: usize,
     io_depth: usize,
-    direct_writes: bool,
     direct_reads: bool,
     counters: &'a Counters,
     hot_set: &'a IntSet<PositionKey>,
@@ -754,7 +747,6 @@ fn scatter_pass(
                     first_memory_partition + i
                 )),
                 config.zstd_level,
-                config.direct_writes,
                 config.direct_reads,
             )?))
         })

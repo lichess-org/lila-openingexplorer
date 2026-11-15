@@ -1,9 +1,4 @@
-use std::{
-    ffi::CString,
-    fs, io, mem,
-    os::unix::fs::MetadataExt,
-    path::{Path, PathBuf},
-};
+use std::{ffi::CString, fs, io, mem, os::unix::fs::MetadataExt, path::Path};
 
 /// Total physical memory in bytes.
 pub fn total_memory() -> Option<u64> {
@@ -39,23 +34,6 @@ pub fn free_space(path: &Path) -> Option<u64> {
 /// created.
 pub fn same_file_system(a: &Path, b: &Path) -> io::Result<bool> {
     Ok(fs::metadata(existing_ancestor(a))?.dev() == fs::metadata(existing_ancestor(b))?.dev())
-}
-
-/// Whether the file system that contains `path` (or will contain it once it
-/// is created) is on a rotational disk. `None` if it is not backed by a
-/// single block device that says so, like tmpfs or network file systems.
-pub fn rotational(path: &Path) -> Option<bool> {
-    let dev = fs::metadata(existing_ancestor(path)).ok()?.dev();
-    let sys = PathBuf::from(format!(
-        "/sys/dev/block/{}:{}",
-        libc::major(dev),
-        libc::minor(dev)
-    ));
-    // Partitions share the queue of their disk.
-    ["queue/rotational", "../queue/rotational"]
-        .iter()
-        .find_map(|queue| fs::read_to_string(sys.join(queue)).ok())
-        .map(|rotational| rotational.trim() == "1")
 }
 
 /// Creates a directory, unless it already exists.

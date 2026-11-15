@@ -4,7 +4,7 @@ use clap::Parser;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 use lila_openingexplorer4::{
     parquet_to_games::{Config, convert},
-    util::{ByteSize, DirectWrites},
+    util::ByteSize,
 };
 use tikv_jemallocator::Jemalloc;
 
@@ -34,14 +34,9 @@ struct Args {
     /// leave one physical core idle.
     #[clap(long)]
     threads: Option<usize>,
-    /// Disable O_DIRECT for reading input and writing SST files.
+    /// Disable O_DIRECT for reading the input.
     #[clap(long)]
     no_direct_io: bool,
-    /// Write SST files with O_DIRECT. By default, unless they are on a
-    /// rotational disk, where the page cache keeps concurrent writes
-    /// sequential.
-    #[clap(long, value_enum, default_value_t = DirectWrites::Auto, conflicts_with = "no_direct_io")]
-    direct_writes: DirectWrites,
     /// Skip the first row groups of the inputs. Game indexes still count
     /// the skipped rows.
     #[clap(long, default_value_t = 0, help_heading = "Benchmarking")]
@@ -66,7 +61,6 @@ fn main() {
                 .max(2)
         }),
         direct_reads: !args.no_direct_io,
-        direct_writes: !args.no_direct_io && args.direct_writes.resolve(&args.out),
         skip_row_groups: args.skip_row_groups,
         row_groups: args.row_groups,
         sst_target_size: args.sst_target_size.into(),

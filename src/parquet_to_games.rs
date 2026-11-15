@@ -14,7 +14,7 @@ use indicatif::{MultiProgress, ProgressBar};
 use crate::{
     packed::{GameId, GameIndex, pack_game_value},
     parquet::Input,
-    sst::{RollingSstWriter, SstConfig, SstError, SstStats, env_options},
+    sst::{RollingSstWriter, SstConfig, SstError, SstStats},
     util::{create_empty_dir, log_above, progress_bar},
 };
 
@@ -31,8 +31,6 @@ pub struct Config {
     pub threads: usize,
     /// Use O_DIRECT to read the input.
     pub direct_reads: bool,
-    /// Use O_DIRECT to write the SST files.
-    pub direct_writes: bool,
     /// Skip the first row groups of the inputs.
     pub skip_row_groups: usize,
     /// Only process the first row groups of the inputs.
@@ -72,7 +70,6 @@ pub fn convert(
     }
 
     let opts = SstConfig::GAMES.options();
-    let env_opts = env_options(config.direct_writes);
     let ranges = ranges(&input, config);
     let progress = progress.add(progress_bar(input.total_rows()));
     let next = AtomicUsize::new(0);
@@ -89,7 +86,6 @@ pub fn convert(
                             &input,
                             range.clone(),
                             &opts,
-                            &env_opts,
                             &out.join(format!("{:06}", range.start)),
                             config.sst_target_size,
                             game_ids.is_some(),
@@ -160,18 +156,12 @@ fn write_range(
     input: &Input,
     range: std::ops::Range<usize>,
     opts: &rocksdb::Options,
-    env_opts: &rocksdb::EnvOptions,
     prefix: &Path,
     target_size: u64,
     collect_ids: bool,
     progress: &ProgressBar,
 ) -> Result<(SstStats, Vec<(GameId, GameIndex)>), SstError> {
-    let mut writer = RollingSstWriter::new(
-        opts,
-        env_opts,
-        prefix.into(),
-        MAX_FILE_SIZE_FACTOR * target_size,
-    );
+    let mut writer = RollingSstWriter::new(opts, prefix.into(), MAX_FILE_SIZE_FACTOR * target_size);
     let mut ids = Vec::new();
     let mut value = Vec::new();
     for row_group in range {
@@ -204,13 +194,7 @@ fn write_game_ids(
         return Err(io::Error::other(format!("duplicate game id {}", pair[0].0)).into());
     }
     let opts = SstConfig::GAME_IDS.options();
-    let env_opts = env_options(config.direct_writes);
-    let mut writer = RollingSstWriter::new(
-        &opts,
-        &env_opts,
-        dir.join("game_ids"),
-        config.sst_target_size,
-    );
+    let mut writer = RollingSstWriter::new(&opts, dir.join("game_ids"), config.sst_target_size);
     for (id, index) in ids {
         writer.put(&id.to_bytes(), &index.to_bytes())?;
     }

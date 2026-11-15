@@ -11,7 +11,7 @@ use std::{
 use clap::Parser;
 use lila_openingexplorer4::{
     server::db::{COLD_CF, GAME_IDS_CF, GAMES_CF, POSITIONS_CF},
-    sst::{FILTER_BITS_PER_KEY, SstConfig, SstFile, env_options},
+    sst::{FILTER_BITS_PER_KEY, SstConfig, SstFile},
 };
 use rocksdb::{DB, DBCompressionType, Options, ReadOptions};
 use tikv_jemallocator::Jemalloc;
@@ -178,7 +178,6 @@ fn main() {
     {
         opts.set_compression_options_max_compressed_bytes_per_kb(bar);
     }
-    let env_opts = env_options(true);
 
     let started = Instant::now();
     let next = AtomicUsize::new(0);
@@ -199,9 +198,8 @@ fn main() {
                     let end = file.end_key.clone().expect("end key");
                     let mut iter = db.raw_iterator_cf_opt(&cf, read_opts);
                     iter.seek(&start);
-                    let mut out =
-                        SstFile::create(&opts, &env_opts, args.out.join(format!("{i:05}.sst")))
-                            .expect("create sst");
+                    let mut out = SstFile::create(&opts, args.out.join(format!("{i:05}.sst")))
+                        .expect("create sst");
                     let mut keys = 0;
                     while let Some(key) = iter.key() {
                         if key > end.as_slice() {

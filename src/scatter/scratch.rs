@@ -1,5 +1,5 @@
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io,
     ops::Range,
     os::unix::fs::{FileExt, OpenOptionsExt},
@@ -13,24 +13,10 @@ use std::{
 
 use crate::util::{AlignedBuf, DIRECT_ALIGN, Gauge};
 
-/// A compressed chunk: `len` bytes, followed by zero padding to
-/// `DIRECT_ALIGN`.
-pub struct Compressed<'a> {
-    len: usize,
-    padded: &'a [u8],
-}
-
-impl Compressed<'_> {
-    /// Bytes occupied in a scratch file opened with `O_DIRECT`.
-    pub fn padded_len(&self) -> usize {
-        self.padded.len()
-    }
-}
-
 pub struct ChunkCompressor {
     /// `None` for no compression.
     zstd: Option<zstd::bulk::Compressor<'static>>,
-    buf: AlignedBuf,
+    buf: Vec<u8>,
 }
 
 impl ChunkCompressor {
@@ -38,24 +24,21 @@ impl ChunkCompressor {
         ChunkCompressor {
             zstd: (zstd_level != 0)
                 .then(|| zstd::bulk::Compressor::new(zstd_level).expect("zstd compressor")),
-            buf: AlignedBuf::new(),
+            buf: Vec::new(),
         }
     }
 
-    pub fn compress(&mut self, raw: &[u8]) -> Compressed<'_> {
-        let len = match &mut self.zstd {
-            None => {
-                self.buf.resize(raw.len())[..raw.len()].copy_from_slice(raw);
-                raw.len()
-            }
+    pub fn compress<'a>(&'a mut self, raw: &'a [u8]) -> &'a [u8] {
+        match &mut self.zstd {
+            None => raw,
             Some(zstd) => {
-                let dst = self.buf.resize(zstd::zstd_safe::compress_bound(raw.len()));
-                zstd.compress_to_buffer(raw, dst).expect("compress")
+                self.buf.clear();
+                self.buf.reserve(zstd::zstd_safe::compress_bound(raw.len()));
+                zstd.compress_to_buffer(raw, &mut self.buf)
+                    .expect("compress");
+                &self.buf
             }
-        };
-        // The padding is zero filled by `resize`.
-        let padded = &self.buf.as_slice()[..len.next_multiple_of(DIRECT_ALIGN)];
-        Compressed { len, padded }
+        }
     }
 }
 
@@ -94,7 +77,6 @@ struct ChunkMeta {
 }
 
 impl ChunkMeta {
-    /// Offset after the compressed bytes, without padding.
     fn end(&self) -> u64 {
         self.offset + u64::from(self.compressed_len)
     }
@@ -105,12 +87,14 @@ impl ChunkMeta {
 const READ_RUN: u64 = 16 << 20;
 
 /// A scratch file holding compressed chunks of records.
+///
+/// Written through the page cache: kernel writeback writes a long run of
+/// each file at a time, even while many files grow. Hard disks need that
+/// (each direct write would be a seek away from the previous one), and fast
+/// disks are no slower for it.
 pub struct ScratchFile {
     path: PathBuf,
-    /// Handle for writing: if `direct_writes`, with `O_DIRECT` and chunks
-    /// padded to `DIRECT_ALIGN`.
     write_file: File,
-    direct_writes: bool,
     /// Handle for reading back: if `direct_reads`, with `O_DIRECT`.
     read_file: File,
     direct_reads: bool,
@@ -120,27 +104,17 @@ pub struct ScratchFile {
 }
 
 impl ScratchFile {
-    pub fn create(
-        path: PathBuf,
-        zstd_level: i32,
-        direct_writes: bool,
-        direct_reads: bool,
-    ) -> io::Result<ScratchFile> {
-        let open = |options: &mut OpenOptions, direct: bool| {
-            if direct {
-                options.custom_flags(libc::O_DIRECT);
-            }
-            options.open(&path)
-        };
-        let write_file = open(
-            File::options().write(true).create(true).truncate(true),
-            direct_writes,
-        )?;
-        let read_file = open(File::options().read(true), direct_reads)?;
+    pub fn create(path: PathBuf, zstd_level: i32, direct_reads: bool) -> io::Result<ScratchFile> {
+        let write_file = File::create(&path)?;
+        let mut read_options = File::options();
+        read_options.read(true);
+        if direct_reads {
+            read_options.custom_flags(libc::O_DIRECT);
+        }
+        let read_file = read_options.open(&path)?;
         Ok(ScratchFile {
             path,
             write_file,
-            direct_writes,
             read_file,
             direct_reads,
             zstd_level,
@@ -166,25 +140,15 @@ impl ScratchFile {
             .sum()
     }
 
-    pub fn append(
-        &mut self,
-        raw_len: usize,
-        compressed: Compressed<'_>,
-        usage: &Gauge,
-    ) -> io::Result<()> {
-        let bytes = if self.direct_writes {
-            compressed.padded
-        } else {
-            &compressed.padded[..compressed.len]
-        };
-        self.write_file.write_all_at(bytes, self.len)?;
+    pub fn append(&mut self, raw_len: usize, compressed: &[u8], usage: &Gauge) -> io::Result<()> {
+        self.write_file.write_all_at(compressed, self.len)?;
         self.chunks.push(ChunkMeta {
             offset: self.len,
             raw_len: raw_len as u32,
-            compressed_len: compressed.len as u32,
+            compressed_len: compressed.len() as u32,
         });
-        self.len += bytes.len() as u64;
-        usage.add(bytes.len() as u64);
+        self.len += compressed.len() as u64;
+        usage.add(compressed.len() as u64);
         Ok(())
     }
 
@@ -266,8 +230,7 @@ impl ScratchFile {
             aligned_end = end.next_multiple_of(DIRECT_ALIGN as u64);
         }
         let dst = &mut buf.resize((aligned_end - start) as usize)[..(aligned_end - start) as usize];
-        // The aligned end is past the end of a file that was not written
-        // with `O_DIRECT`.
+        // The aligned end can be past the end of the file.
         let needed = (end - start) as usize;
         let mut filled = 0;
         while filled < needed {
@@ -304,12 +267,12 @@ mod tests {
         (0..len).map(|j| (i * 31 + j * 7 + j / 251) as u8).collect()
     }
 
-    fn roundtrip(zstd_level: i32, direct_writes: bool, direct_reads: bool) {
+    fn roundtrip(zstd_level: i32, direct_reads: bool) {
         let path = env::temp_dir().join(format!(
-            "scratch-test-{}-{zstd_level}-{direct_writes}-{direct_reads}",
+            "scratch-test-{}-{zstd_level}-{direct_reads}",
             process::id()
         ));
-        let mut file = match ScratchFile::create(path, zstd_level, direct_writes, direct_reads) {
+        let mut file = match ScratchFile::create(path, zstd_level, direct_reads) {
             Ok(file) => file,
             // The file system does not support O_DIRECT.
             Err(err) if err.raw_os_error() == Some(libc::EINVAL) => return,
@@ -347,10 +310,8 @@ mod tests {
     #[test]
     fn test_scratch_file_roundtrip() {
         for zstd_level in [0, 1] {
-            for direct_writes in [false, true] {
-                for direct_reads in [false, true] {
-                    roundtrip(zstd_level, direct_writes, direct_reads);
-                }
+            for direct_reads in [false, true] {
+                roundtrip(zstd_level, direct_reads);
             }
         }
     }

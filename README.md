@@ -135,9 +135,9 @@ parquet multiple times to make do with insufficient scratch space.
 
 Scratch space on hard disks works, but then the run is bound by sequential
 disk throughput: all scratch data is written once and read once, however many
-passes there are. Scratch and SST files on rotational disks are written
-through the page cache by default (`--direct-writes auto`), so that kernel
-writeback keeps the many concurrently written files sequential.
+passes there are. Scratch and SST files are written through the page cache,
+so that kernel writeback keeps the many concurrently written files
+sequential.
 
 Example:
 

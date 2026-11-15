@@ -9,7 +9,7 @@ use std::{
 };
 
 use crossbeam::channel;
-pub use scratch::{ChunkCompressor, Compressed, ScratchFile};
+pub use scratch::{ChunkCompressor, ScratchFile};
 
 use crate::util::{Gauge, timed, timed_seconds};
 
@@ -159,7 +159,7 @@ pub fn spawn_chunk_writers<'s, C: Send + 's>(
                 let compressed = timed(&times.compress, || compressor.compress(&raw));
                 if let Some(budget) = config.budget {
                     let waited = config.usage.wait_until(|usage| {
-                        usage + compressed.padded_len() as u64 <= budget
+                        usage + compressed.len() as u64 <= budget
                             || config.reclaimable.load(Ordering::Acquire) == 0
                     });
                     times

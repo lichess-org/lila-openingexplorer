@@ -4,7 +4,7 @@ use clap::Parser;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 use lila_openingexplorer4::{
     parquet_to_positions::{Config, Plan, ScratchBudget, convert},
-    util::{ByteSize, DirectWrites, free_space, same_file_system, total_memory, zstd_level},
+    util::{ByteSize, free_space, same_file_system, total_memory, zstd_level},
 };
 use tikv_jemallocator::Jemalloc;
 
@@ -39,15 +39,9 @@ struct Args {
     /// two, to leave one physical core idle.
     #[clap(long)]
     threads: Option<usize>,
-    /// Disable O_DIRECT for reading input, reading/writing scratch files,
-    /// and writing SST files.
+    /// Disable O_DIRECT for reading the input and the scratch files.
     #[clap(long)]
     no_direct_io: bool,
-    /// Write scratch files and SST files with O_DIRECT. By default, unless
-    /// they are on a rotational disk, where the page cache keeps concurrent
-    /// writes sequential.
-    #[clap(long, value_enum, default_value_t = DirectWrites::Auto, conflicts_with = "no_direct_io")]
-    direct_writes: DirectWrites,
     /// Zstd level for scratch chunks, or 0 for no compression.
     #[clap(long, default_value_t = 1, value_parser = zstd_level())]
     scratch_zstd_level: i32,
@@ -138,8 +132,6 @@ fn main() {
         sst_threads: args.sst_threads,
         io_depth: args.io_depth,
         direct_reads: !args.no_direct_io,
-        direct_scratch_writes: !args.no_direct_io && args.direct_writes.resolve(&args.scratch),
-        direct_sst_writes: !args.no_direct_io && args.direct_writes.resolve(&args.out),
         scratch_zstd_level: args.scratch_zstd_level,
         skip_row_groups: args.skip_row_groups,
         row_groups: args.row_groups,
@@ -159,10 +151,6 @@ fn main() {
         }
     };
     eprintln!("{plan} (planned in {:.1?})", planned.elapsed());
-    eprintln!(
-        "direct i/o: reads {}, scratch writes {}, sst writes {}",
-        config.direct_reads, config.direct_scratch_writes, config.direct_sst_writes
-    );
     if args.plan_only {
         return;
     }

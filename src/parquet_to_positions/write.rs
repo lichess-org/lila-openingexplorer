@@ -7,7 +7,7 @@ use std::{
     thread,
 };
 
-use rocksdb::{EnvOptions, Options};
+use rocksdb::Options;
 
 use crate::{
     intermediate::{EntryPacker, IntermediateEntry},
@@ -40,7 +40,6 @@ const INITIAL_POSITIONS_BYTES_PER_RECORD: f64 = 3.8;
 pub struct SstContext<'a> {
     pub cold_opts: &'a Options,
     pub positions_opts: &'a Options,
-    pub env_opts: &'a EnvOptions,
     pub out: &'a Path,
     /// Approximate size of the SST files.
     pub target_size: u64,
@@ -205,7 +204,6 @@ fn write_range(
     };
     let mut writer = RollingSstWriter::new(
         opts,
-        sst.env_opts,
         sst.out.join(dir).join(name),
         MAX_FILE_SIZE_FACTOR * sst.target_size,
     );

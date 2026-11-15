@@ -7,8 +7,8 @@ use std::{
 
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DB, DBCompressionType,
-    Direction, EnvOptions, IngestExternalFileOptions, IteratorMode, LiveFile, MergeOperands,
-    Options, ReadOptions, SnapshotWithThreadMode, SstFileWriter, WriteBatch, WriteOptions,
+    Direction, IngestExternalFileOptions, IteratorMode, LiveFile, MergeOperands, Options,
+    ReadOptions, SnapshotWithThreadMode, SstFileWriter, WriteBatch, WriteOptions,
     statistics::{StatsLevel, Ticker},
 };
 use shakmaty::{Color, variant::VariantPosition};
@@ -565,8 +565,7 @@ impl PlayerDb {
                     continue;
                 }
                 let path = dir.join(format!("{cf}_{uh}_{}.sst", new.0));
-                let env_opts = EnvOptions::default();
-                let mut writer = SstFileWriter::create_with_env_options(opts, &env_opts);
+                let mut writer = SstFileWriter::create(opts);
                 writer.open(&path)?;
                 for (key, value) in entries {
                     writer.put(key, value)?;

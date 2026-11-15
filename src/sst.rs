@@ -1,8 +1,6 @@
 use std::{fs, io, path::PathBuf};
 
-use rocksdb::{
-    BlockBasedIndexType, BlockBasedOptions, DBCompressionType, EnvOptions, Options, SstFileWriter,
-};
+use rocksdb::{BlockBasedIndexType, BlockBasedOptions, DBCompressionType, Options, SstFileWriter};
 use thiserror::Error;
 
 use crate::server::db::{COLD_CF, GAME_IDS_CF, GAMES_CF, POSITIONS_CF};
@@ -22,12 +20,8 @@ pub struct SstFile<'a> {
 }
 
 impl<'a> SstFile<'a> {
-    pub fn create(
-        opts: &'a Options,
-        env_opts: &'a EnvOptions,
-        path: PathBuf,
-    ) -> Result<SstFile<'a>, SstError> {
-        let writer = SstFileWriter::create_with_env_options(opts, env_opts);
+    pub fn create(opts: &'a Options, path: PathBuf) -> Result<SstFile<'a>, SstError> {
+        let writer = SstFileWriter::create(opts);
         writer.open(path.with_added_extension("tmp"))?;
         Ok(SstFile { writer, path })
     }
@@ -174,13 +168,6 @@ impl SstConfig {
     }
 }
 
-/// Options for writing SST files, optionally with O_DIRECT.
-pub fn env_options(direct_io: bool) -> EnvOptions {
-    let mut env_opts = EnvOptions::default();
-    env_opts.set_use_direct_writes(direct_io);
-    env_opts
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct SstStats {
     pub keys: u64,
@@ -227,7 +214,6 @@ impl SstStats {
 
 pub struct RollingSstWriter<'a> {
     opts: &'a Options,
-    env_opts: &'a EnvOptions,
     prefix: PathBuf,
     target_size: u64,
     seq: usize,
@@ -238,15 +224,9 @@ pub struct RollingSstWriter<'a> {
 }
 
 impl<'a> RollingSstWriter<'a> {
-    pub fn new(
-        opts: &'a Options,
-        env_opts: &'a EnvOptions,
-        prefix: PathBuf,
-        target_size: u64,
-    ) -> RollingSstWriter<'a> {
+    pub fn new(opts: &'a Options, prefix: PathBuf, target_size: u64) -> RollingSstWriter<'a> {
         RollingSstWriter {
             opts,
-            env_opts,
             prefix,
             target_size,
             seq: 0,
@@ -263,7 +243,7 @@ impl<'a> RollingSstWriter<'a> {
             None => {
                 let mut path = self.prefix.clone().into_os_string();
                 path.push(format!("_{:04}.sst", self.seq));
-                let w = SstFile::create(self.opts, self.env_opts, path.into())?;
+                let w = SstFile::create(self.opts, path.into())?;
                 self.seq += 1;
                 self.writer.insert(w)
             }
