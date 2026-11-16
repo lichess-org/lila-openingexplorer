@@ -523,6 +523,7 @@ async fn player(
     task::spawn(snapshots(Arc::clone(&state), request, ticket, tx));
     Ok(Response::builder()
         .header(header::CONTENT_TYPE, "application/x-ndjson")
+        .header(header::CACHE_CONTROL, "no-store")
         .header("X-Accel-Buffering", "no")
         .body(Body::from_stream(futures_util::stream::poll_fn(
             move |cx| rx.poll_recv(cx),

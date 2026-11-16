@@ -139,6 +139,9 @@ impl Openings {
     }
 }
 
+/// Time between successful downloads of the opening names.
+pub const REFRESH: Duration = Duration::from_secs(60 * 167);
+
 /// Keeps the opening names up to date (downloading them about every three
 /// hours), calling `on_change` after each update.
 pub async fn periodic_refresh(openings: &RwLock<Openings>, on_change: impl Fn()) {
@@ -148,7 +151,7 @@ pub async fn periodic_refresh(openings: &RwLock<Openings>, on_change: impl Fn())
                 log::info!("refreshed {} opening names", downloaded.len());
                 *openings.write().expect("write openings") = downloaded;
                 on_change();
-                tokio::time::sleep(Duration::from_secs(60 * 167)).await;
+                tokio::time::sleep(REFRESH).await;
             }
             Err(err) => {
                 log::error!("failed to refresh opening names: {err}");

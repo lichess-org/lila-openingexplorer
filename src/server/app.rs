@@ -8,7 +8,7 @@ use std::{
 
 use axum::{
     Router,
-    body::Bytes,
+    body::{Body, Bytes},
     extract::{Path, Query, State, rejection::QueryRejection},
     http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
@@ -95,6 +95,19 @@ pub struct AppConfig {
     pub blacklist: Option<LilaConfig>,
 }
 
+impl AppConfig {
+    fn max_age(&self) -> Duration {
+        let mut max_age = Duration::from_secs(60 * 60 * 24);
+        if self.openings_dir.is_none() && !self.no_openings {
+            max_age = max_age.min(openings::REFRESH);
+        }
+        if let Some(blacklist) = &self.blacklist {
+            max_age = max_age.min(blacklist.refresh);
+        }
+        max_age
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("bad request: {0}")]
@@ -134,6 +147,7 @@ pub struct AppState {
     openings: RwLock<Openings>,
     blacklist: Blacklist,
     cache: Cache<ExploreQuery, Bytes>,
+    cache_control: HeaderValue, // For successful explorer responses
     semaphore: Semaphore,
     metrics: Metrics,
 }
@@ -514,17 +528,6 @@ async fn blocking<T: Send + 'static>(
         .expect("blocking task")
 }
 
-fn json(bytes: Bytes) -> Response {
-    (
-        [(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json"),
-        )],
-        bytes,
-    )
-        .into_response()
-}
-
 /// Maps a rejected query string to a bad request.
 fn parse_query<T>(state: &AppState, query: Result<Query<T>, QueryRejection>) -> Result<T, Error> {
     query.map(|Query(query)| query).map_err(|err| {
@@ -585,7 +588,11 @@ async fn explore(
         &state.metrics.request_not_computed
     };
     histogram.record(started.elapsed());
-    Ok(json(entry.into_value()))
+    Ok(Response::builder()
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::CACHE_CONTROL, state.cache_control.clone())
+        .body(Body::from(entry.into_value()))
+        .expect("response"))
 }
 
 async fn masters_pgn_handler(
@@ -594,14 +601,11 @@ async fn masters_pgn_handler(
 ) -> Result<Response, Error> {
     let id: GameId = id.parse()?;
     let pgn = blocking(&state, move |state| state.pgn(id)).await?;
-    Ok((
-        [(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("application/x-chess-pgn"),
-        )],
-        pgn,
-    )
-        .into_response())
+    Ok(Response::builder()
+        .header(header::CONTENT_TYPE, "application/x-chess-pgn")
+        .header(header::CACHE_CONTROL, "public, max-age=2592000") // 30d
+        .body(Body::from(pgn))
+        .expect("response"))
 }
 
 async fn metrics(State(state): State<Shared>) -> Response {
@@ -694,6 +698,11 @@ pub async fn serve(config: AppConfig, db: Database) -> Result<(), Box<dyn std::e
             .max_capacity(config.cache_entries)
             .time_to_live(config.cache_ttl)
             .build(),
+        cache_control: HeaderValue::try_from(format!(
+            "public, max-age={}",
+            config.max_age().as_secs()
+        ))
+        .expect("cache control"),
         semaphore: Semaphore::new(config.blocking_threads),
         openings: RwLock::new(openings),
         blacklist: Blacklist::default(),
