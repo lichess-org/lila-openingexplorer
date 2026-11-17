@@ -27,7 +27,8 @@ split across `/lichess`, `/masters` and `/player` on this hardware:
 
 ### Preparation
 
-Build the [Rust](https://rust-lang.org/tools/install/) binaries:
+Build the [Rust](https://rust-lang.org/tools/install/) binaries
+(also needs `libclang-dev`):
 
 ```sh
 cargo build --release
@@ -35,7 +36,8 @@ B=target/release
 ```
 
 Use the [Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/guides/cli)
-to download prepared SSTs (~2.5 TiB) or see indexing instructions below. Example:
+to download [prepared SSTs](https://huggingface.co/buckets/nfiekas/opening-explorer-lichess) (~2.5 TiB)
+or see indexing instructions below. Example:
 
 ```sh
 hf sync hf://buckets/nfiekas/opening-explorer-lichess/2026-11-v2 /data/hdd/lichess/bucket/2026-11-v2 --exclude "*.parquet"
@@ -79,7 +81,9 @@ $B/explorer player --db /data/ssd/player/db \
     --lila-bearer-file /etc/explorer-bearer
 ```
 
-* `--cache`: block caches total only 24 GiB, so that most RAM is page cache.
+Important options:
+
+* `--cache`: Block caches total only 24 GiB, so that most RAM is page cache.
   As long as meta data is cached, the page cache (compressed blocks) saves
   about as many disk reads per GiB as the block cache, survives restarts,
   and leaves room for a second lichess instance during the monthly switch.
@@ -99,9 +103,12 @@ $B/explorer player --db /data/ssd/player/db \
   internal rate limits for personal explorer indexing.
 * `--admin-bind`: Prometheus metrics at `/metrics` (and
   `DELETE /player/{id}` for the personal explorer). Keep private.
-* `--db-path` for the personal explorer: The write ahead log stays in
-  `--db`, upper levels go to the NVMe and the last level (about 10x
-  larger, see `--level-ratio`) to the HDDs. Each column family places its
+
+Specific to the personal explorer:
+
+* `--db-path`: The write ahead log stays in `--db`, upper levels go to the NVMe
+  and the last level (about 10x larger, see `--level-ratio`) to the HDDs.
+  Each column family places its
   levels against the whole size of a path, so a young database can put up
   to about 3x the first path's size on it.
 * `--rate-limit`: Defaults to 16 MiB/s, so player database compactions do not
