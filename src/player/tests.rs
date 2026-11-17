@@ -375,3 +375,16 @@ fn test_user_hash_key() {
     let db = PlayerDb::open(&dir.0.join("given"), config(None)).unwrap();
     assert_eq!(db.user_hash(&alice), given.hash(&alice));
 }
+
+#[test]
+fn test_db_paths() {
+    let dir = TempDir::new("db_paths");
+    let config = PlayerDbConfig {
+        db_paths: vec![(dir.0.join("fast"), 1 << 30), (dir.0.join("slow"), 1 << 40)],
+        ..PlayerDbConfig::default()
+    };
+    for _ in 0..2 {
+        let db = PlayerDb::open(&dir.0.join("db"), config.clone()).unwrap();
+        db.tune_levels().unwrap();
+    }
+}

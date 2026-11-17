@@ -6,7 +6,7 @@ use std::{
 };
 
 use rocksdb::{
-    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DB, DBCompressionType,
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DB, DBCompressionType, DBPath,
     Direction, IngestExternalFileOptions, IteratorMode, LiveFile, MergeOperands, Options,
     ReadOptions, SnapshotWithThreadMode, SstFileWriter, WriteBatch, WriteOptions,
     statistics::{StatsLevel, Ticker},
@@ -313,22 +313,23 @@ impl PlayerDb {
             opts.set_wal_dir(wal_dir);
         }
         if !config.db_paths.is_empty() {
-            let paths = config
-                .db_paths
-                .iter()
-                .map(|(path, size)| rocksdb::DBPath::new(path, *size))
-                .collect::<Result<Vec<_>, _>>()?;
-            opts.set_db_paths(&paths);
+            opts.set_db_paths(&db_paths(&config.db_paths, 1.0)?);
         }
         if config.statistics {
             opts.enable_statistics();
             opts.set_statistics_level(StatsLevel::ExceptDetailedTimers);
         }
-        let db = DB::open_cf_descriptors(
-            &opts,
-            path,
-            ALL_CFS.map(|name| ColumnFamilyDescriptor::new(name, cf_options(name, &cache))),
-        )?;
+        let descriptors = ALL_CFS
+            .into_iter()
+            .map(|name| {
+                let mut cf_opts = cf_options(name, &cache);
+                if !config.db_paths.is_empty() {
+                    cf_opts.set_cf_paths(&db_paths(&config.db_paths, path_share(name))?);
+                }
+                Ok(ColumnFamilyDescriptor::new(name, cf_opts))
+            })
+            .collect::<Result<Vec<_>, rocksdb::Error>>()?;
+        let db = DB::open_cf_descriptors(&opts, path, descriptors)?;
         let hasher = open_user_hasher(&db, config.user_hasher.as_ref())?;
         let rebuild_dir = path.join(REBUILD_DIR);
         if rebuild_dir.exists() {
@@ -653,9 +654,16 @@ impl PlayerDb {
     /// lets the last level grow far beyond 10x its upper level (write
     /// amplification ~90 in the old production database). This emulates
     /// dynamic sizing: per column family, the level above the last gets a
-    /// tenth (`level_ratio`) of the last level, with the levels above in a geometric series
-    /// from `LEVEL_BASE`. Called at open and periodically, as the database
-    /// grows. Does nothing with a single path.
+    /// tenth (`level_ratio`) of the last level, with the levels above in a
+    /// geometric series from `LEVEL_BASE`.
+    ///
+    /// RocksDB picks the path of a compaction output from the level
+    /// targets, not the actual level sizes. So the target of the last level
+    /// is raised to at least its actual size, or the whole last level would
+    /// stay on the first path long after it outgrew it.
+    ///
+    /// Called at open and periodically, as the database grows. Does nothing
+    /// with a single path.
     pub fn tune_levels(&self) -> Result<(), PlayerDbError> {
         if self.config.db_paths.len() < 2 {
             return Ok(());
@@ -663,23 +671,29 @@ impl PlayerDb {
         for cf in ALL_CFS {
             let levels = self.level_bytes(cf)?;
             let last = levels[NUM_LEVELS - 1];
-            let (base, multiplier) = static_levels(last, self.config.level_ratio);
+            let levels = static_levels(last, self.config.level_ratio);
+            let additional = format!("1:1:1:1:1:{}", levels.last_additional);
             self.db.set_options_cf(
                 self.cf(cf),
                 &[
-                    ("max_bytes_for_level_base", &base.to_string()),
+                    ("max_bytes_for_level_base", &levels.base.to_string()),
                     (
                         "max_bytes_for_level_multiplier",
-                        &format!("{multiplier:.3}"),
+                        &format!("{:.3}", levels.multiplier),
                     ),
+                    ("max_bytes_for_level_multiplier_additional", &additional),
                 ],
             )?;
             log::info!(
-                "{cf}: last level {:.1} GiB, level base {} MiB, multiplier {multiplier:.2} (level {} target {:.1} GiB)",
-                last as f64 / (1u64 << 30) as f64,
-                base >> 20,
+                "{cf}: last level {:.1} GiB, level base {} MiB, multiplier {:.2}, last additional {} (level {} target {:.1} GiB, level {} target {:.1} GiB)",
+                gib(last as f64),
+                levels.base >> 20,
+                levels.multiplier,
+                levels.last_additional,
                 NUM_LEVELS - 2,
-                base as f64 * multiplier.powi(NUM_LEVELS as i32 - 3) / (1u64 << 30) as f64,
+                gib(levels.target(NUM_LEVELS - 2)),
+                NUM_LEVELS - 1,
+                gib(levels.target(NUM_LEVELS - 1)),
             );
         }
         Ok(())
@@ -824,16 +838,68 @@ const NUM_LEVELS: usize = 7;
 /// Target of level 1 for static level sizes.
 const LEVEL_BASE: u64 = 128 << 20;
 
-/// Static level sizes for a last level of `last` bytes: level base and
-/// multiplier such that the level above the last has `1 / ratio` of it.
-fn static_levels(last: u64, ratio: f64) -> (u64, f64) {
+/// Static level sizes for a last level of `last` bytes.
+#[derive(Debug, PartialEq)]
+struct StaticLevels {
+    base: u64,
+    /// Such that the level above the last has `1 / ratio` of it.
+    multiplier: f64,
+    /// Extra factor of the last level, such that its target is at least its
+    /// actual size. Only used to place it in `db_paths`, because RocksDB
+    /// never compacts the last level for its size.
+    last_additional: u32,
+}
+
+impl StaticLevels {
+    /// Target size of a level, as RocksDB computes it (also for level 0).
+    fn target(&self, level: usize) -> f64 {
+        let mut target = self.base as f64 * self.multiplier.powi(level.max(1) as i32 - 1);
+        if level == NUM_LEVELS - 1 {
+            target *= f64::from(self.last_additional);
+        }
+        target
+    }
+}
+
+fn static_levels(last: u64, ratio: f64) -> StaticLevels {
     let upper = last as f64 / ratio;
     // Levels 1 ..= NUM_LEVELS - 2.
     let steps = (NUM_LEVELS - 3) as f64;
     let multiplier = (upper / LEVEL_BASE as f64)
         .powf(1.0 / steps)
         .clamp(2.0, 10.0);
-    (LEVEL_BASE, multiplier)
+    let unscaled_last = LEVEL_BASE as f64 * multiplier.powi(NUM_LEVELS as i32 - 2);
+    StaticLevels {
+        base: LEVEL_BASE,
+        multiplier,
+        // Saturating float to int conversion.
+        last_additional: ((last as f64 / unscaled_last).ceil() as u32).max(1),
+    }
+}
+
+/// Relative column family sizes estimated from simulating a production-like
+/// database.
+fn path_share(cf: &str) -> f64 {
+    match cf {
+        COLD_CF => 0.44,
+        WARM_CF => 0.29,
+        GAMES_CF => 0.22,
+        GAME_IDS_CF => 0.04,
+        STATUS_CF => 0.01,
+        // Only the user hash key.
+        _ => 0.0,
+    }
+}
+
+fn db_paths(paths: &[(PathBuf, u64)], share: f64) -> Result<Vec<DBPath>, rocksdb::Error> {
+    paths
+        .iter()
+        .map(|(path, size)| DBPath::new(path, (*size as f64 * share) as u64))
+        .collect()
+}
+
+fn gib(bytes: f64) -> f64 {
+    bytes / (1u64 << 30) as f64
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -957,12 +1023,49 @@ mod level_tests {
     #[test]
     fn test_static_levels() {
         // A tenth of the last level in level 5, levels 1 ..= 5 geometric.
-        let (base, multiplier) = static_levels(340_000_000_000, 10.0);
-        let level5 = base as f64 * multiplier.powi(4);
+        let levels = static_levels(340_000_000_000, 10.0);
+        let level5 = levels.target(5);
         assert!((level5 / 34e9 - 1.0).abs() < 0.01, "{level5}");
         // Small databases: the smallest multiplier.
-        assert_eq!(static_levels(50_000_000, 10.0), (LEVEL_BASE, 2.0));
+        assert_eq!(
+            static_levels(50_000_000, 10.0),
+            StaticLevels {
+                base: LEVEL_BASE,
+                multiplier: 2.0,
+                last_additional: 1
+            }
+        );
         // Huge ones: at most 10.
-        assert_eq!(static_levels(u64::MAX / 2, 10.0).1, 10.0);
+        assert_eq!(static_levels(u64::MAX / 2, 10.0).multiplier, 10.0);
+    }
+
+    #[test]
+    fn test_last_level_target_covers_last_level() {
+        for last in [
+            0,
+            1 << 30,
+            20 << 30,
+            21 << 30,
+            100 << 30,
+            340_000_000_000,
+            5 << 40,
+        ] {
+            for ratio in [2.0, 10.0, 16.0] {
+                let levels = static_levels(last, ratio);
+                let target = levels.target(NUM_LEVELS - 1);
+                let step = target / f64::from(levels.last_additional);
+                assert!(target >= last as f64, "{last} {ratio}");
+                assert!(
+                    levels.last_additional == 1 || target < last as f64 + step,
+                    "{last} {ratio}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_path_shares() {
+        let total: f64 = ALL_CFS.into_iter().map(path_share).sum();
+        assert!((total - 1.0).abs() < 1e-9, "{total}");
     }
 }

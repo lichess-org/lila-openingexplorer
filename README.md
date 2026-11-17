@@ -106,11 +106,11 @@ Important options:
 
 Specific to the personal explorer:
 
-* `--db-path`: The write ahead log stays in `--db`, upper levels go to the NVMe
-  and the last level (about 10x larger, see `--level-ratio`) to the HDDs.
-  Each column family places its
-  levels against the whole size of a path, so a young database can put up
-  to about 3x the first path's size on it.
+* `--db-path`: Here used multiple times, so that new data goes to NVMe,
+  moving the last level to HDD if needed.
+  The write ahead log stays on NVMe in `--db`.
+  The sizes are not hard limits, and level 0, compaction backlog,
+  and large rebuilds may cause them to be exceeded by a few GiB.
 * `--rate-limit`: Defaults to 16 MiB/s, so player database compactions do not
   disturb the other servers too much.
 
