@@ -76,7 +76,7 @@ $B/explorer masters --db /data/hdd/masters/db/2026-11 \
 $B/explorer player --db /data/ssd/player/db \
     --bind 127.0.0.1:9004 --admin-bind 127.0.0.1:9104 \
     --cors \
-    --db-path /data/ssd/player/sst:64g --db-path /data/hdd/player/sst:4t \
+    --db-path /data/ssd/player/sst:250g --db-path /data/hdd/player/sst:4t \
     --cache 4g \
     --lila-bearer-file /etc/explorer-bearer
 ```
