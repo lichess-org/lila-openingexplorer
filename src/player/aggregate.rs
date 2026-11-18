@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use nohash_hasher::IntMap;
 use shakmaty::{
     ByColor, CastlingMode, Color, EnPassantMode, KnownOutcome, Position,
@@ -11,13 +9,14 @@ use shakmaty::{
 use crate::{
     packed::{
         CellKey, ColdGroup, Month, PackedMovesDecoder, PlayerEntry, PlayerGroupHeader, PositionKey,
-        Rating, color_bits,
+        Rating, color_bits, color_from_bits,
     },
     player::{
         MAX_PLY,
         game::BorrowedPlayerGame,
         keys::{ColdBucket, MAX_COLD_BITS, PlayerGameIndex},
     },
+    util::MergeMap,
 };
 
 /// The positions of the first `max_ply` plies of a game, each once, with
@@ -286,7 +285,7 @@ impl Aggregation {
 
         let mut warm = Vec::new();
         let mut warm_visits = 0;
-        let mut by_bucket: BTreeMap<(u8, ColdBucket), (Color, ColdGroup)> = BTreeMap::new();
+        let mut by_bucket: MergeMap<(u8, ColdBucket), ColdGroup> = MergeMap::new();
         let mut cold_visits = 0;
         let mut start = 0;
         for group in self
@@ -309,9 +308,7 @@ impl Aggregation {
                 } else {
                     let (bucket, suffix) = ColdBucket::of(&v.key, *bits.get(v.color));
                     by_bucket
-                        .entry((color_bits(v.color), bucket))
-                        .or_insert_with(|| (v.color, ColdGroup::new()))
-                        .1
+                        .get_mut((color_bits(v.color), bucket))
                         .add(suffix, u64::from(v.index.0));
                     cold_visits += 1;
                 }
@@ -322,8 +319,11 @@ impl Aggregation {
         }
         // In key order (color byte, then bucket).
         let cold: ColdGroups = by_bucket
+            .into_sorted()
             .into_iter()
-            .map(|((_, bucket), (color, group))| (color, bucket, group))
+            .map(|((color, bucket), group)| {
+                (color_from_bits(color).expect("color bits"), bucket, group)
+            })
             .collect();
 
         Placed {

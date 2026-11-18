@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData};
 
 use arbitrary::{Arbitrary, Unstructured};
 use bitflags::bitflags;
@@ -7,9 +7,12 @@ use partial_sort::PartialSort;
 use shakmaty::{Color, KnownOutcome, packed::PackedUciMove};
 use smallvec::SmallVec;
 
-use crate::packed::{
-    GameIndex, Month, Rating, RatingGroup, RatingMode, Speed, pack_int, pack_uint, unpack_int,
-    unpack_uint,
+use crate::{
+    packed::{
+        GameIndex, Month, Rating, RatingGroup, RatingMode, Speed, pack_int, pack_uint, unpack_int,
+        unpack_uint,
+    },
+    util::{Merge, MergeMap},
 };
 
 /// Each cell (move, group and month) keeps only its most recent games, up to
@@ -290,6 +293,16 @@ impl Cell {
     }
 }
 
+impl Merge for Cell {
+    fn merge(&mut self, other: Cell) {
+        self.stats.merge(&other.stats);
+        self.games.extend(other.games);
+        if self.games.len() >= 4 * GAMES_PER_CELL {
+            self.truncate_games();
+        }
+    }
+}
+
 /// Statistics and recent games of the moves played from a position, by
 /// speed, rating group and month.
 ///
@@ -326,7 +339,7 @@ impl Cell {
 /// games of a player.
 #[derive(Debug, Clone)]
 pub struct Entry<H> {
-    cells: BTreeMap<CellKey, Cell>,
+    cells: MergeMap<CellKey, Cell>,
     group: PhantomData<fn() -> H>,
 }
 
@@ -338,7 +351,7 @@ pub type PlayerEntry = Entry<PlayerGroupHeader>;
 impl<H> Default for Entry<H> {
     fn default() -> Entry<H> {
         Entry {
-            cells: BTreeMap::new(),
+            cells: MergeMap::new(),
             group: PhantomData,
         }
     }
@@ -393,18 +406,19 @@ impl<H: CellGroupHeader> Entry<H> {
         game: GameIndex,
     ) {
         debug_assert!(H::from_byte(key.header).is_some(), "invalid group header");
-        let cell = self.cells.entry(key).or_default();
+        let cell = self.cells.get_mut(key);
         cell.stats.add(rating, outcome);
         cell.push_game(game);
     }
 
     pub fn pack_entire(&mut self, buf: &mut Vec<u8>) {
-        for cell in self.cells.values_mut() {
+        let cells = self.cells.sorted_mut();
+        for (_, cell) in cells.iter_mut() {
             cell.truncate_games();
         }
         Self::pack_cells_entire(
             buf,
-            self.cells.iter().map(|(key, cell)| EntryCell {
+            cells.iter().map(|(key, cell)| EntryCell {
                 key: *key,
                 stats: cell.stats,
                 games: &cell.games,
@@ -415,7 +429,7 @@ impl<H: CellGroupHeader> Entry<H> {
     /// Merges a packed entry into this entry.
     pub fn merge_unpack_entire(&mut self, bytes: &[u8]) {
         for view in EntryView::<H>::unpack_entire(bytes).cells() {
-            let cell = self.cells.entry(view.key).or_default();
+            let cell = self.cells.get_mut(view.key);
             cell.stats.merge(&view.stats);
             for game in view.games {
                 cell.push_game(game);
@@ -769,6 +783,56 @@ mod tests {
 
     use super::*;
 
+    /// Entries match a plain ordered map of all games, also with many games
+    /// of few keys (duplicate keys in the unsorted cells, truncated games)
+    /// and with repacking in between.
+    #[test]
+    fn test_cells_match_ordered_map() {
+        arbtest(|u| {
+            let moves = ["e2e4", "d2d4", "g1f3"]
+                .map(|uci| PackedUciMove::pack(uci.parse::<UciMove>().expect("valid uci")));
+            let headers: [GroupHeader; 3] = u.arbitrary()?;
+            let months = [500, 501, 503, 510].map(Month::from_months_since_jan_1900);
+
+            let mut entry = LichessEntry::new();
+            let mut model: std::collections::BTreeMap<CellKey, (SubStats, Vec<GameIndex>)> =
+                std::collections::BTreeMap::new();
+            let mut game = 0;
+            for _ in 0..u.int_in_range(0..=400)? {
+                let key = CellKey::new(
+                    *u.choose(&moves)?,
+                    *u.choose(&headers)?,
+                    *u.choose(&months)?,
+                );
+                let rating: Rating = u.arbitrary()?;
+                let outcome: KnownOutcome = u.arbitrary()?;
+                game += u.int_in_range(1..=3)?;
+                let index = GameIndex::new(game).expect("game index");
+                entry.add_game(key, rating, outcome, index);
+                let (stats, games) = model.entry(key).or_default();
+                stats.add(rating, outcome);
+                games.push(index);
+                if u.ratio(1, 50)? {
+                    let packed = pack(&entry);
+                    entry = LichessEntry::new();
+                    entry.merge_unpack_entire(&packed);
+                }
+            }
+
+            let mut expected = Vec::new();
+            LichessEntry::pack_cells_entire(
+                &mut expected,
+                model.iter().map(|(key, (stats, games))| EntryCell {
+                    key: *key,
+                    stats: *stats,
+                    games: &games[games.len().saturating_sub(GAMES_PER_CELL)..],
+                }),
+            );
+            assert_eq!(pack(&entry), expected);
+            Ok(())
+        });
+    }
+
     fn pack(entry: &LichessEntry) -> Vec<u8> {
         let mut buf = Vec::new();
         entry.clone().pack_entire(&mut buf);
@@ -861,21 +925,17 @@ mod tests {
         entry: &LichessEntry,
     ) -> (Vec<(CellKey, SubStats)>, Vec<(CellKey, GameIndex)>) {
         let mut entry = entry.clone();
-        for cell in entry.cells.values_mut() {
+        let cells = entry.cells.sorted_mut();
+        for (_, cell) in cells.iter_mut() {
             cell.truncate_games();
         }
-        let mut games: Vec<_> = entry
-            .cells
+        let mut games: Vec<_> = cells
             .iter()
             .flat_map(|(key, cell)| cell.games.iter().map(|game| (*game, *key)))
             .collect();
         games.sort_unstable();
         (
-            entry
-                .cells
-                .iter()
-                .map(|(key, cell)| (*key, cell.stats))
-                .collect(),
+            cells.iter().map(|(key, cell)| (*key, cell.stats)).collect(),
             games.into_iter().map(|(game, key)| (key, game)).collect(),
         )
     }

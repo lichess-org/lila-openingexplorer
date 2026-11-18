@@ -1,7 +1,10 @@
-use crate::packed::{
-    PositionKey,
-    bits::{BitReader, BitWriter},
-    pack_uint, unpack_uint,
+use crate::{
+    packed::{
+        PositionKey,
+        bits::{BitReader, BitWriter},
+        pack_uint, unpack_uint,
+    },
+    util::Merge,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -112,6 +115,12 @@ impl ColdGroup {
             previous = suffix;
         }
         bits.finish_padded();
+    }
+}
+
+impl Merge for ColdGroup {
+    fn merge(&mut self, other: ColdGroup) {
+        self.items.extend(other.items);
     }
 }
 
