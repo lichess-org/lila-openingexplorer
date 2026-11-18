@@ -432,11 +432,11 @@ impl PlayerDb {
         }
 
         let current_bits = status.cold_bits;
-        let placed = aggregation.place(|color, items| {
+        let placed = aggregation.place(|counts| {
             if fresh {
-                cold_bits_for(items)
+                counts.map(cold_bits_for)
             } else {
-                *current_bits.get(color)
+                current_bits
             }
         });
         if fresh {
@@ -519,7 +519,7 @@ impl PlayerDb {
             aggregation.add_game(GameKey::index(&key), &BorrowedPlayerGame::unpack(&value));
             stats.games += 1;
         }
-        let placed = aggregation.place(|_, items| cold_bits_for(items));
+        let placed = aggregation.place(|counts| counts.map(cold_bits_for));
         let cold_bits = placed.cold_bits;
 
         // Pack everything, in key order.

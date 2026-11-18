@@ -210,8 +210,8 @@ impl Aggregation {
             }));
     }
 
-    /// Places the visits. `cold_bits` gives the bucket bits of a color from
-    /// the number of its cold items.
+    /// Places the visits. `cold_bits` gives the bucket bits of each color
+    /// from the number of its cold items.
     ///
     /// Positions are warm with at least `WARM_MIN_GAMES` games, with one
     /// exception that keeps warm and cold disjoint for every read: all
@@ -220,7 +220,7 @@ impl Aggregation {
     /// also find the game through the cold item of another of its
     /// positions with the same suffix, and validating the game by replay
     /// would count it a second time.
-    pub fn place(mut self, cold_bits: impl Fn(Color, u64) -> u8) -> Placed {
+    pub fn place(mut self, cold_bits: impl FnOnce(ByColor<u64>) -> ByColor<u8>) -> Placed {
         // In key order (color byte, then position key).
         self.visits
             .sort_unstable_by_key(|v| (color_bits(v.color), v.key, v.index));
@@ -236,14 +236,13 @@ impl Aggregation {
             start += group.len();
         }
 
-        let mut counts = ByColor::new_with(|_| 0u64);
+        let mut counts = ByColor::<u64>::default();
         for (v, &warm) in self.visits.iter().zip(&is_warm) {
             if !warm {
                 *counts.get_mut(v.color) += 1;
             }
         }
-        let bits =
-            ByColor::new_with(|color| cold_bits(color, *counts.get(color)).min(MAX_COLD_BITS));
+        let bits = cold_bits(counts).map(|bits| bits.min(MAX_COLD_BITS));
 
         // Visits of a game sharing a cold item go where any of them is warm.
         #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]

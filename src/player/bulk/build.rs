@@ -533,7 +533,7 @@ fn build_partition(
                     .put(key.as_ref(), &seq.to_bytes())
                     .map_err(rocks)?;
             }
-            let placed = aggregation.place(|_, items| cold_bits_for(items));
+            let placed = aggregation.place(|counts| counts.map(cold_bits_for));
             let generation = Generation(0);
             status.cold_bits = placed.cold_bits;
             status.games_at_rebuild = status.games;

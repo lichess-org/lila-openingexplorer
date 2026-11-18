@@ -11,7 +11,8 @@ use std::{
 use arbitrary::Unstructured;
 use arbtest::arbtest;
 use shakmaty::{
-    CastlingMode, Chess, Color, EnPassantMode, Position,
+    ByColor, CastlingMode, Chess, Color, EnPassantMode, Position,
+    fen::Fen,
     packed::PackedUciMove,
     variant::{Variant, VariantPosition},
 };
@@ -64,7 +65,7 @@ pub(super) fn arbitrary_game(
         VariantPosition::from_setup(
             Variant::Chess,
             "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
-                .parse::<shakmaty::fen::Fen>()
+                .parse::<Fen>()
                 .unwrap()
                 .into_setup(),
             CastlingMode::Chess960,
@@ -257,7 +258,7 @@ fn test_storage_matches_naive() {
                     pack(entry),
                     pack(expected),
                     "{user} {color} {}",
-                    shakmaty::fen::Fen::from_position(&pos, EnPassantMode::Legal)
+                    Fen::from_position(&pos, EnPassantMode::Legal)
                 );
             }
         }
@@ -294,8 +295,8 @@ fn test_placement_matches_naive() {
         for (index, (game, _)) in games.iter().enumerate() {
             aggregation.add_game(PlayerGameIndex(index as u32), &game.as_borrowed());
         }
-        let placed = aggregation.place(|_, _| bits);
-        assert_eq!(placed.cold_bits, shakmaty::ByColor::new_with(|_| bits));
+        let placed = aggregation.place(|_| ByColor::new_with(|_| bits));
+        assert_eq!(placed.cold_bits, ByColor::new_with(|_| bits));
         let warm: HashMap<(Color, PositionKey), PlayerEntry> = placed
             .warm
             .into_iter()
