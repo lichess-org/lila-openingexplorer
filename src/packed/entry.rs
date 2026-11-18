@@ -5,6 +5,7 @@ use bitflags::bitflags;
 use bytes::{Buf, BufMut};
 use partial_sort::PartialSort;
 use shakmaty::{Color, KnownOutcome, packed::PackedUciMove};
+use smallvec::SmallVec;
 
 use crate::packed::{
     GameIndex, Month, Rating, RatingGroup, RatingMode, Speed, pack_int, pack_uint, unpack_int,
@@ -269,7 +270,7 @@ impl<'a> EntryCell<'a> {
 struct Cell {
     stats: SubStats,
     /// In any order, truncated to the most recent games once in a while.
-    games: Vec<GameIndex>,
+    games: SmallVec<[GameIndex; 2]>,
 }
 
 impl Cell {

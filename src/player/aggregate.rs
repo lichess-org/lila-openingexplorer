@@ -246,23 +246,44 @@ impl Aggregation {
             ByColor::new_with(|color| cold_bits(color, *counts.get(color)).min(MAX_COLD_BITS));
 
         // Visits of a game sharing a cold item go where any of them is warm.
-        let mut items: Vec<(PlayerGameIndex, u8, ColdBucket, u16, usize)> = self
+        #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+        struct ColdItem {
+            index: PlayerGameIndex,
+            color: u8,
+            bucket: ColdBucket,
+            suffix: u16,
+        }
+        #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+        struct ItemVisit {
+            item: ColdItem,
+            visit: u32,
+        }
+        let mut items: Vec<ItemVisit> = self
             .visits
             .iter()
             .enumerate()
             .map(|(i, v)| {
                 let (bucket, suffix) = ColdBucket::of(&v.key, *bits.get(v.color));
-                (v.index, color_bits(v.color), bucket, suffix, i)
+                ItemVisit {
+                    item: ColdItem {
+                        index: v.index,
+                        color: color_bits(v.color),
+                        bucket,
+                        suffix,
+                    },
+                    visit: u32::try_from(i).expect("visit index fits u32"),
+                }
             })
             .collect();
         items.sort_unstable();
-        for group in items.chunk_by(|a, b| a.0 == b.0 && a.1 == b.1 && a.2 == b.2 && a.3 == b.3) {
-            if group.len() > 1 && group.iter().any(|f| is_warm[f.4]) {
-                for f in group {
-                    is_warm[f.4] = true;
+        for group in items.chunk_by(|a, b| a.item == b.item) {
+            if group.len() > 1 && group.iter().any(|v| is_warm[v.visit as usize]) {
+                for v in group {
+                    is_warm[v.visit as usize] = true;
                 }
             }
         }
+        drop(items);
 
         let mut warm = Vec::new();
         let mut warm_visits = 0;
