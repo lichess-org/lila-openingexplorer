@@ -1,5 +1,9 @@
 use std::{
-    sync::Arc,
+    mem::DropGuard,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -100,6 +104,8 @@ pub struct IndexerMetrics {
     pub stream_micros: Counter,
     pub rebuild_errors: Counter,
     pub queue_full: Counter,
+    /// Games of the players that are being rebuilt.
+    pub rebuilding_games: AtomicU64,
 }
 
 impl IndexerMetrics {
@@ -172,8 +178,17 @@ impl IndexerMetrics {
             "Failed rebuilds of player indexes.",
             self.rebuild_errors.get(),
         );
+        out.gauge(
+            "rebuilding_games",
+            "Games of the players that are being rebuilt (the memory of a rebuild grows with its games).",
+            self.rebuilding_games.load(Ordering::Relaxed),
+        );
     }
 }
+
+/// Rebuilds of at least this many games are logged when they start, not
+/// only when they end.
+const LOG_REBUILD_START_GAMES: u32 = 100_000;
 
 /// How an index run ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -390,11 +405,22 @@ impl Indexer {
         {
             let busy = item.finish_busy();
             let indexer = Arc::clone(self);
+            let games = status.games;
             task::spawn(async move {
                 let _permit = Arc::clone(&indexer.rebuilds)
                     .acquire_owned()
                     .await
                     .expect("rebuild semaphore");
+
+                let gauge = &indexer.metrics.rebuilding_games;
+                gauge.fetch_add(u64::from(games), Ordering::Relaxed);
+                let _rebuilding = DropGuard::new(gauge, |gauge| {
+                    gauge.fetch_sub(u64::from(games), Ordering::Relaxed);
+                });
+                if games >= LOG_REBUILD_START_GAMES {
+                    log::info!("rebuilding {user}: {games} games");
+                }
+
                 let db = Arc::clone(&indexer.db);
                 let started = Instant::now();
                 match task::spawn_blocking(move || db.rebuild(uh))

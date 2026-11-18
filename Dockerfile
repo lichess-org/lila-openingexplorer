@@ -9,7 +9,7 @@
 #
 #   docker build --target tools -t lila-openingexplorer-tools .
 
-FROM rust:1.99-trixie AS chef
+FROM rust:1.100-trixie AS chef
 RUN apt-get update \
     && apt-get install -y --no-install-recommends clang libclang-dev \
     && rm -rf /var/lib/apt/lists/*
