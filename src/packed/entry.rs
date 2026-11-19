@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::{cmp::Reverse, fmt::Debug, marker::PhantomData};
 
 use arbitrary::{Arbitrary, Unstructured};
 use bitflags::bitflags;
@@ -218,7 +218,7 @@ impl SubStats {
 pub struct CellKey {
     m: [u8; 2],
     header: u8,
-    month: Month,
+    month: Reverse<Month>,
 }
 
 impl CellKey {
@@ -226,13 +226,17 @@ impl CellKey {
         CellKey {
             m: m.to_bytes(),
             header: header.to_byte(),
-            month,
+            month: Reverse(month),
         }
     }
 
     /// From the packed move, the `CellGroup::to_byte()` and the month.
     pub fn from_packed(m: [u8; 2], header: u8, month: Month) -> CellKey {
-        CellKey { m, header, month }
+        CellKey {
+            m,
+            header,
+            month: Reverse(month),
+        }
     }
 
     pub fn uci_move(&self) -> PackedUciMove {
@@ -244,7 +248,11 @@ impl CellKey {
     }
 
     pub fn month(&self) -> Month {
-        self.month
+        self.month.0
+    }
+
+    pub fn same_group(&self, other: &CellKey) -> bool {
+        self.m == other.m && self.header == other.header
     }
 }
 
@@ -306,8 +314,8 @@ impl Merge for Cell {
 /// Statistics and recent games of the moves played from a position, by
 /// speed, rating group and month.
 ///
-/// Packed format, moves by packed bytes and groups by header byte (the
-/// canonical order), but months within a group and games within a cell
+/// Packed format, in canonical order (moves by packed bytes, groups by
+/// header byte, months within a group newest first) and games within a cell
 /// newest first, so that readers can stop early:
 ///
 /// ```text
@@ -440,7 +448,7 @@ impl<H: CellGroupHeader> Entry<H> {
     }
 
     /// Packs cells, which need to be in canonical order (by move bytes, then
-    /// by header byte, then by month).
+    /// by header byte, then newest month first).
     pub fn pack_cells_entire<'a, I>(buf: &mut Vec<u8>, cells: I)
     where
         I: Iterator<Item = EntryCell<'a>>,
@@ -453,9 +461,7 @@ impl<H: CellGroupHeader> Entry<H> {
         while let Some(first) = cells.next() {
             group.clear();
             group.push(first.clone());
-            while let Some(cell) = cells
-                .next_if(|cell| cell.key.m == first.key.m && cell.key.header == first.key.header)
-            {
+            while let Some(cell) = cells.next_if(|cell| cell.key.same_group(&first.key)) {
                 group.push(cell);
             }
             debug_assert!(
@@ -474,11 +480,11 @@ impl<H: CellGroupHeader> Entry<H> {
     }
 }
 
-/// Packs the cells of one group (ascending months), using `multi` as
+/// Packs the cells of one group (newest month first), using `multi` as
 /// scratch space.
 fn pack_group<H: CellGroupHeader>(buf: &mut Vec<u8>, multi: &mut Vec<u8>, group: &[EntryCell<'_>]) {
     let typical = group[0].key.group_header::<H>().typical_rating();
-    let newest = group[group.len() - 1].key.month.months_since_jan_1900();
+    let newest = group[0].key.month().months_since_jan_1900();
     let is_multi = group.len() > 1;
     let has_subtotal = group.len() >= SUBTOTAL_MIN_MONTHS;
     let mut flags = GroupFlags::empty();
@@ -499,8 +505,8 @@ fn pack_group<H: CellGroupHeader>(buf: &mut Vec<u8>, multi: &mut Vec<u8>, group:
         subtotal.pack(multi, typical);
     }
     let mut prev_month = newest;
-    for (i, cell) in group.iter().rev().enumerate() {
-        let month = cell.key.month.months_since_jan_1900();
+    for (i, cell) in group.iter().enumerate() {
+        let month = cell.key.month().months_since_jan_1900();
         if i > 0 {
             pack_uint(multi, u64::from(prev_month - month));
         }
@@ -554,7 +560,7 @@ impl<'a, H: CellGroupHeader> EntryView<'a, H> {
         }
     }
 
-    /// The cells, groups in canonical order and months newest first.
+    /// The cells, in canonical order.
     pub fn cells(&self) -> CellViews<'a, H> {
         CellViews {
             groups: self.groups(),
@@ -699,7 +705,7 @@ impl<'a> GroupCells<'a> {
             key: CellKey {
                 m: self.m,
                 header: self.header,
-                month: Month::from_months_since_jan_1900(self.month),
+                month: Reverse(Month::from_months_since_jan_1900(self.month)),
             },
             stats,
         })
@@ -896,7 +902,7 @@ mod tests {
             prev_group = Some(group_key);
             let cells: Vec<_> = group.cells().collect();
             assert!(
-                cells.is_sorted_by(|a, b| a.key > b.key),
+                cells.is_sorted_by(|a, b| a.key.month() > b.key.month()),
                 "months newest first"
             );
             assert_eq!(cells[0].key.month(), group.newest_month);
@@ -911,9 +917,12 @@ mod tests {
             );
             group_cells.extend(cells.iter().map(|cell| (cell.key, cell.stats)));
         }
-        let mut cells: Vec<_> = cells.iter().map(|cell| (cell.key, cell.stats)).collect();
+        let cells: Vec<_> = cells.iter().map(|cell| (cell.key, cell.stats)).collect();
         assert_eq!(cells, group_cells);
-        cells.sort_unstable_by_key(|(key, _)| *key);
+        assert!(
+            cells.is_sorted_by_key(|(key, _)| key),
+            "cells in canonical order"
+        );
 
         (
             cells,

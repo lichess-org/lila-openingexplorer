@@ -42,6 +42,10 @@ impl EntryPacker {
             self.cells
                 .push((run[0].cell_key(), stats, start, self.games.len()));
         }
+        // The records are sorted by ascending month within each group.
+        for group in self.cells.chunk_by_mut(|a, b| a.0.same_group(&b.0)) {
+            group.reverse();
+        }
 
         buf.clear();
         LichessEntry::pack_cells_entire(
