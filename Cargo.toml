@@ -21,7 +21,7 @@ moka = { version = "0.12", features = ["future"] }
 nohash-hasher = "0.2"
 partial_sort = "1"
 parquet = { version = "60", default-features = false, features = ["zstd", "lz4", "arrow"] }
-pgn-reader = { version = "0.29", git = "https://github.com/niklasf/shakmaty.git", branch = "main" }
+pgn-reader = "0.29"
 rocksdb = { version = "0.25", git = "https://github.com/niklasf/rust-rocksdb.git", branch = "lila-openingexplorer4", features = ["lz4", "zstd", "jemalloc"], default-features = false }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
 rustc-hash = "2"
@@ -30,7 +30,7 @@ serde_json = "1"
 serde_with = "3"
 sha2 = "0.11"
 smallvec = { version = "1", features = ["union"] }
-shakmaty = { version = "0.30", git = "https://github.com/niklasf/shakmaty.git", branch = "main", features = ["arbitrary", "variant", "nohash-hasher"] }
+shakmaty = { version = "0.30", features = ["arbitrary", "variant", "nohash-hasher"] }
 thiserror = "2"
 tikv-jemallocator = "0.7"
 tokio = { version = "1", features = ["full"] }
