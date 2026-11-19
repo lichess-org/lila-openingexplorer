@@ -97,26 +97,23 @@ impl<K: Ord, V: Merge> Extend<(K, V)> for MergeMap<K, V> {
 mod tests {
     use std::collections::BTreeMap;
 
-    use arbitrary::Arbitrary;
+    use arbitrary::{Arbitrary, Unstructured};
     use arbtest::arbtest;
 
     use super::*;
 
     #[test]
     fn test_merge_map_keeps_order_of_additions() {
-        #[derive(Arbitrary, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-        enum Key {
-            One,
-            Two,
-            Three,
-            Four,
-            Five,
-            Six,
-            Seven,
-            Eight,
+        #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+        struct Key(u8);
+
+        impl Arbitrary<'_> for Key {
+            fn arbitrary(u: &mut Unstructured<'_>) -> arbitrary::Result<Key> {
+                Ok(Key(u.int_in_range(0..=7)?))
+            }
         }
 
-        #[derive(Arbitrary, Clone, Debug, Default, PartialEq, Eq)]
+        #[derive(Clone, Debug, Default, PartialEq, Eq)]
         struct Log(Vec<u8>);
 
         impl Merge for Log {
@@ -126,25 +123,33 @@ mod tests {
         }
 
         #[derive(Arbitrary)]
-        enum Op {
-            GetMutPush { key: Key, value: u8 },
-            Extend(Vec<(Key, Log)>),
+        enum Op<'a> {
+            GetMutPush(Key, u8),
+            Extend(&'a [u8]), // Untructured byte slice for better budgeting
             Sort,
         }
 
         arbtest(|u| {
             let mut map: MergeMap<Key, Log> = MergeMap::new();
             let mut model: BTreeMap<Key, Log> = BTreeMap::new();
-            for op in u.arbitrary_iter::<Op>()? {
-                match op? {
-                    Op::GetMutPush { key, value } => {
+            while !u.is_empty() {
+                match u.arbitrary()? {
+                    Op::GetMutPush(key, value) => {
                         map.get_mut(key.clone()).0.push(value);
                         model.entry(key).or_default().0.push(value);
                     }
-                    Op::Extend(tail) => {
-                        map.extend(tail.clone());
+                    Op::Extend(bytes) => {
+                        let mut bytes = Unstructured::new(bytes);
+                        let mut tail: Vec<(Key, u8)> = Vec::new();
+                        while !bytes.is_empty() {
+                            tail.push(bytes.arbitrary()?);
+                        }
+                        map.extend(
+                            tail.iter()
+                                .map(|(key, value)| (key.clone(), Log(vec![*value]))),
+                        );
                         for (key, value) in tail {
-                            model.entry(key).or_default().merge(value);
+                            model.entry(key).or_default().0.push(value);
                         }
                     }
                     Op::Sort => {

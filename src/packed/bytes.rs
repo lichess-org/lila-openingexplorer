@@ -31,10 +31,10 @@ mod tests {
     #[test]
     fn test_pack_bytes_roundtrip() {
         arbtest(|u| {
-            let bytes: Vec<u8> = u.arbitrary()?;
+            let bytes: &[u8] = u.arbitrary()?;
 
             let mut buf = Vec::new();
-            pack_bytes(&mut buf, &bytes);
+            pack_bytes(&mut buf, bytes);
             assert_eq!(unpack_bytes(&mut &buf[..]), bytes);
             Ok(())
         });
@@ -43,10 +43,10 @@ mod tests {
     #[test]
     fn test_pack_string_roundtrip() {
         arbtest(|u| {
-            let s: String = u.arbitrary()?;
+            let s: &str = u.arbitrary()?;
 
             let mut buf = Vec::new();
-            pack_string(&mut buf, &s);
+            pack_string(&mut buf, s);
             assert_eq!(unpack_string(&mut &buf[..]), s);
             Ok(())
         });

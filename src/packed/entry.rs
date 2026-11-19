@@ -365,16 +365,61 @@ impl<H> Default for Entry<H> {
     }
 }
 
+/// Limited selection of moves, speeds, ratings and months, so that arbitrary
+/// games share cells and groups.
+struct ArbitraryKeys {
+    moves: Vec<shakmaty::uci::UciMove>,
+    speeds: Vec<Option<Speed>>,
+    ratings: Vec<Rating>,
+    first_month: u16,
+    months: u16,
+}
+
+impl Arbitrary<'_> for ArbitraryKeys {
+    fn arbitrary(u: &mut Unstructured<'_>) -> arbitrary::Result<ArbitraryKeys> {
+        fn pool<'a, T: Arbitrary<'a>>(u: &mut Unstructured<'a>) -> arbitrary::Result<Vec<T>> {
+            (0..u.int_in_range(1..=4)?).map(|_| u.arbitrary()).collect()
+        }
+        let months = u.int_in_range(0..=2 * SUBTOTAL_MIN_MONTHS as u16)?;
+        Ok(ArbitraryKeys {
+            moves: pool(u)?,
+            speeds: pool(u)?,
+            ratings: pool(u)?,
+            first_month: u.int_in_range(0..=u16::MAX - months)?,
+            months,
+        })
+    }
+}
+
+impl ArbitraryKeys {
+    fn game(
+        &self,
+        u: &mut Unstructured<'_>,
+    ) -> arbitrary::Result<(
+        shakmaty::uci::UciMove,
+        Option<Speed>,
+        Rating,
+        KnownOutcome,
+        Month,
+    )> {
+        Ok((
+            *u.choose(&self.moves)?,
+            *u.choose(&self.speeds)?,
+            *u.choose(&self.ratings)?,
+            u.arbitrary()?,
+            Month::from_months_since_jan_1900(self.first_month + u.int_in_range(0..=self.months)?),
+        ))
+    }
+}
+
 impl Arbitrary<'_> for LichessEntry {
     fn arbitrary(u: &mut Unstructured<'_>) -> arbitrary::Result<Self> {
+        let keys: ArbitraryKeys = u.arbitrary()?;
+        let mut parts = Vec::new();
+        for _ in 0..u.int_in_range(0..=200)? {
+            parts.push(keys.game(u)?);
+        }
         // Chronological game indexes, as in real entries.
-        let mut parts: Vec<(
-            shakmaty::uci::UciMove,
-            Option<Speed>,
-            Rating,
-            KnownOutcome,
-            Month,
-        )> = u.arbitrary_iter()?.collect::<arbitrary::Result<_>>()?;
         parts.sort_by_key(|part| part.4);
         let mut entry = LichessEntry::new();
         let mut index = u.int_in_range(0..=1 << 32)?;
@@ -1111,12 +1156,14 @@ mod tests {
         arbtest(|u| {
             // Adding all games to one entry is the same as merging entries
             // of consecutive parts.
+            let keys: ArbitraryKeys = u.arbitrary()?;
             let mut all = LichessEntry::new();
             let mut packed_parts = Vec::new();
             for _ in 0..u.int_in_range(0..=4)? {
                 let mut part = LichessEntry::new();
-                for game in u.arbitrary_iter()? {
-                    let game: Game = game?;
+                for _ in 0..u.int_in_range(0..=50)? {
+                    let (m, speed, rating, outcome, month) = keys.game(u)?;
+                    let game: Game = (m, speed, rating, outcome, month, u.arbitrary()?);
                     add(&mut all, game);
                     add(&mut part, game);
                 }
