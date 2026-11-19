@@ -5,11 +5,9 @@ pub trait Merge: Default {
     fn merge(&mut self, other: Self);
 }
 
-/// An ordered map of mergeable values: a sorted prefix without duplicate
-/// keys, then the values of new keys in any order (consecutive ones
-/// merged), so that a key may have several partial values until sorting,
-/// which merges them in the order they were created. Dense for small maps,
-/// and amortized O(log n) per access for large ones.
+/// Dense representation of an ordered map of mergeable values: a sorted prefix
+/// without duplicate keys, then the values of new keys in any order
+/// (consecutive ones merged).
 #[derive(Debug, Clone)]
 pub struct MergeMap<K, V> {
     entries: Vec<(K, V)>,
