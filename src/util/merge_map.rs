@@ -97,40 +97,65 @@ impl<K: Ord, V: Merge> Extend<(K, V)> for MergeMap<K, V> {
 mod tests {
     use std::collections::BTreeMap;
 
+    use arbitrary::Arbitrary;
     use arbtest::arbtest;
 
     use super::*;
 
-    /// Concatenation: associative, but not commutative.
-    #[derive(Debug, Default, PartialEq, Eq)]
-    struct Log(Vec<u32>);
-
-    impl Merge for Log {
-        fn merge(&mut self, other: Log) {
-            self.0.extend(other.0);
-        }
-    }
-
     #[test]
     fn test_merge_map_keeps_order_of_additions() {
-        arbtest(|u| {
-            let mut map: MergeMap<u8, Log> = MergeMap::new();
-            let mut model: BTreeMap<u8, Vec<u32>> = BTreeMap::new();
-            let max_key = u8::MAX >> u.int_in_range(0..=7)?;
-            for i in 0..u.int_in_range(0..=500)? {
-                let key = u.int_in_range(0..=max_key)?;
-                if u.arbitrary()? {
-                    map.extend([(key, Log(vec![i]))]);
-                } else {
-                    map.get_mut(key).0.push(i);
-                }
-                model.entry(key).or_default().push(i);
-                if u.ratio(1, 100)? {
-                    let _ = map.sorted();
-                }
+        #[derive(Arbitrary, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+        enum Key {
+            One,
+            Two,
+            Three,
+            Four,
+            Five,
+            Six,
+            Seven,
+            Eight,
+        }
+
+        #[derive(Arbitrary, Clone, Debug, Default, PartialEq, Eq)]
+        struct Log(Vec<u8>);
+
+        impl Merge for Log {
+            fn merge(&mut self, other: Log) {
+                self.0.extend(other.0);
             }
-            let expected: Vec<(u8, Log)> = model.into_iter().map(|(k, v)| (k, Log(v))).collect();
-            assert_eq!(map.into_sorted(), expected);
+        }
+
+        #[derive(Arbitrary)]
+        enum Op {
+            GetMutPush { key: Key, value: u8 },
+            Extend(Vec<(Key, Log)>),
+            Sort,
+        }
+
+        arbtest(|u| {
+            let mut map: MergeMap<Key, Log> = MergeMap::new();
+            let mut model: BTreeMap<Key, Log> = BTreeMap::new();
+            for op in u.arbitrary_iter::<Op>()? {
+                match op? {
+                    Op::GetMutPush { key, value } => {
+                        map.get_mut(key.clone()).0.push(value);
+                        model.entry(key).or_default().0.push(value);
+                    }
+                    Op::Extend(tail) => {
+                        map.extend(tail.clone());
+                        for (key, value) in tail {
+                            model.entry(key).or_default().merge(value);
+                        }
+                    }
+                    Op::Sort => {
+                        let _ = map.sorted();
+                    }
+                }
+                assert_eq!(
+                    map.clone().into_sorted(),
+                    model.clone().into_iter().collect::<Vec<_>>()
+                );
+            }
             Ok(())
         });
     }
