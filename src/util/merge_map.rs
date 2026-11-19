@@ -1,3 +1,5 @@
+use std::mem;
+
 /// A monoid.
 pub trait Merge: Default {
     fn merge(&mut self, other: Self);
@@ -34,8 +36,8 @@ impl<K: Ord, V: Merge> MergeMap<K, V> {
         self.entries.is_empty()
     }
 
-    /// The last value of the key to add to, which is now or later merged with
-    /// other values of the key.
+    /// The last value of the key (or a default created one), which is now or
+    /// later merged with other values of the key.
     pub fn get_mut(&mut self, key: K) -> &mut V {
         if self.entries.len() - self.sorted > self.sorted.max(Self::MIN_TAIL) {
             self.sort();
@@ -43,19 +45,25 @@ impl<K: Ord, V: Merge> MergeMap<K, V> {
         if self.entries.last().is_some_and(|(last, _)| last == &key) {
             return &mut self.entries.last_mut().expect("last").1;
         }
-        match self.entries[..self.sorted].binary_search_by(|(other, _)| other.cmp(&key)) {
-            Ok(i) => &mut self.entries[i].1,
-            Err(_) => {
-                self.entries.push((key, V::default()));
-                &mut self.entries.last_mut().expect("value of key").1
-            }
+        let sorted = &self.entries[..self.sorted];
+        if sorted.last().is_some_and(|(max, _)| *max >= key)
+            && let Ok(i) = sorted.binary_search_by(|(other, _)| other.cmp(&key))
+        {
+            return &mut self.entries[i].1;
         }
+        &mut self.entries.push_mut((key, V::default())).1
     }
 
     /// The entries in key order, one per key.
-    pub fn sorted_mut(&mut self) -> &mut [(K, V)] {
+    pub fn sorted(&mut self) -> impl Iterator<Item = (&K, &V)> + Clone {
         self.sort();
-        &mut self.entries
+        self.entries.iter().map(|(key, value)| (key, value))
+    }
+
+    /// The entries in key order, one per key.
+    pub fn sorted_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
+        self.sort();
+        self.entries.iter_mut().map(|(key, value)| (&*key, value))
     }
 
     /// The entries in key order, one per key.
@@ -72,11 +80,18 @@ impl<K: Ord, V: Merge> MergeMap<K, V> {
         self.entries.dedup_by(|later, kept| {
             let same = later.0 == kept.0;
             if same {
-                kept.1.merge(std::mem::take(&mut later.1));
+                kept.1.merge(mem::take(&mut later.1));
             }
             same
         });
         self.sorted = self.entries.len();
+    }
+}
+
+impl<K: Ord, V: Merge> Extend<(K, V)> for MergeMap<K, V> {
+    fn extend<I: IntoIterator<Item = (K, V)>>(&mut self, values: I) {
+        self.entries.extend(values);
+        self.sort();
     }
 }
 
@@ -106,10 +121,14 @@ mod tests {
             let max_key = u8::MAX >> u.int_in_range(0..=7)?;
             for i in 0..u.int_in_range(0..=500)? {
                 let key = u.int_in_range(0..=max_key)?;
-                map.get_mut(key).0.push(i);
+                if u.arbitrary()? {
+                    map.extend([(key, Log(vec![i]))]);
+                } else {
+                    map.get_mut(key).0.push(i);
+                }
                 model.entry(key).or_default().push(i);
                 if u.ratio(1, 100)? {
-                    map.sorted_mut();
+                    let _ = map.sorted();
                 }
             }
             let expected: Vec<(u8, Log)> = model.into_iter().map(|(k, v)| (k, Log(v))).collect();

@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    fs, io,
+    fs, io, mem,
     path::{Path, PathBuf},
     time::Instant,
 };
@@ -583,7 +583,7 @@ impl PlayerDb {
                 for (key, value) in entries {
                     batch.put_cf(self.cf(cf), key, value);
                     if batch.size_in_bytes() >= self.config.batch_bytes {
-                        self.db.write(std::mem::take(&mut batch))?;
+                        self.db.write(mem::take(&mut batch))?;
                     }
                 }
             }

@@ -2,6 +2,7 @@ use std::{
     collections::HashSet,
     fs,
     io::{self, BufRead, BufReader, Read, Write},
+    mem,
     path::PathBuf,
     sync::{
         Arc, Mutex,
@@ -448,7 +449,7 @@ async fn report_intervals(interval: Duration, recent: Arc<Mutex<Vec<Duration>>>)
     let mut ticker = tokio::time::interval_at((start + interval).into(), interval);
     loop {
         ticker.tick().await;
-        let mut latencies = std::mem::take(&mut *recent.lock().expect("recent latencies"));
+        let mut latencies = mem::take(&mut *recent.lock().expect("recent latencies"));
         latencies.sort_unstable();
         eprintln!(
             "[{:.0}s] {:.0} req/s, p50 {:.2?}, p99 {:.2?}, max {:.2?}",

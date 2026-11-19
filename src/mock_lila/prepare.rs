@@ -3,7 +3,7 @@
 
 use std::{
     collections::HashMap,
-    io,
+    io, mem,
     path::Path,
     sync::{
         Mutex,
@@ -298,7 +298,7 @@ pub fn prepare(config: PrepareConfig<'_>) -> Result<FixtureMeta, FixtureError> {
     }
     let arenas: Vec<Vec<u8>> = collected
         .iter_mut()
-        .map(|(_, c)| std::mem::take(&mut c.arena))
+        .map(|(_, c)| mem::take(&mut c.arena))
         .collect();
     let mut recs: Vec<Rec> = collected.into_iter().flat_map(|(_, c)| c.recs).collect();
     log::info!(

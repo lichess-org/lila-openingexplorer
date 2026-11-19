@@ -1,5 +1,5 @@
 use std::{
-    mem::DropGuard,
+    mem::{self, DropGuard},
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -469,7 +469,7 @@ impl Indexer {
         let flush = async |chunk: &mut Chunk, finish: Option<Finish>| {
             let chunk = Chunk {
                 finish,
-                ..std::mem::take(chunk)
+                ..mem::take(chunk)
             };
             let waited = Instant::now();
             let ok = tx.send(chunk).await.is_ok();

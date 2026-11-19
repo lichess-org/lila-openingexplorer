@@ -412,13 +412,12 @@ impl<H: CellGroupHeader> Entry<H> {
     }
 
     pub fn pack_entire(&mut self, buf: &mut Vec<u8>) {
-        let cells = self.cells.sorted_mut();
-        for (_, cell) in cells.iter_mut() {
+        for (_, cell) in self.cells.sorted_mut() {
             cell.truncate_games();
         }
         Self::pack_cells_entire(
             buf,
-            cells.iter().map(|(key, cell)| EntryCell {
+            self.cells.sorted().map(|(key, cell)| EntryCell {
                 key: *key,
                 stats: cell.stats,
                 games: &cell.games,
@@ -428,20 +427,23 @@ impl<H: CellGroupHeader> Entry<H> {
 
     /// Merges a packed entry into this entry.
     pub fn merge_unpack_entire(&mut self, bytes: &[u8]) {
-        for view in EntryView::<H>::unpack_entire(bytes).cells() {
-            let cell = self.cells.get_mut(view.key);
-            cell.stats.merge(&view.stats);
-            for game in view.games {
-                cell.push_game(game);
-            }
-        }
+        self.cells
+            .extend(EntryView::<H>::unpack_entire(bytes).cells().map(|view| {
+                (
+                    view.key,
+                    Cell {
+                        stats: view.stats,
+                        games: view.games.collect(),
+                    },
+                )
+            }));
     }
 
     /// Packs cells, which need to be in canonical order (by move bytes, then
     /// by header byte, then by month).
     pub fn pack_cells_entire<'a, I>(buf: &mut Vec<u8>, cells: I)
     where
-        I: Iterator<Item = EntryCell<'a>> + Clone,
+        I: Iterator<Item = EntryCell<'a>>,
     {
         let mut cells = cells.peekable();
         let mut group: Vec<EntryCell<'a>> = Vec::new();
@@ -925,17 +927,17 @@ mod tests {
         entry: &LichessEntry,
     ) -> (Vec<(CellKey, SubStats)>, Vec<(CellKey, GameIndex)>) {
         let mut entry = entry.clone();
-        let cells = entry.cells.sorted_mut();
-        for (_, cell) in cells.iter_mut() {
+        for (_, cell) in entry.cells.sorted_mut() {
             cell.truncate_games();
         }
+        let cells = entry.cells.sorted();
         let mut games: Vec<_> = cells
-            .iter()
+            .clone()
             .flat_map(|(key, cell)| cell.games.iter().map(|game| (*game, *key)))
             .collect();
         games.sort_unstable();
         (
-            cells.iter().map(|(key, cell)| (*key, cell.stats)).collect(),
+            cells.map(|(key, cell)| (*key, cell.stats)).collect(),
             games.into_iter().map(|(game, key)| (key, game)).collect(),
         )
     }
