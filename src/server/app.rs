@@ -184,7 +184,14 @@ impl AppState {
                 continue;
             };
             let (_, game) = unpack_game_value(&game);
-            if let Some(visit) = find_visit(&game, &hash) {
+            let visit = match find_visit(&game, &hash) {
+                Ok(visit) => visit,
+                Err(err) => {
+                    log::error!("dropping cold candidate {id}: {err}");
+                    continue;
+                }
+            };
+            if let Some(visit) = visit {
                 entry.add_game(
                     CellKey::new(
                         visit.m,
@@ -476,7 +483,10 @@ impl AppState {
         let index = self.db.game_index(id)?.ok_or(Error::NotFound)?;
         let game = self.db.game(index)?.ok_or(Error::NotFound)?;
         let (id, game) = unpack_game_value(&game);
-        Ok(masters_pgn(id, &game))
+        masters_pgn(id, &game).map_err(|err| {
+            log::error!("not serving pgn of {id}: {err}");
+            Error::NotFound
+        })
     }
 }
 

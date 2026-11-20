@@ -91,8 +91,9 @@ fn expected_games(
 fn naive(games: &[PlayerGame]) -> HashMap<(Color, PositionKey), (VariantPosition, PlayerEntry)> {
     let mut entries: HashMap<(Color, PositionKey), (VariantPosition, PlayerEntry)> = HashMap::new();
     for (seq, game) in games.iter().enumerate() {
-        let mut pos = game.as_borrowed().initial_position();
-        let Ok(mut decoder) = game.moves.decode() else {
+        let (Ok(mut pos), Ok(mut decoder)) =
+            (game.as_borrowed().initial_position(), game.moves.decode())
+        else {
             continue;
         };
         let mut last: BTreeMap<PositionKey, (VariantPosition, PackedUciMove)> = BTreeMap::new();

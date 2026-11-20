@@ -7,7 +7,7 @@ use bytes::{Buf, BufMut};
 use serde::Serialize;
 use serde_with::{TryFromInto, serde_as};
 use shakmaty::{
-    ByColor, CastlingMode, Color, EnPassantMode, KnownOutcome, Position,
+    ByColor, CastlingMode, Color, EnPassantMode, KnownOutcome, Position, PositionError,
     packed::{PackedSetup, PackedUciMove},
     variant::{Variant, VariantPosition},
 };
@@ -397,7 +397,7 @@ impl LichessGame {
         }
     }
 
-    pub fn initial_position(&self) -> VariantPosition {
+    pub fn initial_position(&self) -> Result<VariantPosition, InvalidSetup> {
         initial_position(self.setup.as_ref())
     }
 
@@ -529,7 +529,7 @@ impl<'a> BorrowedLichessGame<'a> {
         }
     }
 
-    pub fn initial_position(&self) -> VariantPosition {
+    pub fn initial_position(&self) -> Result<VariantPosition, InvalidSetup> {
         let setup = self
             .setup
             .map(|bytes| PackedSetup::try_from_bytes(bytes).expect("valid setup"));
@@ -564,13 +564,17 @@ impl<'a> BorrowedLichessGame<'a> {
     }
 }
 
-pub fn initial_position(setup: Option<&PackedSetup>) -> VariantPosition {
+#[derive(Error, Debug)]
+#[error("setup no longer considered valid: {0}")]
+pub struct InvalidSetup(Box<PositionError<VariantPosition>>);
+
+pub fn initial_position(setup: Option<&PackedSetup>) -> Result<VariantPosition, InvalidSetup> {
     match setup {
-        None => VariantPosition::new(Variant::Chess),
+        None => Ok(VariantPosition::new(Variant::Chess)),
         Some(setup) => {
             let (setup, variant) = setup.unpack_variant().expect("valid setup");
             VariantPosition::from_setup(variant, setup, CastlingMode::Chess960)
-                .expect("valid setup")
+                .map_err(|err| InvalidSetup(Box::new(err)))
         }
     }
 }
@@ -591,8 +595,19 @@ pub fn unpack_game_value(mut bytes: &[u8]) -> (GameId, BorrowedLichessGame<'_>) 
 #[cfg(test)]
 mod tests {
     use arbtest::arbtest;
+    use shakmaty::Setup;
 
     use super::*;
+
+    #[test]
+    fn test_initial_position() {
+        assert_eq!(
+            initial_position(None).unwrap(),
+            VariantPosition::new(Variant::Chess)
+        );
+        let empty = PackedSetup::pack_variant(&Setup::empty(), Variant::Chess).unwrap();
+        assert!(initial_position(Some(&empty)).is_err());
+    }
 
     #[test]
     fn test_speed_str_roundtrip() {

@@ -814,10 +814,18 @@ fn scatter_pass(
                     // Time spent blocked on the chunk writers is not replay.
                     let timer = Instant::now();
                     let mut sending = Duration::ZERO;
-                    for (k, (_, game)) in batch.rows().enumerate() {
+                    for (k, (id, game)) in batch.rows().enumerate() {
                         let index = GameIndex::new(first_row + k as u64).expect("game index");
-                        let info = replayer.replay_game(&game, index);
                         games += 1;
+                        let info = match replayer.replay_game(&game, index) {
+                            Ok(info) => info,
+                            Err(err) => {
+                                if pass == 0 {
+                                    progress.println(format!("skipping game {id}: {err}"));
+                                }
+                                continue;
+                            }
+                        };
 
                         for entry in replayer.entries(&info) {
                             let Some(j) = config.layout.pass_memory_partition(

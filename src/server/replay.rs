@@ -3,7 +3,7 @@ use shakmaty::{
     zobrist::Zobrist128,
 };
 
-use crate::packed::{BorrowedLichessGame, PackedMovesDecoder, PositionKey};
+use crate::packed::{BorrowedLichessGame, InvalidSetup, PackedMovesDecoder, PositionKey};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Visit {
@@ -15,9 +15,13 @@ pub struct Visit {
 /// `pgn_to_parquet`) and finds the position with the given hash, as
 /// `parquet_to_positions` would have recorded it (its last visit, if it
 /// occurs repeatedly). The final position is never a visit. Stops replaying
-/// at the first irreversible move after a visit.
-pub fn find_visit(game: &BorrowedLichessGame<'_>, target: &PositionKey) -> Option<Visit> {
-    let mut pos = game.initial_position();
+/// at the first irreversible move after a visit. Fails if the initial
+/// position is no longer considered valid.
+pub fn find_visit(
+    game: &BorrowedLichessGame<'_>,
+    target: &PositionKey,
+) -> Result<Option<Visit>, InvalidSetup> {
+    let mut pos = game.initial_position()?;
     let variant = pos.variant();
 
     struct Find<'a> {
@@ -53,11 +57,11 @@ pub fn find_visit(game: &BorrowedLichessGame<'_>, target: &PositionKey) -> Optio
     }
 
     let decoder = PackedMovesDecoder::new(game.moves).expect("valid moves");
-    pos.with_position_mut(Find {
+    Ok(pos.with_position_mut(Find {
         decoder,
         target: *target,
         variant,
-    })
+    }))
 }
 
 #[cfg(test)]
@@ -114,7 +118,9 @@ mod tests {
                 event: None,
                 moves: &moves.0,
             };
-            find_visit(&game, &PositionKey::new(pos)).map(|visit| (visit.m.unpack(), visit.turn))
+            find_visit(&game, &PositionKey::new(pos))
+                .unwrap()
+                .map(|visit| (visit.m.unpack(), visit.turn))
         };
         let full = "Nf3 Nf6 Ng1 Ng8 e4 e5";
         let uci = |s: &str| s.parse::<UciMove>().unwrap();

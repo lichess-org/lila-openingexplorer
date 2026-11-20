@@ -23,8 +23,8 @@ pub use entry::{
 };
 pub use game::{
     BOT_TITLE, BorrowedEventInfo, BorrowedGamePlayer, BorrowedLichessGame, EventInfo, GamePlayer,
-    InvalidRatingMode, InvalidSpeed, LichessGame, RatingMode, RatingModes, Speed, Speeds,
-    initial_position, outcome_bits, outcome_from_bits, pack_game_flags, pack_game_value,
+    InvalidRatingMode, InvalidSetup, InvalidSpeed, LichessGame, RatingMode, RatingModes, Speed,
+    Speeds, initial_position, outcome_bits, outcome_from_bits, pack_game_flags, pack_game_value,
     unpack_game_flags, unpack_game_value, unpack_uci_move,
 };
 pub use game_id::{GameId, InvalidGameId};

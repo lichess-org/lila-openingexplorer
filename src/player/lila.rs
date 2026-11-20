@@ -478,7 +478,7 @@ mod tests {
     }
 
     fn setup_plies(game: &PlayerGame) -> usize {
-        let pos = game.as_borrowed().initial_position();
+        let pos = game.as_borrowed().initial_position().unwrap();
         let mut decoder = game.moves.decode().unwrap();
         let mut pos = pos;
         let mut plies = 0;

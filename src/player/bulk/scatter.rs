@@ -29,7 +29,10 @@ use std::{
     },
 };
 
-use shakmaty::{Color, Position, variant::Variant};
+use shakmaty::{
+    Color, Position,
+    variant::{Variant, VariantPosition},
+};
 
 use crate::{
     mock_lila::{
@@ -168,7 +171,8 @@ fn direct(
             .filter(|&r| r > 0)
             .and_then(|r| Rating::try_from(i32::from(r)).ok())
     };
-    let mut pos = game.initial_position();
+    debug_assert!(game.setup.is_none());
+    let mut pos = VariantPosition::new(Variant::Chess);
     let mut moves = PackedMoves::encoder_with_capacity(MAX_PLY);
     let mut plies: u16 = 0;
     if let Ok(mut decoder) = PackedMovesDecoder::new(game.moves) {
@@ -226,7 +230,13 @@ fn via_export(
     synth: &Synth,
     noise: &Noise,
 ) -> (Option<PlayerGame>, u16) {
-    let fixture = fixture_game(id, game);
+    let fixture = match fixture_game(id, game) {
+        Ok(fixture) => fixture,
+        Err(err) => {
+            log::error!("not indexing game {id}: {err}");
+            return (None, 0);
+        }
+    };
     let plies = u16::try_from(fixture.plies()).unwrap_or(u16::MAX);
     let synth = Synth { shift: 0, ..*synth };
     let Presented::Line(line) = present(&synth, noise, &fixture, user, u64::MAX, false) else {
@@ -334,9 +344,8 @@ pub fn scatter(config: &ScatterConfig<'_>) -> io::Result<ScatterStats> {
                         stats.hash_collisions.fetch_add(1, Ordering::Relaxed);
                         continue;
                     }
-                    let standard = game.setup.is_none()
-                        && game.initial_position().variant() == Variant::Chess
-                        && !has_illegal_san(&config.synth, &config.noise, id);
+                    let standard =
+                        game.setup.is_none() && !has_illegal_san(&config.synth, &config.noise, id);
                     let (converted, plies) = if standard {
                         let direct = direct(id, &game, color, &config.synth, &config.noise);
                         if config.verify {

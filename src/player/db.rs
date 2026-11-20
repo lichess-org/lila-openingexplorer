@@ -964,7 +964,18 @@ impl PlayerReader<'_> {
                     continue;
                 };
                 let game = BorrowedPlayerGame::unpack(&game);
-                if let Some(m) = find_visit(&game, &key, MAX_PLY) {
+                let m = match find_visit(&game, &key, MAX_PLY) {
+                    Ok(m) => m,
+                    Err(err) => {
+                        log::error!(
+                            "dropping cold candidate {} of {}: {err}",
+                            game.id,
+                            status.user
+                        );
+                        continue;
+                    }
+                };
+                if let Some(m) = m {
                     entry.add_game(
                         CellKey::new(
                             m,

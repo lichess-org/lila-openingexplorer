@@ -7,14 +7,13 @@ use shakmaty::{
     variant::{Variant, VariantPosition},
 };
 
-use crate::packed::{BorrowedLichessGame, GameId, PackedMovesDecoder};
+use crate::packed::{BorrowedLichessGame, GameId, InvalidSetup, PackedMovesDecoder};
 
 fn escape(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
-/// Renders a masters game as PGN.
-pub fn masters_pgn(id: GameId, game: &BorrowedLichessGame<'_>) -> String {
+pub fn masters_pgn(id: GameId, game: &BorrowedLichessGame<'_>) -> Result<String, InvalidSetup> {
     let mut pgn = String::new();
     let event = game.event.as_ref();
     let _ = writeln!(
@@ -50,7 +49,7 @@ pub fn masters_pgn(id: GameId, game: &BorrowedLichessGame<'_>) -> String {
     }
     let _ = writeln!(pgn, "[LichessId \"{id}\"]");
 
-    let mut pos = game.initial_position();
+    let mut pos = game.initial_position()?;
     if pos.variant() != Variant::Chess || pos != VariantPosition::new(Variant::Chess) {
         if pos.variant() != Variant::Chess {
             let _ = writeln!(pgn, "[Variant \"{}\"]", pos.variant());
@@ -80,7 +79,7 @@ pub fn masters_pgn(id: GameId, game: &BorrowedLichessGame<'_>) -> String {
         first = false;
     }
     let _ = writeln!(pgn, "{}", game.outcome.as_str());
-    pgn
+    Ok(pgn)
 }
 
 #[cfg(test)]
@@ -129,7 +128,7 @@ mod tests {
             }),
             moves: &moves.0,
         };
-        let pgn = masters_pgn("aAbqI4ey".parse().unwrap(), &game);
+        let pgn = masters_pgn("aAbqI4ey".parse().unwrap(), &game).unwrap();
         assert_eq!(
             pgn,
             "[Event \"Wch Blitz\"]\n[Site \"Astana\"]\n[Date \"2012.07.??\"]\n[Round \"23\"]\n[White \"Carlsen, Magnus\"]\n[Black \"Chadaev, Nikolay\"]\n[Result \"1-0\"]\n[WhiteElo \"2837\"]\n[BlackElo \"2580\"]\n[LichessId \"aAbqI4ey\"]\n\n1. e4 e5 2. Nf3 1-0\n"

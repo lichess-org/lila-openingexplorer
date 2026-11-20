@@ -136,7 +136,7 @@ fn naive(
 ) -> HashMap<(Color, PositionKey), PlayerEntry> {
     let mut entries: HashMap<(Color, PositionKey), PlayerEntry> = HashMap::new();
     for (index, (game, positions)) in games.iter().enumerate() {
-        let mut pos = game.as_borrowed().initial_position();
+        let mut pos = game.as_borrowed().initial_position().unwrap();
         let mut decoder = game.moves.decode().unwrap();
         let mut last: BTreeMap<PositionKey, PackedUciMove> = BTreeMap::new();
         let mut ply = 0;
@@ -319,7 +319,7 @@ fn test_placement_matches_naive() {
                 for index in ColdGroupView::unpack_entire(group).candidates(suffix) {
                     let game = games[index as usize].0.as_borrowed();
                     assert_eq!(game.color, color);
-                    if let Some(m) = find_visit(&game, &key, MAX_PLY) {
+                    if let Some(m) = find_visit(&game, &key, MAX_PLY).unwrap() {
                         entry.add_game(
                             CellKey::new(
                                 m,

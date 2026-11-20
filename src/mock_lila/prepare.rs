@@ -25,7 +25,7 @@ use crate::{
     mock_lila::fixture::{
         FinalStatus, FixtureError, FixtureGame, FixtureMeta, FixturePlayer, FixtureWriter,
     },
-    packed::{BorrowedLichessGame, LaxDate, PackedMovesDecoder, Speed},
+    packed::{BorrowedLichessGame, InvalidSetup, LaxDate, PackedMovesDecoder, Speed},
     parquet::Input,
     player::UserId,
     util::civil::{MS_PER_DAY, days_from_civil},
@@ -76,10 +76,11 @@ fn looks_like_chess960(pos: &VariantPosition) -> bool {
         && Role::ALL.into_iter().all(back_rank_pieces)
 }
 
-/// Converts a parquet game to a fixture game (with `createdAt` 0, set
-/// later), replaying it to SAN.
-pub fn fixture_game(id: crate::packed::GameId, game: &BorrowedLichessGame<'_>) -> FixtureGame {
-    let initial = game.initial_position();
+pub fn fixture_game(
+    id: crate::packed::GameId,
+    game: &BorrowedLichessGame<'_>,
+) -> Result<FixtureGame, InvalidSetup> {
+    let initial = game.initial_position()?;
     let variant = match initial.variant() {
         Variant::Chess if game.setup.is_none() => LilaVariant::Standard,
         Variant::Chess if looks_like_chess960(&initial) => LilaVariant::Chess960,
@@ -135,7 +136,7 @@ pub fn fixture_game(id: crate::packed::GameId, game: &BorrowedLichessGame<'_>) -
         }
     };
 
-    FixtureGame {
+    Ok(FixtureGame {
         created_at: 0,
         id,
         variant,
@@ -148,7 +149,7 @@ pub fn fixture_game(id: crate::packed::GameId, game: &BorrowedLichessGame<'_>) -
         },
         initial_fen,
         sans,
-    }
+    })
 }
 
 /// A selected game of a player, packed in an arena.
@@ -242,8 +243,15 @@ pub fn prepare(config: PrepareConfig<'_>) -> Result<FixtureMeta, FixtureError> {
                         if selected.is_empty() {
                             continue;
                         }
+                        let fixture = match fixture_game(id, &game) {
+                            Ok(fixture) => fixture,
+                            Err(err) => {
+                                log::error!("skipping game {id}: {err}");
+                                continue;
+                            }
+                        };
                         buf.clear();
-                        fixture_game(id, &game).pack(&mut buf);
+                        fixture.pack(&mut buf);
                         let offset = c.arena.len() as u64;
                         c.arena.extend_from_slice(&buf);
                         for player in selected {

@@ -7,9 +7,9 @@ use shakmaty::{
 };
 
 use crate::packed::{
-    GameId, Month, PackedMoves, Rating, RatingMode, Speed, color_bits, color_from_bits,
-    initial_position, outcome_bits, outcome_from_bits, pack_bytes, pack_string, unpack_bytes,
-    unpack_string,
+    GameId, InvalidSetup, Month, PackedMoves, Rating, RatingMode, Speed, color_bits,
+    color_from_bits, initial_position, outcome_bits, outcome_from_bits, pack_bytes, pack_string,
+    unpack_bytes, unpack_string,
 };
 
 /// A game of a player.
@@ -198,7 +198,7 @@ impl<'a> BorrowedPlayerGame<'a> {
         }
     }
 
-    pub fn initial_position(&self) -> VariantPosition {
+    pub fn initial_position(&self) -> Result<VariantPosition, InvalidSetup> {
         let setup = self
             .setup
             .map(|bytes| PackedSetup::try_from_bytes(bytes).expect("valid setup"));
@@ -251,6 +251,6 @@ mod tests {
         );
         let atomic = VariantPosition::new(Variant::Atomic);
         let setup = PlayerGame::setup_of(&atomic).unwrap();
-        assert_eq!(initial_position(Some(&setup)), atomic);
+        assert_eq!(initial_position(Some(&setup)).unwrap(), atomic);
     }
 }

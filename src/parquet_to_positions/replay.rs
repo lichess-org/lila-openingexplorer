@@ -9,8 +9,8 @@ use shakmaty::{
 use crate::{
     intermediate::IntermediateEntry,
     packed::{
-        BorrowedLichessGame, GameIndex, GroupHeader, Month, PackedMovesDecoder, PositionKey,
-        Rating, RatingGroup, Speed,
+        BorrowedLichessGame, GameIndex, GroupHeader, InvalidSetup, Month, PackedMovesDecoder,
+        PositionKey, Rating, RatingGroup, Speed,
     },
 };
 
@@ -56,13 +56,12 @@ impl Replayer {
         }
     }
 
-    /// Replays a game, and returns its metadata.
     pub fn replay_game(
         &mut self,
         game: &BorrowedLichessGame<'_>,
         game_index: GameIndex,
-    ) -> GameInfo {
-        let pos = game.initial_position();
+    ) -> Result<GameInfo, InvalidSetup> {
+        let pos = game.initial_position()?;
         let info = GameInfo {
             game_index,
             variant: pos.variant(),
@@ -73,7 +72,7 @@ impl Replayer {
             outcome: game.outcome,
         };
         self.replay(pos, game.moves);
-        info
+        Ok(info)
     }
 
     /// Replays the moves of a game from its initial position. Each position
@@ -265,7 +264,9 @@ mod tests {
         };
 
         let mut replayer = Replayer::default();
-        let info = replayer.replay_game(&game.as_borrowed(), GameIndex::new(7).unwrap());
+        let info = replayer
+            .replay_game(&game.as_borrowed(), GameIndex::new(7).unwrap())
+            .unwrap();
         let mut entries: Vec<_> = replayer
             .entries(&info)
             .map(|entry| {

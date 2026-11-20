@@ -8,8 +8,8 @@ use shakmaty::{
 
 use crate::{
     packed::{
-        CellKey, ColdGroup, Month, PackedMovesDecoder, PlayerEntry, PlayerGroupHeader, PositionKey,
-        Rating, color_bits, color_from_bits,
+        CellKey, ColdGroup, InvalidSetup, Month, PackedMovesDecoder, PlayerEntry,
+        PlayerGroupHeader, PositionKey, Rating, color_bits, color_from_bits,
     },
     player::{
         MAX_PLY,
@@ -21,13 +21,14 @@ use crate::{
 
 /// The positions of the first `max_ply` plies of a game, each once, with
 /// the move played from it the last time (removing loops). The final
-/// position is not a visit.
+/// position is not a visit. Fails if the initial position is no longer
+/// considered valid.
 pub fn replay(
     game: &BorrowedPlayerGame<'_>,
     max_ply: usize,
     scratch: &mut IntMap<Zobrist128, PackedUciMove>,
     out: &mut Vec<(PositionKey, PackedUciMove)>,
-) {
+) -> Result<(), InvalidSetup> {
     struct Replay<'a> {
         decoder: PackedMovesDecoder<'a>,
         max_ply: usize,
@@ -54,7 +55,7 @@ pub fn replay(
     }
 
     let decoder = PackedMovesDecoder::new(game.moves).expect("valid moves");
-    let mut pos = game.initial_position();
+    let mut pos = game.initial_position()?;
     let variant: Variant = pos.variant();
     scratch.clear();
     pos.with_position_mut(Replay {
@@ -67,16 +68,17 @@ pub fn replay(
             .drain()
             .map(|(hash, m)| (PositionKey::from_zobrist(hash, variant), m)),
     );
+    Ok(())
 }
 
 /// The move played from the position in the game, if the game reached it
 /// (the last time, like `replay`). Stops replaying at the first irreversible
-/// move after a visit.
+/// move after a visit. Fails if the initial position is (no longer) valid.
 pub fn find_visit(
     game: &BorrowedPlayerGame<'_>,
     target: &PositionKey,
     max_ply: usize,
-) -> Option<PackedUciMove> {
+) -> Result<Option<PackedUciMove>, InvalidSetup> {
     struct Find<'a> {
         decoder: PackedMovesDecoder<'a>,
         max_ply: usize,
@@ -112,14 +114,14 @@ pub fn find_visit(
     }
 
     let decoder = PackedMovesDecoder::new(game.moves).expect("valid moves");
-    let mut pos = game.initial_position();
+    let mut pos = game.initial_position()?;
     let variant = pos.variant();
-    pos.with_position_mut(Find {
+    Ok(pos.with_position_mut(Find {
         decoder,
         max_ply,
         variant,
         target,
-    })
+    }))
 }
 
 /// Positions with at least this many games of a player (and color) are
@@ -191,7 +193,10 @@ impl Aggregation {
 
     pub fn add_game(&mut self, index: PlayerGameIndex, game: &BorrowedPlayerGame<'_>) {
         self.replayed.clear();
-        replay(game, MAX_PLY, &mut self.scratch, &mut self.replayed);
+        if let Err(err) = replay(game, MAX_PLY, &mut self.scratch, &mut self.replayed) {
+            log::error!("not aggregating game {}: {err}", game.id);
+            return;
+        }
         let header = PlayerGroupHeader {
             speed: game.speed,
             mode: game.mode,
@@ -339,6 +344,7 @@ impl Aggregation {
 #[cfg(test)]
 mod tests {
     use arbtest::arbtest;
+    use shakmaty::{Setup, packed::PackedSetup};
 
     use super::*;
     use crate::player::game::PlayerGame;
@@ -351,14 +357,36 @@ mod tests {
             let game = game.as_borrowed();
             let max_ply = u.int_in_range(0..=100)?;
             let mut visits = Vec::new();
-            replay(&game, max_ply, &mut IntMap::default(), &mut visits);
+            replay(&game, max_ply, &mut IntMap::default(), &mut visits).unwrap();
             for &(key, m) in &visits {
-                assert_eq!(find_visit(&game, &key, max_ply), Some(m));
+                assert_eq!(find_visit(&game, &key, max_ply).unwrap(), Some(m));
             }
             let other: PositionKey = u.arbitrary()?;
             if visits.iter().all(|&(key, _)| key != other) {
-                assert_eq!(find_visit(&game, &other, max_ply), None);
+                assert_eq!(find_visit(&game, &other, max_ply).unwrap(), None);
             }
+            Ok(())
+        });
+    }
+
+    /// A game whose setup is not a valid position adds no visits, but
+    /// does not prevent the other games from being aggregated.
+    #[test]
+    fn test_invalid_setup() {
+        arbtest(|u| {
+            let valid: PlayerGame = u.arbitrary()?;
+            let mut invalid: PlayerGame = u.arbitrary()?;
+            invalid.setup = Some(
+                PackedSetup::pack_variant(&Setup::empty(), Variant::Chess).expect("pack setup"),
+            );
+            assert!(find_visit(&invalid.as_borrowed(), &u.arbitrary()?, MAX_PLY).is_err());
+
+            let mut expected = Aggregation::new();
+            expected.add_game(PlayerGameIndex(0), &valid.as_borrowed());
+            let mut aggregation = Aggregation::new();
+            aggregation.add_game(PlayerGameIndex(0), &valid.as_borrowed());
+            aggregation.add_game(PlayerGameIndex(1), &invalid.as_borrowed());
+            assert_eq!(aggregation.visits(), expected.visits());
             Ok(())
         });
     }
